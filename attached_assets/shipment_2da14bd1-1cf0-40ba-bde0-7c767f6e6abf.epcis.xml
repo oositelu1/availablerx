@@ -1,0 +1,764 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<epcis:EPCISDocument xmlns:sbdh="http://www.unece.org/cefact/namespaces/StandardBusinessDocumentHeader" xmlns:gs1ushc="https://www.gs1us.org/" xmlns:tt2="http://epcis.test.tracktraceweb.com/ns" xmlns:cbvmda="urn:epcglobal:cbv:mda" xmlns:epcis="urn:epcglobal:epcis:xsd:1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaVersion="1.2" creationDate="2023-12-05T20:43:35.077+00:00">
+  <EPCISHeader>
+      <sbdh:StandardBusinessDocumentHeader>
+      <sbdh:HeaderVersion>1.2</sbdh:HeaderVersion>
+      <sbdh:Sender>
+        <sbdh:Identifier Authority="SGLN">urn:epc:id:sgln:0198201.39913.0</sbdh:Identifier>
+      </sbdh:Sender>
+      <sbdh:Receiver>
+        <sbdh:Identifier Authority="SGLN">urn:epc:id:sgln:120014443641..0</sbdh:Identifier>
+      </sbdh:Receiver>
+      <sbdh:DocumentIdentification>
+        <sbdh:Standard>EPCglobal</sbdh:Standard>
+        <sbdh:TypeVersion>1.2</sbdh:TypeVersion>
+        <sbdh:InstanceIdentifier>202503262058430000_1a4e1a415</sbdh:InstanceIdentifier>
+        <sbdh:Type>Events</sbdh:Type>
+        <sbdh:CreationDateAndTime>2025-03-26T20:58:43Z</sbdh:CreationDateAndTime>
+      </sbdh:DocumentIdentification>
+    </sbdh:StandardBusinessDocumentHeader>
+    <extension>
+      <EPCISMasterData>
+        <VocabularyList>
+          <Vocabulary type="urn:epcglobal:epcis:vtype:Location">
+            <VocabularyElementList>
+              <VocabularyElement id="urn:epc:id:sgln:0198201.64682.0">
+                <attribute id="urn:epcglobal:cbv:mda#name">Life Science Logistics - Brownsburg Commercial</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">1105 E NORTHFIELD DR</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">BROWNSBURG</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">IN</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">46112-2425</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:id:sgln:0375834.00000.0">
+                <attribute id="urn:epcglobal:cbv:mda#name">Nivagen Pharmaceuticals Inc</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">3050 Fite Circle, Suite 100</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">Sacramento</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">CA</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">95827</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:id:sgln:08662190003.0.0">
+                <attribute id="urn:epcglobal:cbv:mda#name">Nutra-Med</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">118 Algonquin Pkwy</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">Whippany</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">NJ</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">07981-1602</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:id:sgln:120014443641..0">
+                <attribute id="urn:epcglobal:cbv:mda#name">Pharm House Supply</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">2024 E HICKORY HILL RD STE 300</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">ARGYLE</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">TX</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">76226</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+            </VocabularyElementList>
+          </Vocabulary>
+          <Vocabulary type="urn:epcglobal:epcis:vtype:EPCClass">
+            <VocabularyElementList>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.431201.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031201</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, 1 GRAIN (60 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">24 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">60 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.031201.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031201</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, 1 GRAIN (60 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">100 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">60 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.431101.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031101</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, ½ GRAIN (30 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">24 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">30 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.031101.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031101</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, ½ GRAIN (30 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">100 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">30 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.431401.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031401</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, 2 GRAIN (120 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">24 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">120 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.031401.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031401</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, 2 GRAIN (120 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">100 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">120 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.431001.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031001</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, ¼ GRAIN (15 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">24 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">15 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.031001.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031001</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, ¼ GRAIN (15 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">100 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">15 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.431301.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031301</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, 1½ GRAIN (90 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">24 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">90 mg</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0375834.031301.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">75834031301</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">Niva Thyroid Tablets, USP, 1½ GRAIN (90 mg)</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">Nivagen Pharmaceuticals Inc.</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">100 Bottle</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">Tablet</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">90 mg</attribute>
+              </VocabularyElement>
+            </VocabularyElementList>
+          </Vocabulary>
+        </VocabularyList>
+      </EPCISMasterData>
+    </extension>
+    <gs1ushc:dscsaTransactionStatement>
+      <gs1ushc:affirmTransactionStatement>true</gs1ushc:affirmTransactionStatement>
+      <gs1ushc:legalNotice>Seller has complied with each applicable subsection of FDCA Sec. 581(27)(A)-(G).</gs1ushc:legalNotice>
+    </gs1ushc:dscsaTransactionStatement>
+  </EPCISHeader>
+  <EPCISBody>
+    <EventList>
+      <ObjectEvent>
+        <eventTime>2025-03-26T20:55:49.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sscc:0198201.0032737515</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:0198201.64682.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:0198201.64682.0</id>
+        </bizLocation>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-12-02T21:48:15.300Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.431101.284202027822</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1026002</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-10-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-12-02T21:48:15.300Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.031101.780765745347</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.138895203865</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.686419703357</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.660670694482</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.615568388361</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.094683230772</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.451546100821</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.477492798739</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.772269918263</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.472765665955</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.819424968918</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.402802246847</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.442312539402</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.086986869718</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.894282843340</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.112194282956</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.841660878667</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.058647204107</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.585698875536</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.062849863871</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.421736769418</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.061490685620</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.759517708477</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.242211208130</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1026002</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-10-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-10-30T12:45:31.917Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.431401.007726752188</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1029001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-07-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-10-30T12:45:31.917Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.031401.867687717891</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.742421697922</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.643259565207</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.322168306530</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.178179830074</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.885466316645</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.139164764591</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.621525482772</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.390893186678</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.418804992910</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.257694136049</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.494807810393</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.648606134547</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.703325643488</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.707650753613</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.582131420407</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.040430722671</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.861763342680</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.353624588344</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.613266535721</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.199979990560</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.655243026830</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.231584851040</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.711821891421</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1029001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-07-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-10-29T19:51:36.400Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.031301.029493154359</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.776045633031</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.076231787922</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.781814368895</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.191982465889</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.288237085495</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.460357870993</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.163969800865</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.728623861998</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.114557907309</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.698218726270</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.009353948402</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.576374348482</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.223776231030</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.095534770860</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.082873352986</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.248633995442</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.458660863984</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.535602763483</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.266094090291</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.810148042927</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.275059151220</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.793348854019</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.879674558810</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1028001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-08-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-10-29T19:51:36.400Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.431301.483772342703</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1028001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-08-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-09-10T01:30:27.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.031201.614478009701</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.835410010185</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.346566015827</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.246352319565</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.073088496764</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.141440651384</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.801150639201</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.331928126116</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.342939111422</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.428606094651</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.687887708511</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.163283512676</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.620232809249</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.171481204332</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.325899456028</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.563933975205</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.784597631215</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.363792044150</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.145911914031</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.291257702285</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.464922135392</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.300276502759</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.733523021416</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.826519893313</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1027001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-06-30</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-09-10T01:30:27.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.431201.223759996091</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1027001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-06-30</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-05-09T23:00:52.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.031001.671217094168</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.785648883588</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.536151339471</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.505933993752</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.793764303357</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.550171442663</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.541802621734</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.700581914565</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.378525279577</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.586612650944</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.098439271611</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.415367680523</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.034439662875</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.412078445341</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.550961523428</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.181908022873</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.109133081282</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.239083312000</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.473903654032</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.466427136900</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.302997443779</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.395056124354</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.619131989833</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.831248150069</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1025001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-03-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-05-09T23:00:52.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:0375834.431001.000000043737</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber>B1025001</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate>2026-03-31</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <AggregationEvent>
+        <eventTime>2025-03-26T20:55:50.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sscc:0198201.0032737515</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:0375834.431001.000000043737</epc>
+          <epc>urn:epc:id:sgtin:0375834.431101.284202027822</epc>
+          <epc>urn:epc:id:sgtin:0375834.431201.223759996091</epc>
+          <epc>urn:epc:id:sgtin:0375834.431301.483772342703</epc>
+          <epc>urn:epc:id:sgtin:0375834.431401.007726752188</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:0198201.64682.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:0198201.64682.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2024-12-06T14:18:17.683Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:0375834.431101.284202027822</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:0375834.031101.402802246847</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.442312539402</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.086986869718</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.894282843340</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.112194282956</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.841660878667</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.058647204107</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.585698875536</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.062849863871</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.421736769418</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.061490685620</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.759517708477</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.242211208130</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.780765745347</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.138895203865</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.686419703357</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.660670694482</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.615568388361</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.094683230772</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.451546100821</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.477492798739</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.772269918263</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.472765665955</epc>
+          <epc>urn:epc:id:sgtin:0375834.031101.819424968918</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2024-11-04T01:01:26.677Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:0375834.431401.007726752188</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:0375834.031401.867687717891</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.742421697922</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.643259565207</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.322168306530</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.178179830074</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.885466316645</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.139164764591</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.621525482772</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.390893186678</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.418804992910</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.257694136049</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.494807810393</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.648606134547</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.703325643488</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.707650753613</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.582131420407</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.040430722671</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.861763342680</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.353624588344</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.613266535721</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.199979990560</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.655243026830</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.231584851040</epc>
+          <epc>urn:epc:id:sgtin:0375834.031401.711821891421</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2024-11-04T00:58:28.453Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:0375834.431301.483772342703</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:0375834.031301.879674558810</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.288237085495</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.728623861998</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.114557907309</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.698218726270</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.009353948402</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.576374348482</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.223776231030</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.095534770860</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.082873352986</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.248633995442</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.458660863984</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.535602763483</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.266094090291</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.810148042927</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.275059151220</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.793348854019</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.029493154359</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.776045633031</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.076231787922</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.781814368895</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.191982465889</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.460357870993</epc>
+          <epc>urn:epc:id:sgtin:0375834.031301.163969800865</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2024-09-11T16:45:18.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:0375834.431201.223759996091</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:0375834.031201.614478009701</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.835410010185</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.346566015827</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.246352319565</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.073088496764</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.141440651384</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.801150639201</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.331928126116</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.342939111422</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.428606094651</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.687887708511</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.163283512676</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.620232809249</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.171481204332</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.325899456028</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.563933975205</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.784597631215</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.363792044150</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.145911914031</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.291257702285</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.464922135392</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.300276502759</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.733523021416</epc>
+          <epc>urn:epc:id:sgtin:0375834.031201.826519893313</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2024-05-17T17:04:42.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:0375834.431001.000000043737</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:0375834.031001.671217094168</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.785648883588</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.536151339471</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.505933993752</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.793764303357</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.550171442663</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.541802621734</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.700581914565</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.378525279577</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.586612650944</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.098439271611</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.415367680523</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.034439662875</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.412078445341</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.550961523428</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.181908022873</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.109133081282</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.239083312000</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.473903654032</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.466427136900</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.302997443779</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.395056124354</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.619131989833</epc>
+          <epc>urn:epc:id:sgtin:0375834.031001.831248150069</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:08662190003.0.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <ObjectEvent>
+        <eventTime>2025-03-26T20:55:51.000Z</eventTime>
+        <eventTimeZoneOffset>-04:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sscc:0198201.0032737515</epc>
+        </epcList>
+        <action>OBSERVE</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:shipping</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_transit</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:0198201.64682.0</id>
+        </readPoint>
+        <bizTransactionList>
+          <bizTransaction type="urn:epcglobal:cbv:btt:desadv">urn:epcglobal:cbv:bt:0375834000008:OASN636699</bizTransaction>
+          <bizTransaction type="urn:epcglobal:cbv:btt:po">urn:epcglobal:cbv:bt:1200144436416:42480</bizTransaction>
+        </bizTransactionList>
+        <extension>
+          <sourceList>
+            <source type="urn:epcglobal:cbv:sdt:owning_party">urn:epc:id:sgln:0375834.00000.0</source>
+            <source type="urn:epcglobal:cbv:sdt:location">urn:epc:id:sgln:0198201.64682.0</source>
+          </sourceList>
+          <destinationList>
+            <destination type="urn:epcglobal:cbv:sdt:owning_party">urn:epc:id:sgln:120014443641..0</destination>
+            <destination type="urn:epcglobal:cbv:sdt:location">urn:epc:id:sgln:120014443641..0</destination>
+          </destinationList>
+        </extension>
+      </ObjectEvent>
+    </EventList>
+  </EPCISBody>
+</epcis:EPCISDocument>
