@@ -50,6 +50,16 @@ export default function FileHistoryPage() {
     window.location.href = `/api/export/files?${queryParams.toString()}`;
   };
 
+  // Handle status filter change
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value === 'all' ? '' : value);
+  };
+
+  // Handle partner filter change
+  const handlePartnerChange = (value: string) => {
+    setPartnerFilter(value === 'all' ? '' : value);
+  };
+
   return (
     <Layout title="File History">
       <div className="flex items-center justify-between mb-6">
@@ -71,7 +81,7 @@ export default function FileHistoryPage() {
           <div className="flex flex-wrap gap-4">
             <div className="w-full sm:w-auto">
               <label className="text-sm font-medium block mb-1">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter || "all"} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-full sm:w-[150px]">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
@@ -87,7 +97,7 @@ export default function FileHistoryPage() {
 
             <div className="w-full sm:w-auto">
               <label className="text-sm font-medium block mb-1">Partner</label>
-              <Select value={partnerFilter} onValueChange={setPartnerFilter}>
+              <Select value={partnerFilter || "all"} onValueChange={handlePartnerChange}>
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="All Partners" />
                 </SelectTrigger>
@@ -158,8 +168,8 @@ export default function FileHistoryPage() {
               <Button 
                 variant="secondary"
                 onClick={() => {
-                  setStatusFilter("");
-                  setPartnerFilter("");
+                  handleStatusChange("all");
+                  handlePartnerChange("all");
                   setStartDate(undefined);
                   setEndDate(undefined);
                 }}
