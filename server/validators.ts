@@ -147,8 +147,11 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
     
     const result = await parser.parseStringPromise(xmlBuffer.toString());
     
-    // Check if it's an EPCIS document (with or without namespace prefix)
-    if (!result.EPCISDocument && !(result['epcis:EPCISDocument'])) {
+    // Check if it's an EPCIS document (with various namespace prefixes)
+    // We need to check multiple possible namespace patterns
+    if (!result.EPCISDocument && 
+        !(result['epcis:EPCISDocument']) && 
+        !(result['ns3:EPCISDocument'])) {
       return {
         valid: false,
         errorCode: ERROR_CODES.XML_PARSE_ERROR,
@@ -156,8 +159,10 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
       };
     }
     
-    // Normalize the result to handle both namespace forms
-    const epcisDoc = result.EPCISDocument || result['epcis:EPCISDocument'];
+    // Normalize the result to handle all namespace forms
+    const epcisDoc = result.EPCISDocument || 
+                    result['epcis:EPCISDocument'] || 
+                    result['ns3:EPCISDocument'];
     result.EPCISDocument = epcisDoc;
     
     // Extract schema version

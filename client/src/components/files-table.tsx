@@ -38,9 +38,10 @@ interface FilesTableProps {
   endDate?: string;
 }
 
-export function FilesTable({ status, partnerId, startDate, endDate }: FilesTableProps) {
+export function FilesTable({ status, partnerId, startDate, endDate, limit: limitProp }: FilesTableProps & { limit?: number }) {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
+  const effectiveLimit = limitProp || limit;
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFile, setSelectedFile] = useState<number | null>(null);
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -48,7 +49,7 @@ export function FilesTable({ status, partnerId, startDate, endDate }: FilesTable
   // Build query params
   const queryParams = new URLSearchParams();
   queryParams.append("page", page.toString());
-  queryParams.append("limit", limit.toString());
+  queryParams.append("limit", effectiveLimit.toString());
   
   if (status) queryParams.append("status", status);
   if (partnerId) queryParams.append("partnerId", partnerId.toString());

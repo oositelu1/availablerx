@@ -115,7 +115,7 @@ export default function HomePage() {
       <FileUploader />
 
       {/* Recent Files Table */}
-      <FilesTable limit={5} />
+      <FilesTable />
     </Layout>
   );
 }
