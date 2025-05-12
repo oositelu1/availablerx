@@ -251,6 +251,14 @@ export default function FileDetailPage() {
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-4">
+                              {/* Metadata debugging section */}
+                              <div className="p-4 border rounded-md bg-gray-50 mb-3">
+                                <h4 className="font-medium mb-2">File Metadata</h4>
+                                <pre className="text-xs overflow-auto max-h-40">
+                                  {JSON.stringify(file.metadata, null, 2)}
+                                </pre>
+                              </div>
+                              
                               {/* Object Events */}
                               {file.metadata?.objectEvents > 0 && (
                                 <div className="p-4 border rounded-md">
