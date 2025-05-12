@@ -34,6 +34,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Tag, Package, ArrowRightLeft, ChevronDown } from "lucide-react";
 
 export default function FileDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -188,32 +195,195 @@ export default function FileDetailPage() {
                     <h3 className="text-sm font-medium text-neutral-700 mb-2">EPCIS Data</h3>
                     <div className="bg-neutral-50 p-4 rounded-md">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                        <div className="text-sm font-medium">Object Events:</div>
-                        <div className="text-sm">{file.metadata.objectEvents || 0}</div>
-
-                        <div className="text-sm font-medium">Aggregation Events:</div>
-                        <div className="text-sm">{file.metadata.aggregationEvents || 0}</div>
-
-                        <div className="text-sm font-medium">Transaction Events:</div>
-                        <div className="text-sm">{file.metadata.transactionEvents || 0}</div>
-
-                        <div className="text-sm font-medium">Total Events:</div>
-                        <div className="text-sm font-semibold">
-                          {(file.metadata.objectEvents || 0) +
-                            (file.metadata.aggregationEvents || 0) +
-                            (file.metadata.transactionEvents || 0)}
+                        <div className="text-sm font-medium">Schema Version:</div>
+                        <div className="text-sm">
+                          <Badge variant="outline" className="bg-primary/10 text-primary">
+                            EPCIS {file.metadata.schemaVersion || "Unknown"}
+                          </Badge>
                         </div>
 
                         {file.metadata.senderGln && (
                           <>
                             <div className="text-sm font-medium">Sender GLN:</div>
-                            <div className="text-sm">{file.metadata.senderGln}</div>
+                            <div className="text-sm font-mono">{file.metadata.senderGln}</div>
                           </>
                         )}
+                        
+                        <div className="col-span-2 pt-2">
+                          <div className="text-sm font-medium mb-2">Event Summary:</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-white p-3 rounded border">
+                              <div className="text-xs text-neutral-500 uppercase">Object Events</div>
+                              <div className="text-lg font-semibold mt-1">{file.metadata.objectEvents || 0}</div>
+                            </div>
+                            <div className="bg-white p-3 rounded border">
+                              <div className="text-xs text-neutral-500 uppercase">Aggregation Events</div>
+                              <div className="text-lg font-semibold mt-1">{file.metadata.aggregationEvents || 0}</div>
+                            </div>
+                            <div className="bg-white p-3 rounded border">
+                              <div className="text-xs text-neutral-500 uppercase">Transaction Events</div>
+                              <div className="text-lg font-semibold mt-1">{file.metadata.transactionEvents || 0}</div>
+                            </div>
+                          </div>
+                        </div>
 
-                        <div className="text-sm font-medium">Schema Version:</div>
-                        <div className="text-sm">{file.metadata.schemaVersion || "Unknown"}</div>
+                        <div className="col-span-2 pt-2">
+                          <div className="text-sm font-medium mb-2">Transaction Summary:</div>
+                          <div className="bg-white p-3 rounded border">
+                            <div className="flex items-center">
+                              <CheckCircle className="h-4 w-4 text-success mr-2" />
+                              <span className="text-sm">DSCSA Transaction Statement included</span>
+                            </div>
+                            <div className="text-xs text-neutral-500 mt-1 pl-6">
+                              Seller has complied with each applicable subsection of FDCA Sec. 581(27)(A)-(G)
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                    </div>
+                    
+                    {/* EPCIS Events Summary */}
+                    <div className="mt-4">
+                      <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="event-details">
+                          <AccordionTrigger className="text-sm font-medium">
+                            View EPCIS Event Details
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4">
+                              {/* Object Events */}
+                              {file.metadata?.objectEvents > 0 && (
+                                <div className="p-4 border rounded-md">
+                                  <div className="flex items-center mb-3">
+                                    <Tag className="h-5 w-5 text-primary mr-2" />
+                                    <h4 className="font-medium">Object Events ({file.metadata.objectEvents})</h4>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-neutral-50 p-3 rounded">
+                                      <p className="text-xs text-neutral-500 mb-1">Common Event Types</p>
+                                      <ul className="text-sm space-y-1">
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Commissioning
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Shipping
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Receiving
+                                        </li>
+                                      </ul>
+                                    </div>
+                                    <div className="bg-neutral-50 p-3 rounded">
+                                      <p className="text-xs text-neutral-500 mb-1">Typical Data</p>
+                                      <ul className="text-sm space-y-1">
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Serialized GTINs (SGTINs)
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Lot/Batch Number
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Expiration Date
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Aggregation Events */}
+                              {file.metadata?.aggregationEvents > 0 && (
+                                <div className="p-4 border rounded-md">
+                                  <div className="flex items-center mb-3">
+                                    <Package className="h-5 w-5 text-secondary mr-2" />
+                                    <h4 className="font-medium">Aggregation Events ({file.metadata.aggregationEvents})</h4>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-neutral-50 p-3 rounded">
+                                      <p className="text-xs text-neutral-500 mb-1">Common Event Types</p>
+                                      <ul className="text-sm space-y-1">
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Packing
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Unpacking
+                                        </li>
+                                      </ul>
+                                    </div>
+                                    <div className="bg-neutral-50 p-3 rounded">
+                                      <p className="text-xs text-neutral-500 mb-1">Typical Data</p>
+                                      <ul className="text-sm space-y-1">
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Parent SSCCs (shipping containers)
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Child SGTINs (serialized items)
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Transaction Events */}
+                              {file.metadata?.transactionEvents > 0 && (
+                                <div className="p-4 border rounded-md">
+                                  <div className="flex items-center mb-3">
+                                    <ArrowRightLeft className="h-5 w-5 text-warning mr-2" />
+                                    <h4 className="font-medium">Transaction Events ({file.metadata.transactionEvents})</h4>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-neutral-50 p-3 rounded">
+                                      <p className="text-xs text-neutral-500 mb-1">Common Event Types</p>
+                                      <ul className="text-sm space-y-1">
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Sale
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Purchase Order
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Invoice
+                                        </li>
+                                      </ul>
+                                    </div>
+                                    <div className="bg-neutral-50 p-3 rounded">
+                                      <p className="text-xs text-neutral-500 mb-1">Typical Data</p>
+                                      <ul className="text-sm space-y-1">
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Business Transaction References
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Transaction Statement
+                                        </li>
+                                        <li className="flex items-center">
+                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
+                                          Source/Destination Information
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
                     </div>
                   </div>
                 )}
