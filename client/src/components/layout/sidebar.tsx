@@ -60,17 +60,15 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4">
         <ul>
           {navItems.map((item) => (
-            <li key={item.path}>
-              <Link href={item.path}>
-                <a 
-                  className={`nav-item flex items-center px-4 py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                    location === item.path ? "active" : ""
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </a>
-              </Link>
+            <li key={item.path} onClick={() => window.location.href = item.path}>
+              <div
+                className={`nav-item flex items-center px-4 py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
+                  location === item.path ? "active bg-neutral-50 font-medium" : ""
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </div>
             </li>
           ))}
         </ul>

@@ -76,7 +76,7 @@ export default function FileHistoryPage() {
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="validated">Validated</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="sending">Sending</SelectItem>
@@ -92,7 +92,7 @@ export default function FileHistoryPage() {
                   <SelectValue placeholder="All Partners" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Partners</SelectItem>
+                  <SelectItem value="all">All Partners</SelectItem>
                   {partners?.map((partner: any) => (
                     <SelectItem key={partner.id} value={partner.id.toString()}>
                       {partner.name}
