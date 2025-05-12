@@ -195,13 +195,77 @@ export default function FileDetailPage() {
                     <h3 className="text-sm font-medium text-neutral-700 mb-2">EPCIS Data</h3>
                     <div className="bg-neutral-50 p-4 rounded-md">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                        <div className="text-sm font-medium">Schema Version:</div>
+                        {/* EPCIS Standard Information */}
+                        <div className="text-sm font-medium">EPCIS Version:</div>
                         <div className="text-sm">
                           <Badge variant="outline" className="bg-primary/10 text-primary">
                             EPCIS {file.metadata.schemaVersion || "Unknown"}
                           </Badge>
                         </div>
-
+                        
+                        {/* Product Information - New section */}
+                        {file.metadata.productInfo && (
+                          <div className="col-span-2 pt-4 pb-2">
+                            <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
+                            <div className="bg-white p-4 rounded-lg border border-primary/10">
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                {file.metadata.productInfo.name && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Product Name:</div>
+                                    <div className="text-sm font-semibold">{file.metadata.productInfo.name}</div>
+                                  </>
+                                )}
+                                
+                                {file.metadata.productInfo.manufacturer && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Manufacturer:</div>
+                                    <div className="text-sm">{file.metadata.productInfo.manufacturer}</div>
+                                  </>
+                                )}
+                                
+                                {file.metadata.productInfo.dosageForm && file.metadata.productInfo.strength && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Dosage Form:</div>
+                                    <div className="text-sm">
+                                      {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {file.metadata.productInfo.ndc && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
+                                    <div className="text-sm font-mono">{file.metadata.productInfo.ndc}</div>
+                                  </>
+                                )}
+                                
+                                {file.metadata.productInfo.lotNumber && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Lot/Batch:</div>
+                                    <div className="text-sm font-mono">{file.metadata.productInfo.lotNumber}</div>
+                                  </>
+                                )}
+                                
+                                {file.metadata.productInfo.expirationDate && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
+                                    <div className="text-sm">
+                                      {new Date(file.metadata.productInfo.expirationDate).toLocaleDateString()}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {file.metadata.productInfo.netContent && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Quantity/Pack Size:</div>
+                                    <div className="text-sm">{file.metadata.productInfo.netContent}</div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
                         {file.metadata.senderGln && (
                           <>
                             <div className="text-sm font-medium">Sender GLN:</div>

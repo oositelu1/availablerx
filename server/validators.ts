@@ -130,7 +130,17 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
     aggregationEvents?: number,
     transactionEvents?: number,
     senderGln?: string,
-    schemaVersion?: string
+    schemaVersion?: string,
+    productInfo?: {
+      name?: string,
+      dosageForm?: string,
+      strength?: string,
+      ndc?: string,
+      netContent?: string,
+      manufacturer?: string,
+      lotNumber?: string,
+      expirationDate?: string
+    }
   }
 }> {
   try {
@@ -309,6 +319,100 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
     
     // Save schema version
     metadata.schemaVersion = schemaVersion;
+    
+    // Extract product information
+    metadata.productInfo = {};
+    
+    // Try to find vocabulary elements in EPCISMasterData
+    try {
+      const epcisHeader = result.EPCISDocument.EPCISHeader || result.EPCISDocument['epcis:EPCISHeader'];
+      if (epcisHeader && epcisHeader.extension && epcisHeader.extension.EPCISMasterData) {
+        const masterData = epcisHeader.extension.EPCISMasterData;
+        
+        if (masterData.VocabularyList && masterData.VocabularyList.Vocabulary) {
+          const vocabularies = Array.isArray(masterData.VocabularyList.Vocabulary) 
+            ? masterData.VocabularyList.Vocabulary 
+            : [masterData.VocabularyList.Vocabulary];
+          
+          for (const vocab of vocabularies) {
+            // Look for EPCClass vocabulary which contains product info
+            if (vocab.ATTRS && vocab.ATTRS.type && vocab.ATTRS.type.includes('EPCClass')) {
+              if (vocab.VocabularyElementList && vocab.VocabularyElementList.VocabularyElement) {
+                const elements = Array.isArray(vocab.VocabularyElementList.VocabularyElement)
+                  ? vocab.VocabularyElementList.VocabularyElement
+                  : [vocab.VocabularyElementList.VocabularyElement];
+                
+                for (const element of elements) {
+                  if (element.attribute) {
+                    const attributes = Array.isArray(element.attribute) 
+                      ? element.attribute 
+                      : [element.attribute];
+                    
+                    // Extract product attributes
+                    for (const attr of attributes) {
+                      if (attr.ATTRS && attr.ATTRS.id) {
+                        const attrId = attr.ATTRS.id;
+                        const value = attr._;
+                        
+                        // Map to product info fields
+                        if (attrId.includes('regulatedProductName')) {
+                          metadata.productInfo.name = value;
+                        } else if (attrId.includes('dosageFormType')) {
+                          metadata.productInfo.dosageForm = value;
+                        } else if (attrId.includes('strengthDescription')) {
+                          metadata.productInfo.strength = value;
+                        } else if (attrId.includes('additionalTradeItemIdentification') && 
+                                  (attr.ATTRS.typeCode === 'FDA_NDC_11' || attrId.includes('NDC'))) {
+                          metadata.productInfo.ndc = value;
+                        } else if (attrId.includes('netContentDescription')) {
+                          metadata.productInfo.netContent = value;
+                        } else if (attrId.includes('manufacturerOfTradeItemPartyName')) {
+                          metadata.productInfo.manufacturer = value;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Look for lot number and expiration date in events
+      if (epcisBody) {
+        // Check ObjectEvents for lot number and expiration date
+        const objectEvents = epcisBody.ObjectEvent || epcisBody['epcis:ObjectEvent'];
+        if (objectEvents) {
+          const events = Array.isArray(objectEvents) ? objectEvents : [objectEvents];
+          
+          // Just use the first event for now
+          if (events.length > 0) {
+            const event = events[0];
+            
+            // Extract ilmd (instance lot master data)
+            const ilmd = event.ilmd || event['epcis:ilmd'];
+            if (ilmd) {
+              // Look for lot number
+              const lot = ilmd.lot || ilmd['epcis:lot'] || ilmd['cbvmda:lotNumber'];
+              if (lot) {
+                metadata.productInfo.lotNumber = lot;
+              }
+              
+              // Look for expiration date
+              const expiry = ilmd.itemExpirationDate || ilmd['epcis:itemExpirationDate'] || 
+                             ilmd['cbvmda:itemExpirationDate'];
+              if (expiry) {
+                metadata.productInfo.expirationDate = expiry;
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Error extracting product info:', error);
+      // Don't fail validation just because we couldn't extract product info
+    }
     
     // In a production environment, we would validate against XSD schema
     // For testing, skip XSD validation and consider the file valid if it has
