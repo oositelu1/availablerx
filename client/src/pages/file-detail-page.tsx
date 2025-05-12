@@ -45,6 +45,50 @@ import {
 } from "@/components/ui/accordion";
 import { Tag, Package, ArrowRightLeft, ChevronDown } from "lucide-react";
 
+// Component to refresh metadata
+function RefreshMetadataButton({ fileId }: { fileId: number }) {
+  const { toast } = useToast();
+  
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/files/${fileId}/reprocess`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Metadata updated",
+        description: "File metadata has been refreshed successfully.",
+        variant: "default",
+      });
+      // Invalidate cache to reload file details
+      queryClient.invalidateQueries({ queryKey: [`/api/files/${fileId}`] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to refresh file metadata",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  return (
+    <Button 
+      variant="outline" 
+      onClick={() => refreshMutation.mutate()} 
+      disabled={refreshMutation.isPending}
+      className="max-w-xs"
+    >
+      {refreshMutation.isPending ? (
+        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <RefreshCw className="h-4 w-4 mr-2" />
+      )}
+      Refresh Metadata
+    </Button>
+  );
+}
+
 export default function FileDetailPage() {
   const { id } = useParams<{ id: string }>();
   const fileId = parseInt(id);
@@ -157,6 +201,7 @@ export default function FileDetailPage() {
                     Send to Partner
                   </Button>
                 )}
+                <RefreshMetadataButton fileId={fileId} />
                 <Button variant="outline" onClick={handleDownload}>
                   <Download className="mr-2 h-4 w-4" />
                   Download
