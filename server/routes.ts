@@ -1,0 +1,343 @@
+import type { Express, Request, Response } from "express";
+import { createServer, type Server } from "http";
+import multer from "multer";
+import path from "path";
+import { storage } from "./storage";
+import { setupAuth, isAdmin } from "./auth";
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "./validators";
+import { processFile, sendFile, retryTransmission } from "./file-processor";
+import { z } from "zod";
+import { insertPartnerSchema } from "@shared/schema";
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_FILE_SIZE // 100MB or configured value
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (ALLOWED_FILE_TYPES.includes(file.mimetype) || 
+        ext === '.zip' || ext === '.xml') {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type'));
+    }
+  }
+});
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication routes and middleware
+  setupAuth(app);
+  
+  // Create HTTP server
+  const httpServer = createServer(app);
+  
+  // === File Upload & Processing ===
+  app.post("/api/files/upload", upload.single('file'), async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        errorCode: 'NO_FILE',
+        message: 'No file was uploaded' 
+      });
+    }
+    
+    const result = await processFile(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      req.user.id
+    );
+    
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        errorCode: result.errorCode,
+        message: result.errorMessage,
+        schemaErrors: result.schemaErrors
+      });
+    }
+    
+    res.status(201).json({
+      success: true,
+      file: result.file,
+      message: 'File validated and stored successfully'
+    });
+  });
+  
+  // === File Management ===
+  app.get("/api/files", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { status, partnerId, startDate, endDate, page = '1', limit = '10' } = req.query;
+    
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 10;
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Build filters object
+    const filters: any = {
+      limit: limitNum,
+      offset
+    };
+    
+    if (status) filters.status = status;
+    if (partnerId) filters.partnerId = parseInt(partnerId as string);
+    if (startDate) filters.startDate = new Date(startDate as string);
+    if (endDate) filters.endDate = new Date(endDate as string);
+    
+    const result = await storage.listFiles(filters);
+    
+    res.json({
+      files: result.files,
+      total: result.total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(result.total / limitNum)
+    });
+  });
+  
+  app.get("/api/files/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const fileId = parseInt(req.params.id);
+    const file = await storage.getFile(fileId);
+    
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    res.json(file);
+  });
+  
+  app.get("/api/files/:id/download", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const fileId = parseInt(req.params.id);
+    const file = await storage.getFile(fileId);
+    
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    const fileData = await storage.retrieveFileData(fileId);
+    
+    if (!fileData) {
+      return res.status(404).json({ message: 'File content not found' });
+    }
+    
+    res.setHeader('Content-Type', file.fileType === 'ZIP' ? 'application/zip' : 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename=${file.originalName}`);
+    res.send(fileData);
+  });
+  
+  app.get("/api/files/:id/history", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const fileId = parseInt(req.params.id);
+    const file = await storage.getFile(fileId);
+    
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    const history = await storage.getFileTransmissionHistory(fileId);
+    
+    res.json(history);
+  });
+  
+  // === File Transmission ===
+  app.post("/api/files/:id/send", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const fileId = parseInt(req.params.id);
+    const { partnerId, transportType = 'AS2' } = req.body;
+    
+    if (!partnerId) {
+      return res.status(400).json({ message: 'Partner ID is required' });
+    }
+    
+    const file = await storage.getFile(fileId);
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    const partner = await storage.getPartner(parseInt(partnerId));
+    if (!partner) {
+      return res.status(404).json({ message: 'Partner not found' });
+    }
+    
+    const result = await sendFile(fileId, parseInt(partnerId), req.user.id, transportType);
+    
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.errorMessage
+      });
+    }
+    
+    res.json({
+      success: true,
+      transmission: result.transmission
+    });
+  });
+  
+  app.post("/api/transmissions/:id/retry", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const transmissionId = parseInt(req.params.id);
+    
+    const result = await retryTransmission(transmissionId);
+    
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.errorMessage
+      });
+    }
+    
+    res.json({
+      success: true,
+      transmission: result.transmission
+    });
+  });
+  
+  // === Partner Management ===
+  app.get("/api/partners", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const activeOnly = req.query.activeOnly === 'true';
+    const partners = await storage.listPartners(activeOnly);
+    
+    res.json(partners);
+  });
+  
+  app.get("/api/partners/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const partnerId = parseInt(req.params.id);
+    const partner = await storage.getPartner(partnerId);
+    
+    if (!partner) {
+      return res.status(404).json({ message: 'Partner not found' });
+    }
+    
+    res.json(partner);
+  });
+  
+  app.post("/api/partners", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    try {
+      const partnerData = insertPartnerSchema.parse({
+        ...req.body,
+        createdBy: req.user.id
+      });
+      
+      const partner = await storage.createPartner(partnerData);
+      
+      res.status(201).json(partner);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      
+      res.status(400).json({ message: 'Invalid partner data' });
+    }
+  });
+  
+  app.patch("/api/partners/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const partnerId = parseInt(req.params.id);
+    const partner = await storage.getPartner(partnerId);
+    
+    if (!partner) {
+      return res.status(404).json({ message: 'Partner not found' });
+    }
+    
+    try {
+      const updates = req.body;
+      const updatedPartner = await storage.updatePartner(partnerId, updates);
+      
+      res.json(updatedPartner);
+    } catch (error) {
+      res.status(400).json({ message: 'Invalid partner data' });
+    }
+  });
+  
+  app.delete("/api/partners/:id", isAdmin, async (req, res) => {
+    const partnerId = parseInt(req.params.id);
+    
+    const success = await storage.deletePartner(partnerId);
+    
+    if (!success) {
+      return res.status(404).json({ message: 'Partner not found' });
+    }
+    
+    res.status(204).send();
+  });
+  
+  // === Statistics ===
+  app.get("/api/stats", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { files: allFiles } = await storage.listFiles();
+    
+    // Count files by status
+    const filesReceived = allFiles.length;
+    
+    // Count sent files
+    const filesSent = allFiles.filter(file => file.status === 'sent').length;
+    
+    // Calculate validation success rate
+    const validated = allFiles.filter(file => file.status === 'validated' || file.status === 'sent').length;
+    const validationRate = filesReceived > 0 ? Math.round((validated / filesReceived) * 100) : 0;
+    
+    res.json({
+      filesReceived,
+      filesSent,
+      validationRate
+    });
+  });
+  
+  // === Export ===
+  app.get("/api/export/files", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { status, partnerId, startDate, endDate } = req.query;
+    
+    // Build filters object
+    const filters: any = {};
+    
+    if (status) filters.status = status;
+    if (partnerId) filters.partnerId = parseInt(partnerId as string);
+    if (startDate) filters.startDate = new Date(startDate as string);
+    if (endDate) filters.endDate = new Date(endDate as string);
+    
+    // Get all matching files (no pagination)
+    const { files } = await storage.listFiles(filters);
+    
+    // Generate CSV
+    let csv = 'File ID,Original Name,File Type,Status,File Size (bytes),Upload Date,SHA-256,Event Counts\n';
+    
+    files.forEach(file => {
+      const uploadDate = file.uploadedAt.toISOString().split('T')[0];
+      const eventCounts = file.metadata ? 
+        `${file.metadata.objectEvents || 0} ObjectEvents, ${file.metadata.aggregationEvents || 0} AggregationEvents, ${file.metadata.transactionEvents || 0} TransactionEvents` :
+        'N/A';
+      
+      csv += `${file.id},"${file.originalName}",${file.fileType},${file.status},${file.fileSize},${uploadDate},${file.sha256},"${eventCounts}"\n`;
+    });
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=file-export-${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  });
+
+  return httpServer;
+}
