@@ -339,5 +339,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(csv);
   });
 
+  // Reprocess a file to extract updated metadata
+  app.post('/api/files/:id/reprocess', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    try {
+      const fileId = parseInt(req.params.id);
+      if (isNaN(fileId)) {
+        return res.status(400).json({ message: 'Invalid file ID' });
+      }
+      
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Retrieve the file data
+      const fileData = await storage.retrieveFileData(fileId);
+      if (!fileData) {
+        return res.status(404).json({ message: 'File data not found' });
+      }
+      
+      const { validateZipContents, validateXml } = await import('./validators');
+      
+      // Extract new metadata
+      let xmlBuffer = fileData;
+      if (file.fileType === 'ZIP') {
+        // If it's a ZIP file, extract the XML content
+        const zipValidation = await validateZipContents(fileData);
+        if (!zipValidation.valid || !zipValidation.xmlBuffer) {
+          return res.status(400).json({ 
+            message: 'Failed to extract XML from ZIP file',
+            error: zipValidation.errorMessage
+          });
+        }
+        xmlBuffer = zipValidation.xmlBuffer;
+      }
+      
+      // Validate XML and extract metadata
+      const xmlValidation = await validateXml(xmlBuffer);
+      if (!xmlValidation.valid) {
+        return res.status(400).json({ 
+          message: 'Failed to validate XML',
+          error: xmlValidation.errorMessage
+        });
+      }
+      
+      // Update the file with new metadata
+      const updatedFile = await storage.updateFile(fileId, {
+        metadata: xmlValidation.metadata
+      });
+      
+      res.json(updatedFile);
+    } catch (error) {
+      console.error('Error reprocessing file:', error);
+      res.status(500).json({ message: 'Failed to reprocess file' });
+    }
+  });
+  
   return httpServer;
 }
