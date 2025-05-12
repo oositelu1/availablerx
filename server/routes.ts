@@ -355,9 +355,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Retrieve the file data
-      const fileData = await storage.retrieveFileData(fileId);
+      let fileData = await storage.retrieveFileData(fileId);
+      
+      // If the file data is not in storage, try to load it from the sample files
       if (!fileData) {
-        return res.status(404).json({ message: 'File data not found' });
+        console.log(`File data not found in storage, trying to load from sample files...`);
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Check if this is one of our sample files
+          if (file.originalName.startsWith('shipment_')) {
+            const samplePath = path.join(process.cwd(), 'attached_assets', file.originalName);
+            console.log(`Trying to load sample file from: ${samplePath}`);
+            
+            if (fs.existsSync(samplePath)) {
+              fileData = fs.readFileSync(samplePath);
+              console.log(`Successfully loaded sample file: ${samplePath}`);
+              
+              // Store it for future use
+              await storage.storeFileData(fileData, fileId);
+            } else {
+              console.log(`Sample file not found: ${samplePath}`);
+            }
+          }
+        } catch (err) {
+          console.error(`Error loading sample file:`, err);
+        }
+        
+        // If we still don't have the file data, return error
+        if (!fileData) {
+          return res.status(404).json({ message: 'File data not found and could not be recovered' });
+        }
       }
       
       const { validateZipContents, validateXml } = await import('./validators');
