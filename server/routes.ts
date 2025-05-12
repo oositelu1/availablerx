@@ -4,10 +4,11 @@ import multer from "multer";
 import path from "path";
 import { storage } from "./storage";
 import { setupAuth, isAdmin } from "./auth";
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "./validators";
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, validateZipContents, validateXml } from "./validators";
 import { processFile, sendFile, retryTransmission } from "./file-processor";
 import { z } from "zod";
 import { insertPartnerSchema } from "@shared/schema";
+import * as fs from 'fs/promises';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -361,22 +362,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!fileData) {
         console.log(`File data not found in storage, trying to load from sample files...`);
         try {
-          const fs = require('fs');
-          const path = require('path');
-          
           // Check if this is one of our sample files
           if (file.originalName.startsWith('shipment_')) {
             const samplePath = path.join(process.cwd(), 'attached_assets', file.originalName);
             console.log(`Trying to load sample file from: ${samplePath}`);
             
-            if (fs.existsSync(samplePath)) {
-              fileData = fs.readFileSync(samplePath);
+            try {
+              // Use promises API
+              const fileContent = await fs.readFile(samplePath);
+              fileData = fileContent;
               console.log(`Successfully loaded sample file: ${samplePath}`);
               
               // Store it for future use
-              await storage.storeFileData(fileData, fileId);
-            } else {
-              console.log(`Sample file not found: ${samplePath}`);
+              if (fileData) {
+                await storage.storeFileData(fileData, fileId);
+              }
+            } catch (fileErr) {
+              console.log(`Sample file not found or could not be read: ${samplePath}`, fileErr);
             }
           }
         } catch (err) {
@@ -388,8 +390,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: 'File data not found and could not be recovered' });
         }
       }
-      
-      const { validateZipContents, validateXml } = await import('./validators');
       
       // Extract new metadata
       let xmlBuffer = fileData;
