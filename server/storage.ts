@@ -1,10 +1,13 @@
 import { users, partners, files, transmissions } from "@shared/schema";
 import type { User, InsertUser, Partner, InsertPartner, File, InsertFile, Transmission, InsertTransmission } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import { db } from "./db";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 import crypto from "crypto";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 // Storage interface
 export interface IStorage {
@@ -303,4 +306,6 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// We're now using the DatabaseStorage implementation
+import { DatabaseStorage } from './database-storage';
+export const storage = new DatabaseStorage();
