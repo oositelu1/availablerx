@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { SendFileModal } from "@/components/send-file-modal";
+import { PresignedLinks } from "@/components/presigned-links";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   File,
@@ -34,6 +36,7 @@ import {
   ChevronRight,
   FileArchive,
   RefreshCw,
+  Link as LinkIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -383,251 +386,114 @@ export default function FileDetailPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* EPCIS Events Summary */}
-                    <div className="mt-4">
-                      <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="event-details">
-                          <AccordionTrigger className="text-sm font-medium">
-                            View EPCIS Event Details
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="space-y-4">
-                              {/* Metadata debugging section */}
-                              <div className="p-4 border rounded-md bg-gray-50 mb-3">
-                                <h4 className="font-medium mb-2">File Metadata</h4>
-                                <pre className="text-xs overflow-auto max-h-40">
-                                  {JSON.stringify(file.metadata, null, 2)}
-                                </pre>
-                              </div>
-                              
-                              {/* Object Events */}
-                              {file.metadata?.objectEvents > 0 && (
-                                <div className="p-4 border rounded-md">
-                                  <div className="flex items-center mb-3">
-                                    <Tag className="h-5 w-5 text-primary mr-2" />
-                                    <h4 className="font-medium">Object Events ({file.metadata.objectEvents})</h4>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-neutral-50 p-3 rounded">
-                                      <p className="text-xs text-neutral-500 mb-1">Common Event Types</p>
-                                      <ul className="text-sm space-y-1">
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Commissioning
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Shipping
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Receiving
-                                        </li>
-                                      </ul>
-                                    </div>
-                                    <div className="bg-neutral-50 p-3 rounded">
-                                      <p className="text-xs text-neutral-500 mb-1">Typical Data</p>
-                                      <ul className="text-sm space-y-1">
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Serialized GTINs (SGTINs)
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Lot/Batch Number
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Expiration Date
-                                        </li>
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Aggregation Events */}
-                              {file.metadata?.aggregationEvents > 0 && (
-                                <div className="p-4 border rounded-md">
-                                  <div className="flex items-center mb-3">
-                                    <Package className="h-5 w-5 text-secondary mr-2" />
-                                    <h4 className="font-medium">Aggregation Events ({file.metadata.aggregationEvents})</h4>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-neutral-50 p-3 rounded">
-                                      <p className="text-xs text-neutral-500 mb-1">Common Event Types</p>
-                                      <ul className="text-sm space-y-1">
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Packing
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Unpacking
-                                        </li>
-                                      </ul>
-                                    </div>
-                                    <div className="bg-neutral-50 p-3 rounded">
-                                      <p className="text-xs text-neutral-500 mb-1">Typical Data</p>
-                                      <ul className="text-sm space-y-1">
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Parent SSCCs (shipping containers)
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Child SGTINs (serialized items)
-                                        </li>
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Transaction Events */}
-                              {file.metadata?.transactionEvents > 0 && (
-                                <div className="p-4 border rounded-md">
-                                  <div className="flex items-center mb-3">
-                                    <ArrowRightLeft className="h-5 w-5 text-warning mr-2" />
-                                    <h4 className="font-medium">Transaction Events ({file.metadata.transactionEvents})</h4>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-neutral-50 p-3 rounded">
-                                      <p className="text-xs text-neutral-500 mb-1">Common Event Types</p>
-                                      <ul className="text-sm space-y-1">
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Sale
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Purchase Order
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Invoice
-                                        </li>
-                                      </ul>
-                                    </div>
-                                    <div className="bg-neutral-50 p-3 rounded">
-                                      <p className="text-xs text-neutral-500 mb-1">Typical Data</p>
-                                      <ul className="text-sm space-y-1">
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Business Transaction References
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Transaction Statement
-                                        </li>
-                                        <li className="flex items-center">
-                                          <ChevronRight className="h-3 w-3 mr-1 shrink-0" />
-                                          Source/Destination Information
-                                        </li>
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
+                      
+                      <div className="mt-4">
+                        <RefreshMetadataButton fileId={fileId} />
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-
-              {file.errorCode && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-neutral-700 mb-2">Error Information</h3>
-                  <div className="bg-destructive/10 p-4 rounded-md text-destructive">
-                    <div className="grid grid-cols-1 gap-2">
-                      <div className="flex items-start">
-                        <div className="font-medium mr-2">Error Code:</div>
-                        <div>{file.errorCode}</div>
-                      </div>
-                      {file.errorMessage && (
-                        <div className="flex items-start">
-                          <div className="font-medium mr-2">Message:</div>
-                          <div>{file.errorMessage}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Transmission History</CardTitle>
-              <CardDescription>
-                Track all send attempts and delivery confirmations for this file
-              </CardDescription>
+              <Tabs defaultValue="transmissions" className="w-full">
+                <TabsList className="grid grid-cols-2 w-full mb-4">
+                  <TabsTrigger value="transmissions" className="flex items-center">
+                    <Send className="h-4 w-4 mr-2" />
+                    Transmission History
+                  </TabsTrigger>
+                  <TabsTrigger value="presigned" className="flex items-center">
+                    <LinkIcon className="h-4 w-4 mr-2" />
+                    Pre-Signed URLs
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="transmissions">
+                  <CardDescription>
+                    Track all send attempts and delivery confirmations for this file
+                  </CardDescription>
+                </TabsContent>
+                
+                <TabsContent value="presigned">
+                  <CardDescription>
+                    Share this file securely with partners using expiring download links
+                  </CardDescription>
+                </TabsContent>
+              </Tabs>
             </CardHeader>
+            
             <CardContent>
-              {isLoadingHistory ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : history && history.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Partner</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Sent At</TableHead>
-                      <TableHead>Sent By</TableHead>
-                      <TableHead>Transport</TableHead>
-                      <TableHead>Delivery Confirmation</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history.map((transmission: any) => (
-                      <TableRow key={transmission.id}>
-                        <TableCell>{transmission.partner?.name || "Unknown Partner"}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={`capitalize ${
-                              transmission.status === "sent"
-                                ? "text-success"
-                                : transmission.status === "failed"
-                                ? "text-destructive"
-                                : "text-warning"
-                            }`}
-                          >
-                            {transmission.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{format(new Date(transmission.sentAt), "PPP p")}</TableCell>
-                        <TableCell>System</TableCell>
-                        <TableCell>{transmission.transportType}</TableCell>
-                        <TableCell className="max-w-xs truncate" title={transmission.deliveryConfirmation}>
-                          {transmission.deliveryConfirmation || "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-8 text-neutral-500">
-                  <File className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
-                  <p>This file has not been sent to any partners yet.</p>
-                  {file.status === "validated" && (
-                    <Button className="mt-4" onClick={handleSend}>
-                      <Send className="mr-2 h-4 w-4" />
-                      Send to Partner
-                    </Button>
+              <Tabs defaultValue="transmissions" className="w-full">
+                <TabsContent value="transmissions">
+                  {isLoadingHistory ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ) : history && history.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Partner</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Sent By</TableHead>
+                          <TableHead>Transport Type</TableHead>
+                          <TableHead>Confirmation</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {history.map((transmission) => (
+                          <TableRow key={transmission.id}>
+                            <TableCell className="font-medium">
+                              {transmission.partner.name}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={`${
+                                  transmission.status === "delivered"
+                                    ? "text-success"
+                                    : transmission.status === "failed"
+                                    ? "text-destructive"
+                                    : "text-warning"
+                                }`}
+                              >
+                                {transmission.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{format(new Date(transmission.sentAt), "PPP p")}</TableCell>
+                            <TableCell>System</TableCell>
+                            <TableCell>{transmission.transportType}</TableCell>
+                            <TableCell className="max-w-xs truncate" title={transmission.deliveryConfirmation}>
+                              {transmission.deliveryConfirmation || "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-neutral-500">
+                      <File className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
+                      <p>This file has not been sent to any partners yet.</p>
+                      {file.status === "validated" && (
+                        <Button className="mt-4" onClick={handleSend}>
+                          <Send className="mr-2 h-4 w-4" />
+                          Send to Partner
+                        </Button>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
+                </TabsContent>
+                
+                <TabsContent value="presigned">
+                  <PresignedLinks fileId={fileId} />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </>
