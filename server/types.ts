@@ -1,6 +1,7 @@
 import { Request } from 'express';
+import { z } from 'zod';
 
-// Helper type for strongly-typed request bodies
+// Type for a request with typed body
 export interface TypedRequestBody<T> extends Request {
   body: T;
 }

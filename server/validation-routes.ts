@@ -119,8 +119,14 @@ validationRouter.patch('/sessions/:id', isAuthenticated, async (req: Request, re
 
     // Special handling for session completion
     let updates = validation.data;
-    if (updates.status === 'completed' && !updates.completedAt) {
-      updates.completedAt = new Date();
+    if (updates.status === 'completed') {
+      // Need to manually add completedAt since it's not in the schema
+      await storage.updateValidationSession(id, {
+        ...updates,
+        completedAt: new Date()
+      });
+      const updatedSession = await storage.getValidationSession(id);
+      return res.json(updatedSession);
     }
 
     // Update the session
@@ -218,9 +224,15 @@ validationRouter.post(
         }
       });
 
+      // Create a custom type extending InsertScannedItem to include sessionId
+      interface ScannedItemWithSession extends z.infer<typeof insertScannedItemSchema> {
+        sessionId?: number;
+      }
+
       // If this is part of a validation session, update the counts
-      if (req.body.sessionId) {
-        const sessionId = parseInt(req.body.sessionId);
+      const bodyWithSession = req.body as ScannedItemWithSession;
+      if (bodyWithSession.sessionId) {
+        const sessionId = parseInt(String(bodyWithSession.sessionId));
         if (!isNaN(sessionId)) {
           const session = await storage.getValidationSession(sessionId);
           if (session) {

@@ -42,6 +42,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
+  // Register EPCIS Compliance Validator routes
+  app.use('/api/purchase-orders', poRouter);
+  app.use('/api/associations', associationRouter);
+  app.use('/api/product-items', productItemRouter);
+  app.use('/api/validation', validationRouter);
+  app.use('/api/audit-logs', auditLogRouter);
+  
   // === File Upload & Processing ===
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
