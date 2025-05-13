@@ -350,7 +350,11 @@ export default function FileDetailPage() {
                                 {file.metadata.productInfo.lotNumber && (
                                   <>
                                     <div className="text-sm font-medium text-neutral-700">Lot/Batch:</div>
-                                    <div className="text-sm font-mono">{file.metadata.productInfo.lotNumber}</div>
+                                    <div className="text-sm font-mono">
+                                      {typeof file.metadata.productInfo.lotNumber === 'object' && file.metadata.productInfo.lotNumber._
+                                        ? file.metadata.productInfo.lotNumber._
+                                        : file.metadata.productInfo.lotNumber}
+                                    </div>
                                   </>
                                 )}
                                 
@@ -358,7 +362,9 @@ export default function FileDetailPage() {
                                   <>
                                     <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
                                     <div className="text-sm">
-                                      {new Date(file.metadata.productInfo.expirationDate).toLocaleDateString()}
+                                      {typeof file.metadata.productInfo.expirationDate === 'object' && file.metadata.productInfo.expirationDate._
+                                        ? new Date(file.metadata.productInfo.expirationDate._).toLocaleDateString()
+                                        : new Date(file.metadata.productInfo.expirationDate).toLocaleDateString()}
                                     </div>
                                   </>
                                 )}

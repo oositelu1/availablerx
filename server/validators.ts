@@ -473,15 +473,43 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                             if (event.extension && event.extension.ilmd) {
                               const ilmd = event.extension.ilmd;
                               if (ilmd['cbvmda:lotNumber']) {
-                                lotNumber = ilmd['cbvmda:lotNumber'];
+                                const rawLotNumber = ilmd['cbvmda:lotNumber'];
+                                // Handle complex objects with underscore property
+                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber._ 
+                                  ? rawLotNumber._ 
+                                  : rawLotNumber;
                               } else if (ilmd.lotNumber) {
-                                lotNumber = ilmd.lotNumber;
+                                const rawLotNumber = ilmd.lotNumber;
+                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber._ 
+                                  ? rawLotNumber._ 
+                                  : rawLotNumber;
                               }
                               
                               if (ilmd['cbvmda:itemExpirationDate']) {
-                                expirationDate = ilmd['cbvmda:itemExpirationDate'];
+                                const rawExpirationDate = ilmd['cbvmda:itemExpirationDate'];
+                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate._ 
+                                  ? rawExpirationDate._ 
+                                  : rawExpirationDate;
                               } else if (ilmd.itemExpirationDate) {
-                                expirationDate = ilmd.itemExpirationDate;
+                                const rawExpirationDate = ilmd.itemExpirationDate;
+                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate._ 
+                                  ? rawExpirationDate._ 
+                                  : rawExpirationDate;
+                              }
+                            }
+                            
+                            // Also check for complex object structure in productInfo if it exists
+                            if (metadata.productInfo && metadata.productInfo.lotNumber) {
+                              const productInfoLot = metadata.productInfo.lotNumber;
+                              if (typeof productInfoLot === 'object' && productInfoLot._) {
+                                metadata.productInfo.lotNumber = productInfoLot._;
+                              }
+                            }
+                            
+                            if (metadata.productInfo && metadata.productInfo.expirationDate) {
+                              const productInfoExp = metadata.productInfo.expirationDate;
+                              if (typeof productInfoExp === 'object' && productInfoExp._) {
+                                metadata.productInfo.expirationDate = productInfoExp._;
                               }
                             }
                             
