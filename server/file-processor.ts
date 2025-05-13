@@ -166,7 +166,10 @@ export async function processFile(
               gtin: gtin,
               serialNumber: serialNumber,
               lotNumber: lotNumber,
-              expirationDate: expirationDate ? new Date(expirationDate) : new Date(), // Schema expects a Date
+              // Convert to ISO string and extract just the date part (YYYY-MM-DD)
+              expirationDate: expirationDate 
+                ? new Date(expirationDate).toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0],
               eventTime: new Date(item.eventTime || Date.now()),
               sourceGln: item.sourceGln || null,
               destinationGln: item.destinationGln || null,

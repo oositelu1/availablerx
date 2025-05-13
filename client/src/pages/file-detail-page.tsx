@@ -340,14 +340,22 @@ export default function FileDetailPage() {
                                   </>
                                 )}
                                 
-                                {/* Show the NDC/GTIN code */}
-                                {(file.metadata.productInfo.ndc || 
-                                  (productItems && productItems.length > 0 && productItems[0].gtin)) && (
+                                {/* Show NDC if available */}
+                                {file.metadata.productInfo.ndc && (
                                   <>
-                                    <div className="text-sm font-medium text-neutral-700">NDC/GTIN:</div>
+                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
                                     <div className="text-sm font-mono">
-                                      {file.metadata.productInfo.ndc || 
-                                       (productItems && productItems.length > 0 ? productItems[0].gtin : null)}
+                                      {file.metadata.productInfo.ndc}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Show GTIN if available */}
+                                {productItems && productItems.length > 0 && productItems[0].gtin && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">GTIN:</div>
+                                    <div className="text-sm font-mono">
+                                      {productItems[0].gtin}
                                     </div>
                                   </>
                                 )}
