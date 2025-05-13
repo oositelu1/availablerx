@@ -160,7 +160,7 @@ export default function PurchaseOrderDetailPage() {
   };
   
   return (
-    <div className="container py-8">
+    <Layout title={isLoadingPO ? "Purchase Order Details" : `Purchase Order: ${purchaseOrder?.poNumber}`}>
       <div className="flex items-center mb-6">
         <Link href="/purchase-orders">
           <Button variant="ghost" size="sm" className="mr-2">
@@ -568,6 +568,6 @@ export default function PurchaseOrderDetailPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 }
