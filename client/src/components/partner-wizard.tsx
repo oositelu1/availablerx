@@ -50,13 +50,29 @@ const step1Schema = z.object({
   notes: z.string().optional(),
 });
 
-const step2Schema = z.object({
-  endpointUrl: z.string().url({ message: "Please enter a valid URL" }).optional(),
+// Step 2 schema definition
+const step2SchemaBase = z.object({
+  endpointUrl: z.union([
+    z.string().url({ message: "Please enter a valid URL" }),
+    z.string().length(0)
+  ]),
   transportType: z.enum(["AS2", "HTTPS", "PRESIGNED"], { 
     required_error: "Please select a transport method" 
   }),
   as2Id: z.string().optional(),
 });
+
+// Custom validation function for step 2
+const validateStep2 = (data: z.infer<typeof step2SchemaBase>) => {
+  if (data.transportType === "PRESIGNED") {
+    return true;
+  }
+  
+  return !!data.endpointUrl && data.endpointUrl.length > 0;
+};
+
+// Export the schema with validation
+const step2Schema = step2SchemaBase;
 
 const step3Schema = z.object({
   certificate: z.string().optional(),

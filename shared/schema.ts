@@ -34,9 +34,23 @@ export const partners = pgTable("partners", {
   createdBy: integer("created_by").notNull(), // references users.id
 });
 
-export const insertPartnerSchema = createInsertSchema(partners).omit({
+// Create the base partner schema
+const basePartnerSchema = createInsertSchema(partners).omit({
   id: true,
   createdAt: true
+});
+
+// Extend it with custom validation for Pre-Signed URL partners
+export const insertPartnerSchema = z.object({
+  ...basePartnerSchema.shape,
+  transportType: z.enum(["AS2", "HTTPS", "PRESIGNED"]),
+  endpointUrl: z.string().nullable().transform(val => {
+    // If transport type is PRESIGNED, allow empty endpoint URL
+    if (!val || val === "") {
+      return null;
+    }
+    return val;
+  }),
 });
 
 // EPCIS files schema
