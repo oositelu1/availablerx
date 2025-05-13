@@ -8,6 +8,7 @@ import { storage } from './storage';
 import { validateZipContents, validateXml, computeSHA256, ERROR_CODES } from './validators';
 import { InsertFile, InsertTransmission, File } from '@shared/schema';
 import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 
 const exec = promisify(execCb);
 
@@ -134,7 +135,7 @@ export async function sendFile(
   fileId: number,
   partnerId: number,
   userId: number,
-  transportType: 'AS2' | 'HTTPS' = 'AS2'
+  transportType: 'AS2' | 'HTTPS' | 'PRESIGNED' = 'AS2'
 ): Promise<{
   success: boolean;
   transmission?: any;
@@ -185,7 +186,7 @@ export async function sendFile(
         
         // TODO: Implement AS2 sending with node-as2 or similar library
         deliveryConfirmation = `AS2-MDN: ${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-      } else {
+      } else if (transportType === 'HTTPS') {
         // For HTTPS, try to send via HTTP POST
         if (!partner.endpointUrl) {
           throw new Error('Partner has no endpoint URL configured');
@@ -210,6 +211,31 @@ export async function sendFile(
         });
         
         deliveryConfirmation = `HTTP ${response.status}: ${response.statusText}`;
+      } else if (transportType === 'PRESIGNED') {
+        // Create a pre-signed link for the file
+        // Generate a UUID for the pre-signed URL
+        const uuid = crypto.randomUUID ? crypto.randomUUID() : uuidv4();
+        
+        // Calculate expiration (48 hours from now)
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 48);
+        
+        // Create a pre-signed link
+        const presignedLink = await storage.createPresignedLink({
+          fileId: fileId,
+          partnerId: partnerId,
+          createdBy: userId,
+          uuid: uuid,
+          urlHash: crypto.createHash('sha256').update(uuid).digest('hex'),
+          expiresAt: expiresAt,
+          isOneTimeUse: false,
+          ipRestriction: null
+        });
+        
+        // Get the download URL
+        const downloadUrl = await storage.generatePresignedUrl(fileId);
+        
+        deliveryConfirmation = `Pre-Signed URL created: ${uuid}, expires: ${expiresAt.toISOString()}`;
       }
       
       // Update transmission record with success
@@ -229,13 +255,14 @@ export async function sendFile(
           deliveryConfirmation
         }
       };
-    } catch (sendError) {
+    } catch (error) {
+      const sendError = error as Error;
       console.error('Error sending file:', sendError);
       
       // Update transmission with failure
       await storage.updateTransmission(transmissionRecord.id, {
         status: 'failed',
-        errorMessage: sendError.message,
+        errorMessage: sendError.message || 'Unknown error occurred',
         retryCount: 0,
         nextRetryAt: new Date(Date.now() + 60000) // Retry in 1 minute
       });
@@ -245,7 +272,7 @@ export async function sendFile(
       
       return { 
         success: false, 
-        errorMessage: `Failed to send file: ${sendError.message}` 
+        errorMessage: `Failed to send file: ${sendError.message || 'Unknown error occurred'}` 
       };
     }
   } catch (error) {
@@ -277,7 +304,7 @@ export async function retryTransmission(transmissionId: number): Promise<{
     // Update retry count and status
     const updatedTransmission = await storage.updateTransmission(transmissionId, {
       status: 'retrying',
-      retryCount: transmission.retryCount + 1
+      retryCount: (transmission.retryCount || 0) + 1
     });
     
     // Call sendFile to actually retry the transmission
@@ -285,7 +312,7 @@ export async function retryTransmission(transmissionId: number): Promise<{
       transmission.fileId,
       transmission.partnerId,
       transmission.sentBy,
-      transmission.transportType as 'AS2' | 'HTTPS'
+      transmission.transportType as 'AS2' | 'HTTPS' | 'PRESIGNED'
     );
     
     return result;
