@@ -3,7 +3,15 @@ import { Partner } from '@shared/schema';
 
 // Initialize SendGrid
 const sendgrid = new MailService();
-sendgrid.setApiKey(process.env.SENDGRID_API_KEY as string);
+
+// Check if SendGrid API key is available
+const hasSendGridKey = !!process.env.SENDGRID_API_KEY;
+if (hasSendGridKey) {
+  sendgrid.setApiKey(process.env.SENDGRID_API_KEY as string);
+  console.log('SendGrid API key configured');
+} else {
+  console.warn('SendGrid API key not found. Email notifications will be logged but not sent.');
+}
 
 // Sender email configuration
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'noreply@epcisportal.com';
@@ -20,6 +28,20 @@ interface EmailOptions {
  * Send an email using SendGrid
  */
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  // Log email content for debugging/development purposes
+  console.log('\n--- Email Details ---');
+  console.log(`To: ${options.to}`);
+  console.log(`From: ${SENDER_NAME} <${SENDER_EMAIL}>`);
+  console.log(`Subject: ${options.subject}`);
+  console.log(`Body (text): ${options.text.substring(0, 100)}...`);
+  console.log('--- End Email Details ---\n');
+  
+  // If SendGrid API key is not configured, just log and return success
+  if (!hasSendGridKey) {
+    console.log('SendGrid API key not configured. Email would have been sent to:', options.to);
+    return true;
+  }
+  
   try {
     await sendgrid.send({
       to: options.to,
@@ -32,10 +54,20 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       html: options.html
     });
     
-    console.log(`Email sent to ${options.to}`);
+    console.log(`Email successfully sent to ${options.to}`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending email:', error);
+    
+    // Log more detailed error information
+    if (error.response) {
+      console.error('SendGrid error details:', {
+        status: error.code,
+        body: error.response.body
+      });
+    }
+    
+    // Email failed to send, but application should continue
     return false;
   }
 }

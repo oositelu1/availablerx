@@ -239,9 +239,9 @@ export async function sendFile(
           ipRestriction: null
         });
         
-        // Generate the full download URL with the base URL and the UUID
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
-        const downloadUrl = `${baseUrl}/api/download/${uuid}`;
+        // Generate the full download URL using the current request context (will be included in context when function is called from routes.ts)
+        // This is handled by storage.generatePresignedUrl in sendFile, no need to manually create it here
+        const downloadUrl = await storage.generatePresignedUrl(fileId);
         
         // Send email notification to the partner
         try {
