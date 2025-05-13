@@ -5,7 +5,7 @@ import { exec as execCb } from 'child_process';
 import tmp from 'tmp';
 import axios from 'axios';
 import { storage } from './storage';
-import { validateEpcisFile, computeSHA256, ERROR_CODES } from './validators';
+import { validateXml, computeSHA256, ERROR_CODES } from './validators';
 import { InsertFile, InsertTransmission, File } from '@shared/schema';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
@@ -55,7 +55,7 @@ export async function processFile(
     if (!isZip && !isXml) {
       return {
         success: false,
-        errorCode: ERROR_CODES.INVALID_FILE_TYPE,
+        errorCode: ERROR_CODES.INTERNAL_ERROR, // Using INTERNAL_ERROR since INVALID_FILE_TYPE doesn't exist
         errorMessage: 'Unsupported file type. Please upload a ZIP or XML file.'
       };
     }
@@ -80,9 +80,10 @@ export async function processFile(
     await fs.writeFile(tempFilePath, xmlBuffer);
     
     // Validate the XML content against EPCIS 1.2 schema
-    const xmlValidation = await validateEpcisFile(tempFilePath);
+    // Use validateXml which has the improved namespacing support
+    const xmlValidation = await validateXml(xmlBuffer);
     
-    // Clean up temp file
+    // Clean up temp file - we don't need it anymore since validateXml handles temp files
     try {
       await fs.unlink(tempFilePath);
     } catch (error) {
