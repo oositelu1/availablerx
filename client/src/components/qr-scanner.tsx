@@ -33,14 +33,35 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     setError(null);
     
     try {
+      // First, let's check if camera permissions are granted
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (permissionErr) {
+        throw new Error("Camera permission denied. Please allow camera access to scan codes.");
+      }
+      
       const html5QrCode = new Html5Qrcode(scannerContainerId);
       qrScannerRef.current = html5QrCode;
       
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      // Use responsive configuration for better compatibility
+      const config = { 
+        fps: 10, 
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdgePercentage = 0.7; // 70% of the smaller edge
+          const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+          const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+          return { width: qrboxSize, height: qrboxSize };
+        },
+        aspectRatio: 1.0
+      };
+      
+      // For browser compatibility, it's better to use 'user' facing mode first
+      // as some browsers default to this and require explicit permission for 'environment'
+      const cameraId = "environment";
       
       // Start scanning
       await html5QrCode.start(
-        { facingMode: "environment" }, // Use back camera
+        cameraId, 
         config,
         (decodedText, decodedResult) => {
           // On successful scan
@@ -49,13 +70,14 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         },
         (errorMessage) => {
           // Errors are common during scanning, so we don't show them
-          // console.log(`QR Code scanning error: ${errorMessage}`);
+          console.log(`QR Code scanning error: ${errorMessage}`);
         }
       );
     } catch (err) {
       setIsScanning(false);
-      setError(`Failed to start camera: ${err instanceof Error ? err.message : String(err)}`);
-      if (onScanError) onScanError(`Failed to start camera: ${err}`);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to start camera: ${errorMsg}`);
+      if (onScanError) onScanError(`Failed to start camera: ${errorMsg}`);
     }
   };
 
