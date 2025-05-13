@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { SendFileModal } from "@/components/send-file-modal";
 import { PresignedLinks } from "@/components/presigned-links";
+import { AssociatePODialog } from "@/components/associate-po-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
@@ -37,6 +38,12 @@ import {
   FileArchive,
   RefreshCw,
   Link as LinkIcon,
+  FileText,
+  Tag,
+  Package,
+  ArrowRightLeft,
+  ChevronDown,
+  ShoppingCart,
 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -46,7 +53,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Tag, Package, ArrowRightLeft, ChevronDown } from "lucide-react";
 
 // Component to refresh metadata
 function RefreshMetadataButton({ fileId }: { fileId: number }) {
@@ -364,36 +370,73 @@ export default function FileDetailPage() {
                                   </>
                                 )}
                                 
-                                {/* Display PO numbers extracted directly from EPCIS */}
-                                {file.metadata.poNumbers && file.metadata.poNumbers.length > 0 && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">Referenced PO Numbers:</div>
-                                    <div className="text-sm flex flex-wrap gap-1">
-                                      {file.metadata.poNumbers.map((poNumber, index) => (
-                                        <Badge key={index} variant="outline" className="bg-primary/5">
-                                          {poNumber}
-                                        </Badge>
-                                      ))}
+                                {/* Purchase Order Association Section */}
+                                <div className="border-t pt-3 mt-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="text-sm font-medium text-neutral-700">Purchase Order Association</div>
+                                    <AssociatePODialog fileId={fileId}>
+                                      <Button variant="outline" size="sm" className="text-xs">
+                                        <ShoppingCart className="mr-2 h-3 w-3" />
+                                        Associate with PO
+                                      </Button>
+                                    </AssociatePODialog>
+                                  </div>
+                                  
+                                  {/* Display PO numbers extracted directly from EPCIS */}
+                                  {file.metadata.poNumbers && file.metadata.poNumbers.length > 0 && (
+                                    <div className="mb-2">
+                                      <div className="text-xs text-neutral-500 mb-1">Referenced in EPCIS file:</div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {file.metadata.poNumbers.map((poNumber, index) => (
+                                          <Badge key={index} variant="outline" className="bg-primary/5">
+                                            {poNumber}
+                                          </Badge>
+                                        ))}
+                                      </div>
                                     </div>
-                                  </>
-                                )}
-                                
-                                {/* Display associated Purchase Order numbers */}
-                                {associations && associations.length > 0 && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">Associated Purchase Orders:</div>
-                                    <div className="text-sm flex flex-wrap gap-1">
-                                      {associations.map((association, index) => (
-                                        <Badge key={association.id} variant="outline" className="bg-primary/5">
-                                          <WouterLink href={`/purchase-orders/${association.po.id}`} className="hover:underline">
-                                            {association.po.poNumber}
-                                          </WouterLink>
-                                          {index < associations.length - 1 ? ', ' : ''}
-                                        </Badge>
-                                      ))}
+                                  )}
+                                  
+                                  {/* Show linked purchase orders */}
+                                  {associations && associations.length > 0 ? (
+                                    <div>
+                                      <div className="text-xs text-neutral-500 mb-1">Linked Purchase Orders:</div>
+                                      <div className="space-y-2">
+                                        {associations.map((association) => (
+                                          <div key={association.id} className="flex items-center justify-between bg-white rounded p-2 border">
+                                            <div className="flex items-center">
+                                              <ShoppingCart className="h-4 w-4 text-primary mr-2" />
+                                              <div>
+                                                <WouterLink 
+                                                  href={`/purchase-orders/${association.po.id}`} 
+                                                  className="text-sm font-medium hover:underline"
+                                                >
+                                                  PO: {association.po.poNumber}
+                                                </WouterLink>
+                                                <div className="text-xs text-neutral-500">
+                                                  Method: {association.associationMethod.replace('_', ' ')}
+                                                  {association.confidence !== null && 
+                                                    ` • ${association.confidence}% confidence`}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <Button 
+                                              variant="ghost" 
+                                              size="sm"
+                                              onClick={() => window.location.href = `/purchase-orders/${association.po.id}`}
+                                            >
+                                              <FileText className="h-3.5 w-3.5" />
+                                              <span className="sr-only">View</span>
+                                            </Button>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
-                                  </>
-                                )}
+                                  ) : (
+                                    <div className="text-xs text-neutral-500 bg-muted/30 rounded p-2 border border-dashed">
+                                      No purchase orders associated with this file yet. Click "Associate with PO" to link this file with a purchase order.
+                                    </div>
+                                  )}
+                                </div>
                                 
                                 {/* Display Serial Numbers from product items */}
                                 {productItems && productItems.length > 0 && (
@@ -526,10 +569,14 @@ export default function FileDetailPage() {
           <Card>
             <CardHeader>
               <Tabs defaultValue="transmissions" className="w-full">
-                <TabsList className="grid grid-cols-2 w-full mb-4">
+                <TabsList className="grid grid-cols-3 w-full mb-4">
                   <TabsTrigger value="transmissions" className="flex items-center">
                     <Send className="h-4 w-4 mr-2" />
                     Transmission History
+                  </TabsTrigger>
+                  <TabsTrigger value="purchase-orders" className="flex items-center">
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Purchase Orders
                   </TabsTrigger>
                   <TabsTrigger value="presigned" className="flex items-center">
                     <LinkIcon className="h-4 w-4 mr-2" />
@@ -540,6 +587,12 @@ export default function FileDetailPage() {
                 <TabsContent value="transmissions">
                   <CardDescription>
                     Track all send attempts and delivery confirmations for this file
+                  </CardDescription>
+                </TabsContent>
+                
+                <TabsContent value="purchase-orders">
+                  <CardDescription>
+                    Manage purchase order associations for this EPCIS file
                   </CardDescription>
                 </TabsContent>
                 
@@ -618,6 +671,84 @@ export default function FileDetailPage() {
                 
                 <TabsContent value="presigned">
                   <PresignedLinks fileId={fileId} />
+                </TabsContent>
+                
+                <TabsContent value="purchase-orders">
+                  {isLoadingAssociations ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ) : associations && associations.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-lg font-medium">Associated Purchase Orders</h3>
+                          <p className="text-sm text-muted-foreground">
+                            This file is associated with {associations.length} purchase order{associations.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <AssociatePODialog fileId={fileId}>
+                          <Button variant="outline" size="sm">
+                            <ShoppingCart className="mr-2 h-4 w-4" />
+                            Add Association
+                          </Button>
+                        </AssociatePODialog>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {associations.map((association) => (
+                          <Card key={association.id} className="overflow-hidden">
+                            <div className="flex bg-muted/20">
+                              <div className="p-4 flex-1">
+                                <div className="flex items-center">
+                                  <ShoppingCart className="h-5 w-5 text-primary mr-2" />
+                                  <div>
+                                    <h4 className="text-base font-medium">PO #{association.po.poNumber}</h4>
+                                    <div className="text-sm text-muted-foreground">
+                                      Association Method: {association.associationMethod.replace('_', ' ')}
+                                      {association.confidence && ` (${association.confidence}% confidence)`}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {association.notes && (
+                                  <div className="mt-2 text-sm">
+                                    <div className="font-medium">Notes:</div>
+                                    <div className="text-muted-foreground">{association.notes}</div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="py-4 pr-4 flex items-center">
+                                <Button 
+                                  variant="secondary" 
+                                  onClick={() => window.location.href = `/purchase-orders/${association.po.id}`}
+                                >
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  View PO Details
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                      <h3 className="text-lg font-medium mb-1">No Purchase Order Associations</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        This file has not been associated with any purchase orders yet.
+                      </p>
+                      <AssociatePODialog fileId={fileId}>
+                        <Button>
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                          Associate with PO
+                        </Button>
+                      </AssociatePODialog>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </CardContent>
