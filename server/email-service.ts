@@ -274,10 +274,31 @@ EPCIS Portal Team
 </html>
   `.trim();
   
-  return sendEmail({
+  // Log notification attempt
+  console.log(`Sending file share notification to partner: ${partner.name} (${partner.contactEmail})`);
+  console.log(`File: ${fileName} | Expires: ${expirationDate}`);
+  
+  // If email service isn't ready, log what would have been sent and return failure
+  if (!emailServiceReady) {
+    console.warn(`Email service is not ready, but notification would have been sent to ${partner.contactEmail}`);
+    console.warn(`Partner will need to be notified through alternative means.`);
+    return false;
+  }
+  
+  // Try to send the email
+  const result = await sendEmail({
     to: partner.contactEmail,
     subject,
     text,
     html
   });
+  
+  if (result) {
+    console.log(`✓ File share notification successfully sent to ${partner.name} (${partner.contactEmail})`);
+  } else {
+    console.warn(`✗ Failed to send file share notification to ${partner.name} (${partner.contactEmail})`);
+    console.warn(`Partner will need to be notified through alternative means.`);
+  }
+  
+  return result;
 }
