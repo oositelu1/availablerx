@@ -323,6 +323,10 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
     // Extract product information
     metadata.productInfo = {};
     
+    // Initialize arrays for product items and PO numbers
+    metadata.productItems = [];
+    metadata.poNumbers = [];
+    
     // Try to find vocabulary elements in EPCISMasterData
     try {
       console.log('Attempting to extract product info from XML');
@@ -478,20 +482,141 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
       console.error('Error extracting product info:', error);
     }
     
-    // Look for lot number and expiration date in events
+    // Extract serial numbers and PO numbers from events
     try {
       // Use the existing epcisBody variable from the outer scope
       if (epcisBody) {
-        // Check ObjectEvents for lot number and expiration date
+        // Check ObjectEvents for lot number, expiration date, serial numbers and purchase order references
         const objectEvents = epcisBody.ObjectEvent || epcisBody['epcis:ObjectEvent'];
         if (objectEvents) {
           const events = Array.isArray(objectEvents) ? objectEvents : [objectEvents];
-          console.log(`Found ${events.length} object events for lot/expiry extraction`);
+          console.log(`Found ${events.length} object events for extraction`);
           
-          // Just use the first event for now
-          if (events.length > 0) {
-            const event = events[0];
+          // Process all events to extract information
+          for (const event of events) {
             console.log('Object event keys:', Object.keys(event));
+            
+            // Extract serial numbers from EPCs
+            const epcList = event.epcList || event['epcis:epcList'];
+            if (epcList) {
+              const epcs = epcList.epc || epcList['epcis:epc'];
+              if (epcs) {
+                const epcArray = Array.isArray(epcs) ? epcs : [epcs];
+                console.log(`Found ${epcArray.length} EPCs/serial numbers`);
+                
+                for (const epc of epcArray) {
+                  // Extract SGTIN components: company prefix, item reference, and serial number
+                  // Format: urn:epc:id:sgtin:CompanyPrefix.ItemReference.SerialNumber
+                  try {
+                    const epcValue = typeof epc === 'string' ? epc : (epc._ || epc.toString());
+                    console.log(`Processing EPC: ${epcValue}`);
+                    
+                    if (epcValue.includes('sgtin')) {
+                      // Example: urn:epc:id:sgtin:0614141.107346.2017
+                      const parts = epcValue.split(':');
+                      if (parts.length >= 6) {
+                        const sgtinParts = parts[parts.length-1].split('.');
+                        if (sgtinParts.length >= 3) {
+                          const companyPrefix = sgtinParts[0];
+                          const itemReference = sgtinParts[1];
+                          const serialNumber = sgtinParts[2];
+                          
+                          // Construct GTIN from company prefix and item reference
+                          // This is a simplified approach - real GTIN construction may require
+                          // additional formatting and check digit calculation
+                          const gtin = `${companyPrefix}${itemReference}`;
+                          
+                          console.log(`Extracted SGTIN: GTIN=${gtin}, Serial=${serialNumber}`);
+                          
+                          // Add to product items if not already present
+                          const existingItemIndex = metadata.productItems.findIndex(
+                            item => item.gtin === gtin && item.serialNumber === serialNumber
+                          );
+                          
+                          if (existingItemIndex === -1) {
+                            // Get event time
+                            const eventTime = event.eventTime || event['epcis:eventTime'] || new Date().toISOString();
+                            
+                            // Create new product item
+                            const productItem = {
+                              gtin,
+                              serialNumber,
+                              eventTime,
+                              lotNumber: metadata.productInfo.lotNumber || 'unknown',
+                              expirationDate: metadata.productInfo.expirationDate || 'unknown',
+                              sourceGln: null,
+                              destinationGln: null,
+                              bizTransactionList: null
+                            };
+                            metadata.productItems.push(productItem);
+                          }
+                        }
+                      }
+                    }
+                  } catch (epcError) {
+                    console.error('Error processing EPC:', epcError);
+                  }
+                }
+              }
+            }
+            
+            // Extract PO numbers from business transactions
+            const bizTransactionList = event.bizTransactionList || event['epcis:bizTransactionList'];
+            if (bizTransactionList) {
+              const bizTransactions = bizTransactionList.bizTransaction || bizTransactionList['epcis:bizTransaction'];
+              if (bizTransactions) {
+                const transactions = Array.isArray(bizTransactions) ? bizTransactions : [bizTransactions];
+                console.log(`Found ${transactions.length} business transactions`);
+                
+                for (const transaction of transactions) {
+                  try {
+                    // Extract the transaction ID and type
+                    const transactionValue = typeof transaction === 'string' ? 
+                      transaction : (transaction._ || transaction.toString());
+                    
+                    const attributes = transaction.$ || {};
+                    const type = attributes.type || 'unknown';
+                    
+                    console.log(`Business Transaction: type=${type}, value=${transactionValue}`);
+                    
+                    // Check if this is a PO reference
+                    if (type.includes('po') || type.includes('purchase-order')) {
+                      console.log(`Found Purchase Order reference: ${transactionValue}`);
+                      
+                      // Extract just the PO number from the reference
+                      let poNumber = transactionValue;
+                      if (poNumber.includes(':')) {
+                        // Extract last part after colon
+                        poNumber = poNumber.split(':').pop() || poNumber;
+                      }
+                      
+                      // Add to PO numbers list if not already present
+                      if (!metadata.poNumbers.includes(poNumber)) {
+                        metadata.poNumbers.push(poNumber);
+                        console.log(`Added PO number: ${poNumber}`);
+                      }
+                      
+                      // Also add this PO reference to all product items in this event
+                      if (metadata.productItems.length > 0) {
+                        for (const item of metadata.productItems) {
+                          if (!item.bizTransactionList) {
+                            item.bizTransactionList = [];
+                          }
+                          if (!item.bizTransactionList.includes(poNumber)) {
+                            item.bizTransactionList.push(poNumber);
+                          }
+                        }
+                      }
+                    }
+                  } catch (transactionError) {
+                    console.error('Error processing business transaction:', transactionError);
+                  }
+                }
+              }
+            }
+            
+            // Continue with lot number and expiry date extraction
+            console.log('Checking for lot number and expiry date:');
             
             // Check if there's an extension field with ilmd
             if (event.extension && event.extension.ilmd) {
