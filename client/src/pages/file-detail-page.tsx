@@ -138,6 +138,26 @@ export default function FileDetailPage() {
     queryKey: [`/api/files/${fileId}/history`],
     enabled: !isNaN(fileId),
   });
+  
+  // Query for file's associated purchase orders
+  const { data: associationsResponse, isLoading: isLoadingAssociations } = useQuery({
+    queryKey: [`/api/associations/file/${fileId}`],
+    enabled: !isNaN(fileId),
+  });
+  
+  // Extract the associations array from the response
+  const associations = Array.isArray(associationsResponse) ? associationsResponse : 
+    (associationsResponse?.associations || []);
+    
+  // Query for product items in this file
+  const { data: productItemsResponse, isLoading: isLoadingItems } = useQuery({
+    queryKey: [`/api/product-items/file/${fileId}`],
+    enabled: !isNaN(fileId),
+  });
+  
+  // Extract the product items array from the response
+  const productItems = Array.isArray(productItemsResponse) ? productItemsResponse : 
+    (productItemsResponse?.items || []);
 
   if (isNaN(fileId)) {
     return (
@@ -341,6 +361,46 @@ export default function FileDetailPage() {
                                   <>
                                     <div className="text-sm font-medium text-neutral-700">Quantity/Pack Size:</div>
                                     <div className="text-sm">{file.metadata.productInfo.netContent}</div>
+                                  </>
+                                )}
+                                
+                                {/* Display associated Purchase Order numbers */}
+                                {associations && associations.length > 0 && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Purchase Order #:</div>
+                                    <div className="text-sm flex flex-wrap gap-1">
+                                      {associations.map((association, index) => (
+                                        <Badge key={association.id} variant="outline" className="bg-primary/5">
+                                          <WouterLink href={`/purchase-orders/${association.po.id}`} className="hover:underline">
+                                            {association.po.poNumber}
+                                          </WouterLink>
+                                          {index < associations.length - 1 ? ', ' : ''}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Display Serial Numbers from product items */}
+                                {productItems && productItems.length > 0 && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Serial Number(s):</div>
+                                    <div className="text-sm">
+                                      {productItems.length === 1 ? (
+                                        <code className="bg-primary/5 px-1 py-0.5 rounded text-xs font-mono">
+                                          {productItems[0].serialNumber}
+                                        </code>
+                                      ) : (
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="text-xs"
+                                          onClick={() => window.open(`/product-items/file/${fileId}`, '_blank')}
+                                        >
+                                          View {productItems.length} Serial Numbers
+                                        </Button>
+                                      )}
+                                    </div>
                                   </>
                                 )}
                               </div>
