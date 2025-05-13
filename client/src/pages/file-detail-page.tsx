@@ -364,10 +364,24 @@ export default function FileDetailPage() {
                                   </>
                                 )}
                                 
+                                {/* Display PO numbers extracted directly from EPCIS */}
+                                {file.metadata.poNumbers && file.metadata.poNumbers.length > 0 && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Referenced PO Numbers:</div>
+                                    <div className="text-sm flex flex-wrap gap-1">
+                                      {file.metadata.poNumbers.map((poNumber, index) => (
+                                        <Badge key={index} variant="outline" className="bg-primary/5">
+                                          {poNumber}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                                
                                 {/* Display associated Purchase Order numbers */}
                                 {associations && associations.length > 0 && (
                                   <>
-                                    <div className="text-sm font-medium text-neutral-700">Purchase Order #:</div>
+                                    <div className="text-sm font-medium text-neutral-700">Associated Purchase Orders:</div>
                                     <div className="text-sm flex flex-wrap gap-1">
                                       {associations.map((association, index) => (
                                         <Badge key={association.id} variant="outline" className="bg-primary/5">
@@ -390,15 +404,67 @@ export default function FileDetailPage() {
                                         <code className="bg-primary/5 px-1 py-0.5 rounded text-xs font-mono">
                                           {productItems[0].serialNumber}
                                         </code>
+                                      ) : productItems.length <= 5 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {productItems.slice(0, 5).map((item, index) => (
+                                            <code key={index} className="bg-primary/5 px-1.5 py-0.5 rounded text-xs font-mono">
+                                              {item.serialNumber}
+                                            </code>
+                                          ))}
+                                        </div>
                                       ) : (
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm" 
-                                          className="text-xs"
-                                          onClick={() => window.open(`/product-items/file/${fileId}`, '_blank')}
-                                        >
-                                          View {productItems.length} Serial Numbers
-                                        </Button>
+                                        <div>
+                                          <div className="flex flex-wrap gap-1 mb-1">
+                                            {productItems.slice(0, 3).map((item, index) => (
+                                              <code key={index} className="bg-primary/5 px-1.5 py-0.5 rounded text-xs font-mono">
+                                                {item.serialNumber}
+                                              </code>
+                                            ))}
+                                          </div>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="text-xs"
+                                            onClick={() => window.open(`/product-items/file/${fileId}`, '_blank')}
+                                          >
+                                            View all {productItems.length} Serial Numbers
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Display Serial Numbers from extracted metadata if no product items */}
+                                {(!productItems || productItems.length === 0) && 
+                                  file.metadata.productItems && 
+                                  file.metadata.productItems.length > 0 && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Serial Number(s):</div>
+                                    <div className="text-sm">
+                                      {file.metadata.productItems.length === 1 ? (
+                                        <code className="bg-primary/5 px-1 py-0.5 rounded text-xs font-mono">
+                                          {file.metadata.productItems[0].serialNumber}
+                                        </code>
+                                      ) : file.metadata.productItems.length <= 5 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {file.metadata.productItems.slice(0, 5).map((item, index) => (
+                                            <code key={index} className="bg-primary/5 px-1.5 py-0.5 rounded text-xs font-mono">
+                                              {item.serialNumber}
+                                            </code>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <div className="flex flex-wrap gap-1 mb-1">
+                                            {file.metadata.productItems.slice(0, 3).map((item, index) => (
+                                              <code key={index} className="bg-primary/5 px-1.5 py-0.5 rounded text-xs font-mono">
+                                                {item.serialNumber}
+                                              </code>
+                                            ))}
+                                            <span className="text-neutral-500">+{file.metadata.productItems.length - 3} more</span>
+                                          </div>
+                                        </div>
                                       )}
                                     </div>
                                   </>
