@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -42,7 +42,7 @@ const STEPS = [
   { id: 3, name: "Security" }
 ];
 
-// Create form schema for each step
+// Create form schema for step 1
 const step1Schema = z.object({
   name: z.string().min(2, { message: "Partner name must be at least 2 characters" }),
   partnerType: z.string().min(1, { message: "Please select a partner type" }),
@@ -50,37 +50,42 @@ const step1Schema = z.object({
   notes: z.string().optional(),
 });
 
-// Step 2 schema definition
-const step2SchemaBase = z.object({
-  endpointUrl: z.union([
-    z.string().url({ message: "Please enter a valid URL" }),
-    z.string().length(0)
-  ]),
+// Step 2 schema
+const step2Schema = z.object({
   transportType: z.enum(["AS2", "HTTPS", "PRESIGNED"], { 
     required_error: "Please select a transport method" 
   }),
+  endpointUrl: z.string().optional(),
   as2Id: z.string().optional(),
 });
 
-// Custom validation function for step 2
-const validateStep2 = (data: z.infer<typeof step2SchemaBase>) => {
-  if (data.transportType === "PRESIGNED") {
-    return true;
-  }
-  
-  return !!data.endpointUrl && data.endpointUrl.length > 0;
-};
-
-// Export the schema with validation
-const step2Schema = step2SchemaBase;
-
+// Step 3 schema
 const step3Schema = z.object({
   certificate: z.string().optional(),
   authToken: z.string().optional(),
 });
 
-// Combined schema
-const partnerSchema = step1Schema.merge(step2Schema).merge(step3Schema);
+// Combined schema for final validation
+const partnerSchema = z.object({
+  name: step1Schema.shape.name,
+  partnerType: step1Schema.shape.partnerType,
+  contactEmail: step1Schema.shape.contactEmail,
+  notes: step1Schema.shape.notes,
+  transportType: step2Schema.shape.transportType,
+  endpointUrl: step2Schema.shape.endpointUrl,
+  as2Id: step2Schema.shape.as2Id,
+  certificate: step3Schema.shape.certificate,
+  authToken: step3Schema.shape.authToken,
+}).refine((data) => {
+  // If transport type is not PRESIGNED, endpoint URL is required
+  if (data.transportType !== "PRESIGNED") {
+    return !!data.endpointUrl && data.endpointUrl.length > 0;
+  }
+  return true;
+}, {
+  message: "Endpoint URL is required for AS2 and HTTPS transport methods",
+  path: ["endpointUrl"]
+});
 
 type PartnerWizardFormValues = z.infer<typeof partnerSchema>;
 
@@ -105,16 +110,70 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
       contactEmail: "",
       notes: "",
       endpointUrl: "",
-      transportType: "PRESIGNED",
+      transportType: "PRESIGNED", // Default to Pre-Signed URLs
       as2Id: "",
       certificate: "",
       authToken: "",
     },
+    mode: "onChange"
   });
 
+  // Watch for changes to transportType field
+  const transportType = form.watch("transportType");
+  
+  // When transportType changes to PRESIGNED, clear endpoint URL validation errors
+  useEffect(() => {
+    if (transportType === "PRESIGNED") {
+      form.clearErrors("endpointUrl");
+    }
+  }, [transportType, form]);
+  
+  // Handle back button click
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  // Handle cancel button click
+  const handleCancel = () => {
+    form.reset();
+    setStep(1);
+    setIsOpen(false);
+  };
+  
+  // Handle next button click
+  const handleNext = () => {
+    const fields = step === 1 
+      ? ["name", "partnerType", "contactEmail"] as const
+      : step === 2 
+        ? ["transportType", ...(transportType !== "PRESIGNED" ? ["endpointUrl" as const] : [])]
+        : ["certificate", "authToken"] as const;
+        
+    form.trigger(fields).then((isValid) => {
+      if (isValid) {
+        if (step < STEPS.length) {
+          setStep(step + 1);
+        } else {
+          form.handleSubmit(onSubmit)();
+        }
+      }
+    });
+  };
+  
+  // Handle form submission
+  const onSubmit = (data: PartnerWizardFormValues) => {
+    createPartnerMutation.mutate(data);
+  };
+  
   // Mutation for creating a partner
   const createPartnerMutation = useMutation({
     mutationFn: async (data: PartnerWizardFormValues) => {
+      // If using Pre-Signed URLs, set endpointUrl to empty string
+      if (data.transportType === "PRESIGNED") {
+        data.endpointUrl = "";
+      }
+      
       const res = await apiRequest("POST", "/api/partners", {
         ...data,
         createdBy: user?.id,
@@ -138,70 +197,6 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
       });
     },
   });
-
-  // Get the appropriate validation schema for the current step
-  const getCurrentSchema = () => {
-    switch (step) {
-      case 1:
-        return step1Schema;
-      case 2:
-        return step2Schema;
-      case 3:
-        return step3Schema;
-      default:
-        return step1Schema;
-    }
-  };
-
-  // Handle next button click
-  const handleNext = async () => {
-    const schema = getCurrentSchema();
-    
-    try {
-      // Validate current step fields
-      await form.trigger(Object.keys(schema.shape) as any);
-      
-      const currentStepValid = await form.getValues(Object.keys(schema.shape) as any);
-      const hasErrors = Object.keys(form.formState.errors).some(key => 
-        Object.keys(schema.shape).includes(key)
-      );
-      
-      if (!hasErrors) {
-        if (step < STEPS.length) {
-          setStep(step + 1);
-        } else {
-          // Submit the form if on the last step
-          const formData = form.getValues();
-          createPartnerMutation.mutate(formData);
-        }
-      }
-    } catch (error) {
-      console.error("Validation error:", error);
-    }
-  };
-
-  // Handle back button click
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
-
-  // Handle cancel button click
-  const handleCancel = () => {
-    form.reset();
-    setStep(1);
-    setIsOpen(false);
-  };
-
-  // Handle form submission
-  const onSubmit = (data: PartnerWizardFormValues) => {
-    if (step < STEPS.length) {
-      handleNext();
-    } else {
-      createPartnerMutation.mutate(data);
-    }
-  };
 
   // Render progress bar
   const renderProgress = () => {
