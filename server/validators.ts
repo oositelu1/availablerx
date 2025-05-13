@@ -434,7 +434,13 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                 continue;
               }
               
-              const attrId = attr.ATTRS.id;
+              // Handle the case where attrId is an object with a value property
+              let attrId = attr.ATTRS.id;
+              if (typeof attrId === 'object' && attrId !== null) {
+                console.log('Attribute ID is an object:', JSON.stringify(attrId));
+                attrId = attrId.value || '';
+              }
+              
               const value = attr._ || '';
               
               console.log(`Attribute ${attrId} = ${value}`);
