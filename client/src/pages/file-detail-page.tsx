@@ -45,6 +45,8 @@ import {
   ArrowRightLeft,
   ChevronDown,
   ShoppingCart,
+  QrCode,
+  ScanLine,
 } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -103,6 +105,7 @@ export default function FileDetailPage() {
   const { id } = useParams<{ id: string }>();
   const fileId = parseInt(id);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Define the reprocess mutation
@@ -217,6 +220,11 @@ export default function FileDetailPage() {
   // Handle send
   const handleSend = () => {
     setSendModalOpen(true);
+  };
+  
+  // Handle opening the product validation dialog
+  const handleOpenValidationDialog = () => {
+    setValidationDialogOpen(true);
   };
 
   return (
