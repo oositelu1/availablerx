@@ -71,35 +71,75 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
       ]
     });
 
+    // Debug - show the parsed XML structure
+    console.log('XML Data root keys:', Object.keys(xmlData));
+    
     // If parsing succeeds, check if it's a valid EPCIS document
-    if (!xmlData || !xmlData.epcis) {
+    // EPCIS documents can have different root structures
+    if (!xmlData) {
       return {
         valid: false,
-        errorCode: ERROR_CODES.NOT_EPCIS,
-        errorMessage: 'The XML file is not a valid EPCIS document.'
+        errorCode: ERROR_CODES.XML_PARSE_ERROR,
+        errorMessage: 'Could not parse XML. The file may be malformed or corrupted.'
       };
     }
-
-    // Basic EPCIS structure validation
-    const epcisTag = Object.keys(xmlData)[0];
-    if (!epcisTag.toLowerCase().includes('epcis')) {
+    
+    // Look for the EPCIS root element - it could be directly at root or nested
+    let epcisRoot = null;
+    
+    // Try to find the EPCIS element
+    if (xmlData.epcis) {
+      console.log('Found epcis at root');
+      epcisRoot = xmlData.epcis;
+    } else {
+      // Try alternate root element names
+      const rootKeys = Object.keys(xmlData);
+      
+      for (const key of rootKeys) {
+        console.log(`Checking root key: ${key}`);
+        
+        // Check if this is an EPCIS root with a namespace
+        if (key.toLowerCase().includes('epcis')) {
+          console.log(`Found EPCIS root with namespace: ${key}`);
+          epcisRoot = xmlData[key];
+          break;
+        }
+        
+        // Check if this is a document with an EPCIS child
+        if (xmlData[key] && typeof xmlData[key] === 'object') {
+          const childKeys = Object.keys(xmlData[key]);
+          for (const childKey of childKeys) {
+            if (childKey.toLowerCase().includes('epcis')) {
+              console.log(`Found EPCIS as child element: ${key}.${childKey}`);
+              epcisRoot = xmlData[key][childKey];
+              break;
+            }
+          }
+          
+          if (epcisRoot) break;
+        }
+      }
+    }
+    
+    // Check if we found an EPCIS element
+    if (!epcisRoot) {
       return {
         valid: false,
         errorCode: ERROR_CODES.NOT_EPCIS,
-        errorMessage: 'The XML file is not a valid EPCIS document.'
+        errorMessage: 'The XML file is not a valid EPCIS document. Could not find EPCIS root element.'
       };
     }
 
     // Extract EPCIS version
     let schemaVersion = '1.0'; // Default to 1.0 if not specified
-    if (xmlData.epcis.$ && xmlData.epcis.$.schemaVersion) {
-      schemaVersion = xmlData.epcis.$.schemaVersion;
+    if (epcisRoot.$ && epcisRoot.$.schemaVersion) {
+      schemaVersion = epcisRoot.$.schemaVersion;
     }
     console.log(`Detected EPCIS schema version: ${schemaVersion}`);
 
     // Extract EPCIS body and header
-    const epcisBody = xmlData.epcis.EPCISBody;
-    const epcisHeader = xmlData.epcis.EPCISHeader;
+    const epcisBody = epcisRoot.EPCISBody;
+    const epcisHeader = epcisRoot.EPCISHeader;
 
     // Initialize metadata
     const metadata: EpcisMetadata = {
@@ -704,8 +744,10 @@ export async function validateZipContents(zipBuffer: Buffer): Promise<Validation
 export async function validateXml(xmlBuffer: Buffer): Promise<ValidationResult> {
   // Create temp file
   const tempDir = path.join(process.cwd(), 'tmp');
+  const fsPromises = fs.promises;
+  
   try {
-    await fs.mkdir(tempDir, { recursive: true });
+    await fsPromises.mkdir(tempDir, { recursive: true });
   } catch (error) {
     console.error('Error creating temp directory:', error);
   }
@@ -713,12 +755,12 @@ export async function validateXml(xmlBuffer: Buffer): Promise<ValidationResult> 
   const tempFilePath = path.join(tempDir, `temp_${Date.now()}.xml`);
   
   try {
-    await fs.writeFile(tempFilePath, xmlBuffer);
+    await fsPromises.writeFile(tempFilePath, xmlBuffer);
     const result = await validateEpcisFile(tempFilePath);
     
     // Clean up
     try {
-      await fs.unlink(tempFilePath);
+      await fsPromises.unlink(tempFilePath);
     } catch (error) {
       console.error('Error removing temp file:', error);
     }
@@ -729,7 +771,7 @@ export async function validateXml(xmlBuffer: Buffer): Promise<ValidationResult> 
     
     // Clean up
     try {
-      await fs.unlink(tempFilePath);
+      await fsPromises.unlink(tempFilePath);
     } catch (cleanupError) {
       console.error('Error removing temp file during error cleanup:', cleanupError);
     }
