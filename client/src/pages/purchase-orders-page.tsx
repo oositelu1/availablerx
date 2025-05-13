@@ -9,6 +9,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { insertPurchaseOrderSchema } from "@shared/schema";
+import { Layout } from "@/components/layout/layout";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -136,7 +137,7 @@ export default function PurchaseOrdersPage() {
   };
 
   return (
-    <div className="container py-8">
+    <Layout title="Purchase Orders">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Purchase Orders</h1>
@@ -389,6 +390,6 @@ export default function PurchaseOrdersPage() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 }
