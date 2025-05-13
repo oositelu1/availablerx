@@ -94,3 +94,24 @@ export type InsertFile = z.infer<typeof insertFileSchema>;
 
 export type Transmission = typeof transmissions.$inferSelect;
 export type InsertTransmission = z.infer<typeof insertTransmissionSchema>;
+
+// Pre-signed URL links for partner file sharing
+export const presignedLinks = pgTable("presigned_links", {
+  id: serial("id").primaryKey(),
+  uuid: text("uuid").notNull(),
+  fileId: integer("file_id").notNull().references(() => files.id),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  urlHash: text("url_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  firstClickedAt: timestamp("first_clicked_at"),
+  downloadedAt: timestamp("downloaded_at"),
+  isOneTimeUse: boolean("is_one_time_use").notNull().default(false),
+  ipRestriction: text("ip_restriction"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+});
+
+export const insertPresignedLinkSchema = createInsertSchema(presignedLinks);
+
+export type PresignedLink = typeof presignedLinks.$inferSelect;
+export type InsertPresignedLink = z.infer<typeof insertPresignedLinkSchema>;

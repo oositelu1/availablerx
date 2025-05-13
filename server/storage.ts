@@ -1,11 +1,15 @@
-import { users, partners, files, transmissions } from "@shared/schema";
-import type { User, InsertUser, Partner, InsertPartner, File, InsertFile, Transmission, InsertTransmission } from "@shared/schema";
+import { users, partners, files, transmissions, presignedLinks } from "@shared/schema";
+import type { 
+  User, InsertUser, Partner, InsertPartner, File, InsertFile, 
+  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink 
+} from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import crypto from "crypto";
+import { v4 as uuidv4 } from 'uuid';
 
 const PostgresSessionStore = connectPg(session);
 
@@ -44,9 +48,17 @@ export interface IStorage {
   listTransmissionsForFile(fileId: number): Promise<Transmission[]>;
   getFileTransmissionHistory(fileId: number): Promise<(Transmission & { partner: Partner })[]>;
 
+  // Pre-signed URL management
+  createPresignedLink(link: InsertPresignedLink): Promise<PresignedLink>;
+  getPresignedLinkByUuid(uuid: string): Promise<PresignedLink | undefined>;
+  updatePresignedLink(id: number, updates: Partial<PresignedLink>): Promise<PresignedLink | undefined>;
+  listPresignedLinksForPartner(partnerId: number, includeExpired?: boolean): Promise<(PresignedLink & { file: File })[]>;
+  listPresignedLinksForFile(fileId: number): Promise<(PresignedLink & { partner: Partner })[]>;
+  
   // Storage for file data (raw files)
   storeFileData(data: Buffer, fileId: number): Promise<string>;
   retrieveFileData(fileId: number): Promise<Buffer | undefined>;
+  generatePresignedUrl(fileId: number, expirationSeconds: number): Promise<string>;
   
   // Session store
   sessionStore: session.Store;

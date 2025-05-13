@@ -1,11 +1,15 @@
-import { users, partners, files, transmissions } from "@shared/schema";
-import type { User, InsertUser, Partner, InsertPartner, File, InsertFile, Transmission, InsertTransmission } from "@shared/schema";
+import { users, partners, files, transmissions, presignedLinks } from "@shared/schema";
+import type { 
+  User, InsertUser, Partner, InsertPartner, File, InsertFile, 
+  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink 
+} from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
 import { eq, and, or, gte, lte, desc } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import crypto from "crypto";
+import { v4 as uuidv4 } from 'uuid';
 import { IStorage } from "./storage";
 
 const PostgresSessionStore = connectPg(session);
