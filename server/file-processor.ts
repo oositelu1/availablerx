@@ -137,13 +137,36 @@ export async function processFile(
               continue;
             }
             
+            // Extract values from potentially complex objects
+            let lotNumber = item.lotNumber;
+            let expirationDate = item.expirationDate;
+            let serialNumber = item.serialNumber;
+            let gtin = item.gtin;
+            
+            // Handle complex objects with underscore property
+            if (typeof lotNumber === 'object' && lotNumber && 'hasOwnProperty' in lotNumber && lotNumber._) {
+              lotNumber = lotNumber._;
+            }
+            
+            if (typeof expirationDate === 'object' && expirationDate && 'hasOwnProperty' in expirationDate && expirationDate._) {
+              expirationDate = expirationDate._;
+            }
+            
+            if (typeof serialNumber === 'object' && serialNumber && 'hasOwnProperty' in serialNumber && serialNumber._) {
+              serialNumber = serialNumber._;
+            }
+            
+            if (typeof gtin === 'object' && gtin && 'hasOwnProperty' in gtin && gtin._) {
+              gtin = gtin._;
+            }
+            
             // Create a product item record
             await storage.createProductItem({
               fileId: file.id,
-              gtin: item.gtin,
-              serialNumber: item.serialNumber,
-              lotNumber: item.lotNumber,
-              expirationDate: new Date(item.expirationDate),
+              gtin: gtin,
+              serialNumber: serialNumber,
+              lotNumber: lotNumber,
+              expirationDate: expirationDate ? new Date(expirationDate) : new Date(), // Schema expects a Date
               eventTime: new Date(item.eventTime || Date.now()),
               sourceGln: item.sourceGln || null,
               destinationGln: item.destinationGln || null,

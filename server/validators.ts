@@ -501,14 +501,14 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                             // Also check for complex object structure in productInfo if it exists
                             if (metadata.productInfo && metadata.productInfo.lotNumber) {
                               const productInfoLot = metadata.productInfo.lotNumber;
-                              if (typeof productInfoLot === 'object' && productInfoLot._) {
+                              if (typeof productInfoLot === 'object' && productInfoLot && 'hasOwnProperty' in productInfoLot && productInfoLot._) {
                                 metadata.productInfo.lotNumber = productInfoLot._;
                               }
                             }
                             
                             if (metadata.productInfo && metadata.productInfo.expirationDate) {
                               const productInfoExp = metadata.productInfo.expirationDate;
-                              if (typeof productInfoExp === 'object' && productInfoExp._) {
+                              if (typeof productInfoExp === 'object' && productInfoExp && 'hasOwnProperty' in productInfoExp && productInfoExp._) {
                                 metadata.productInfo.expirationDate = productInfoExp._;
                               }
                             }
