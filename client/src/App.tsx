@@ -8,6 +8,9 @@ import FileHistoryPage from "@/pages/file-history-page";
 import FileDetailPage from "@/pages/file-detail-page";
 import SettingsPage from "@/pages/settings-page";
 import AuthPage from "@/pages/auth-page";
+import PurchaseOrdersPage from "@/pages/purchase-orders-page";
+import PurchaseOrderDetailPage from "@/pages/purchase-order-detail-page";
+import ValidationSessionPage from "@/pages/validation-session-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -21,6 +24,9 @@ function Router() {
       <ProtectedRoute path="/files" component={FileHistoryPage} />
       <ProtectedRoute path="/files/:id" component={FileDetailPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
+      <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
+      <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
+      <ProtectedRoute path="/purchase-orders/:id/validate" component={ValidationSessionPage} />
       <Route component={NotFound} />
     </Switch>
   );
