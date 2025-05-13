@@ -49,32 +49,35 @@ export default function ProductValidationDialog({
 
   // Handle successful scan
   const handleScanSuccess = (decodedText: string) => {
-    // Parse the QR code data
-    const parsedData = parseQRCode(decodedText);
-    
-    // Find matching products
-    const matches = productItems.map(productItem => {
-      const matchResult = compareWithEPCISData(parsedData, {
-        gtin: productItem.gtin,
-        lotNumber: productItem.lotNumber,
-        expirationDate: productItem.expirationDate,
-        serialNumber: productItem.serialNumber
-      });
+    try {
+      // Parse the QR code data
+      const parsedData = parseQRCode(decodedText);
       
-      return {
-        productItem,
-        matchResult
-      };
-    });
-
-    // Set the scan result
-    setScanResult({
-      timestamp: new Date(),
-      scannedData: parsedData,
-      matches
-    });
-    
-    // Process scan result
+      // Find matching products
+      const matches = productItems.map(productItem => {
+        const matchResult = compareWithEPCISData(parsedData, {
+          gtin: productItem.gtin,
+          lotNumber: productItem.lotNumber,
+          expirationDate: productItem.expirationDate,
+          serialNumber: productItem.serialNumber
+        });
+        
+        return {
+          productItem,
+          matchResult
+        };
+      });
+  
+      // Set the scan result
+      setScanResult({
+        timestamp: new Date(),
+        scannedData: parsedData,
+        matches
+      });
+    } catch (error) {
+      console.error("Error processing scan:", error);
+      // Could display an error message to the user here
+    }
   };
 
   // Find the best match (if any)
