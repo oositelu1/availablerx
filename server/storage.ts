@@ -10,6 +10,7 @@ import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import crypto from "crypto";
 import { v4 as uuidv4 } from 'uuid';
+import createMemoryStore from "memorystore";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -87,13 +88,19 @@ export class MemStorage implements IStorage {
     this.partners = new Map();
     this.files = new Map();
     this.transmissions = new Map();
+    this.presignedLinks = new Map();
     this.fileDataStorage = new Map();
+    
+    // Set the base URL for downloads
+    this.baseDownloadUrl = process.env.BASE_DOWNLOAD_URL || 'http://localhost:5000';
     
     this.userIdCounter = 1;
     this.partnerIdCounter = 1;
     this.fileIdCounter = 1;
     this.transmissionIdCounter = 1;
+    this.presignedLinkIdCounter = 1;
     
+    const MemoryStore = createMemoryStore(session);
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // Prune expired entries every 24h
     });
@@ -319,6 +326,97 @@ export class MemStorage implements IStorage {
   
   async retrieveFileData(fileId: number): Promise<Buffer | undefined> {
     return this.fileDataStorage.get(fileId);
+  }
+  
+  // Pre-signed URL management implementations
+  
+  async createPresignedLink(link: InsertPresignedLink): Promise<PresignedLink> {
+    // This is a simplified in-memory implementation
+    const id = ++this.presignedLinkIdCounter;
+    const createdAt = new Date();
+    
+    // Generate UUID if not provided
+    if (!link.uuid) {
+      link.uuid = uuidv4();
+    }
+    
+    // Hash the URL for security
+    if (!link.urlHash) {
+      const hash = crypto.createHash('sha256');
+      hash.update(link.uuid);
+      link.urlHash = hash.digest('hex');
+    }
+    
+    const newLink: PresignedLink = {
+      id,
+      createdAt,
+      ...link,
+    };
+    
+    this.presignedLinks.set(id, newLink);
+    return newLink;
+  }
+  
+  async getPresignedLinkByUuid(uuid: string): Promise<PresignedLink | undefined> {
+    for (const link of this.presignedLinks.values()) {
+      if (link.uuid === uuid) {
+        return link;
+      }
+    }
+    return undefined;
+  }
+  
+  async updatePresignedLink(id: number, updates: Partial<PresignedLink>): Promise<PresignedLink | undefined> {
+    const link = this.presignedLinks.get(id);
+    if (!link) return undefined;
+    
+    const updatedLink = { ...link, ...updates };
+    this.presignedLinks.set(id, updatedLink);
+    return updatedLink;
+  }
+  
+  async listPresignedLinksForPartner(partnerId: number, includeExpired: boolean = false): Promise<(PresignedLink & { file: File })[]> {
+    const now = new Date();
+    const links: (PresignedLink & { file: File })[] = [];
+    
+    for (const link of this.presignedLinks.values()) {
+      if (link.partnerId === partnerId) {
+        // Skip expired links unless explicitly asked to include them
+        if (!includeExpired && link.expiresAt < now) {
+          continue;
+        }
+        
+        const file = this.files.get(link.fileId);
+        if (file) {
+          links.push({ ...link, file });
+        }
+      }
+    }
+    
+    // Sort by createdAt in descending order
+    return links.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async listPresignedLinksForFile(fileId: number): Promise<(PresignedLink & { partner: Partner })[]> {
+    const links: (PresignedLink & { partner: Partner })[] = [];
+    
+    for (const link of this.presignedLinks.values()) {
+      if (link.fileId === fileId) {
+        const partner = this.partners.get(link.partnerId);
+        if (partner) {
+          links.push({ ...link, partner });
+        }
+      }
+    }
+    
+    // Sort by createdAt in descending order
+    return links.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async generatePresignedUrl(fileId: number, expirationSeconds: number = 172800): Promise<string> {
+    const uuid = uuidv4();
+    // Generate a download URL with the UUID
+    return `${this.baseDownloadUrl}/api/download/${uuid}`;
   }
 }
 
