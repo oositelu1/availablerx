@@ -1,0 +1,187 @@
+﻿Product Requirements Document (PRD)
+Title:
+EPCIS Compliance Validator with PO Association & QR Matching
+________________
+
+
+1. Objective
+Build a system that:
+* Associates EPCIS files from suppliers with internal Purchase Orders (POs) even if the PO number is not present in the EPCIS file.
+
+* Scans 2D barcodes (e.g., DSCSA-compliant DataMatrix codes) on physical drug products and extracts relevant data.
+
+* Compares extracted data (GTIN, Serial Number, Lot Number, Expiration Date) with data in the EPCIS XML file.
+
+* Flags discrepancies for compliance and operational follow-up.
+
+________________
+
+
+2. Stakeholders
+   * Distributor Operations (receiving & reconciliation)
+
+   * Compliance/Quality Assurance
+
+   * Warehouse Personnel
+
+   * IT / Data Integration Team
+
+________________
+
+
+3. Core Features
+3.1 PO Association Logic (even if PO is missing from EPCIS)
+      * Match EPCIS file to PO using fallback logic:
+
+         * Match by shipment date range.
+
+         * Match by GTIN(s) or product SKU overlaps.
+
+         * Match by sending GLN (supplier ID) + product + date.
+
+         * Allow manual linking to a PO (with UI override).
+
+         * Log PO-EPCIS link (auto or manual) with timestamp & user ID.
+
+3.2 EPCIS File Parsing
+            * Accept and parse EPCIS 1.2 XML files.
+
+            * Extract the following fields from shipping events:
+
+               * GTIN
+
+               * Serial Number
+
+               * Lot Number
+
+               * Expiration Date
+
+               * Event time
+
+               * bizTransactionList (including PO number if present)
+
+3.3 QR Code Scanning Module
+                  * Support 2D DataMatrix barcode scanning via:
+
+                     * Mobile device camera (app/webcam)
+
+                     * Dedicated barcode scanner (integration-ready)
+
+                        * Extract data encoded in GS1 format:
+
+                           * GTIN (01)
+
+                           * Serial Number (21)
+
+                           * Lot Number (10)
+
+                           * Expiration Date (17)
+
+3.4 Data Comparison Engine
+                              * Compare scanned data with EPCIS file data:
+
+                                 * Match all of: GTIN, Serial, Lot, Exp Date
+
+                                 * Flag any mismatches with descriptive error (e.g., “Serial number mismatch for GTIN 003456...”)
+
+                                    * Allow batch-level validation or individual item scan validation.
+
+                                    * Generate "PASS" / "FAIL" result with logs for compliance review.
+
+3.5 Audit Trail / Compliance Logs
+                                       * Store:
+
+                                          * Who scanned what and when
+
+                                          * Results of EPCIS vs physical match
+
+                                          * Linked PO number
+
+                                          * EPCIS file metadata (file name, hash, origin)
+
+                                             * Exportable audit reports for inspections or internal reviews.
+
+________________
+
+
+4. User Roles
+Role
+	Capabilities
+	Warehouse Staff
+	Scan QR codes, view scan result
+	Compliance Officer
+	Review flagged mismatches, export logs
+	Admin
+	Link EPCIS to PO, manage users, override matches
+	________________
+
+
+5. Technical Architecture Overview
+Frontend (Web or Mobile UI):
+                                                * PO-EPCIS linking dashboard
+
+                                                * QR scan interface
+
+                                                * Result viewer
+
+Backend:
+                                                   * EPCIS XML parser
+
+                                                   * Matching engine
+
+                                                   * Data store for scanned + parsed EPCIS + PO data
+
+                                                   * Audit logger
+
+Storage:
+                                                      * Database (PostgreSQL / MongoDB)
+
+                                                      * File system or object store (for EPCIS file retention)
+
+Optional Integrations:
+                                                         * SAP / ERP for PO data
+
+                                                         * Warehouse Management System (WMS)
+
+                                                         * EDI 850 (PO) and 856 (ASN) feeds for triangulation
+
+________________
+
+
+6. Edge Cases & Fallbacks
+Scenario
+	Handling
+	EPCIS has no PO
+	Use fallback matching logic (date + GTIN + supplier)
+	QR code unreadable
+	Allow manual entry or rescanning
+	Extra serials in EPCIS not received
+	Flag for investigation
+	Physical product not found in EPCIS
+	Alert & quarantine item
+	________________
+
+
+7. Compliance Support
+                                                            * DSCSA compliance alignment:
+
+                                                               * Electronic interoperable exchange of TI/TS
+
+                                                               * Validation of serialized data
+
+                                                               * Maintains 6-year record retention (with export option)
+
+________________
+
+
+8. Success Metrics
+Metric
+	Target
+	EPCIS to PO auto-matching success
+	≥ 85%
+	Barcode scan-to-compare time
+	< 3 seconds
+	Physical–EPCIS match accuracy
+	≥ 99%
+	Time to flag discrepancies
+	< 5 seconds per item
