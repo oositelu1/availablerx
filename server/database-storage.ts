@@ -18,6 +18,7 @@ const PostgresSessionStore = connectPg(session);
 export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
   private fileDataStorage: Map<number, Buffer>; // We'll keep this in-memory for now
+  private baseDownloadUrl: string;
   
   constructor() {
     this.sessionStore = new PostgresSessionStore({
@@ -26,6 +27,10 @@ export class DatabaseStorage implements IStorage {
     });
     
     this.fileDataStorage = new Map();
+    
+    // Set the base URL for downloads
+    // In production, this would come from environment variables
+    this.baseDownloadUrl = process.env.BASE_DOWNLOAD_URL || 'http://localhost:5000';
     
     // Create a default admin user if none exists
     this.ensureAdminUser();
@@ -313,5 +318,125 @@ export class DatabaseStorage implements IStorage {
   
   async retrieveFileData(fileId: number): Promise<Buffer | undefined> {
     return this.fileDataStorage.get(fileId);
+  }
+  
+  // Pre-signed URL management
+  
+  /**
+   * Create a new pre-signed link for a file to share with a partner
+   */
+  async createPresignedLink(link: InsertPresignedLink): Promise<PresignedLink> {
+    // Generate UUID if not provided
+    if (!link.uuid) {
+      link.uuid = uuidv4();
+    }
+    
+    // Hash the URL for security
+    if (!link.urlHash) {
+      const hash = crypto.createHash('sha256');
+      hash.update(link.uuid);
+      link.urlHash = hash.digest('hex');
+    }
+    
+    // Insert the link record
+    const [newLink] = await db
+      .insert(presignedLinks)
+      .values(link)
+      .returning();
+      
+    return newLink;
+  }
+  
+  /**
+   * Get a pre-signed link by its UUID
+   */
+  async getPresignedLinkByUuid(uuid: string): Promise<PresignedLink | undefined> {
+    const [link] = await db
+      .select()
+      .from(presignedLinks)
+      .where(eq(presignedLinks.uuid, uuid));
+      
+    return link;
+  }
+  
+  /**
+   * Update a pre-signed link's properties
+   */
+  async updatePresignedLink(id: number, updates: Partial<PresignedLink>): Promise<PresignedLink | undefined> {
+    const [updatedLink] = await db
+      .update(presignedLinks)
+      .set(updates)
+      .where(eq(presignedLinks.id, id))
+      .returning();
+      
+    return updatedLink;
+  }
+  
+  /**
+   * List all pre-signed links for a partner, with file details
+   */
+  async listPresignedLinksForPartner(partnerId: number, includeExpired: boolean = false): Promise<(PresignedLink & { file: File })[]> {
+    const now = new Date();
+    
+    // Build query conditions
+    const conditions = [
+      eq(presignedLinks.partnerId, partnerId),
+    ];
+    
+    // Only include active links unless explicitly asked for expired ones
+    if (!includeExpired) {
+      conditions.push(gte(presignedLinks.expiresAt, now));
+    }
+    
+    // Get links with file information
+    const links = await db
+      .select({
+        ...presignedLinks,
+        file: files,
+      })
+      .from(presignedLinks)
+      .where(and(...conditions))
+      .innerJoin(files, eq(presignedLinks.fileId, files.id))
+      .orderBy(desc(presignedLinks.createdAt));
+      
+    return links;
+  }
+  
+  /**
+   * List all pre-signed links created for a specific file
+   */
+  async listPresignedLinksForFile(fileId: number): Promise<(PresignedLink & { partner: Partner })[]> {
+    const links = await db
+      .select({
+        ...presignedLinks,
+        partner: partners,
+      })
+      .from(presignedLinks)
+      .where(eq(presignedLinks.fileId, fileId))
+      .innerJoin(partners, eq(presignedLinks.partnerId, partners.id))
+      .orderBy(desc(presignedLinks.createdAt));
+      
+    return links;
+  }
+  
+  /**
+   * Generate a pre-signed URL for downloading a file
+   * For simplicity, we're just creating a URL with a UUID that our server will validate
+   * In production, you would use S3 pre-signed URLs or similar technology
+   */
+  async generatePresignedUrl(fileId: number, expirationSeconds: number = 172800): Promise<string> {
+    const uuid = uuidv4();
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + expirationSeconds);
+    
+    // Create the hash for validation
+    const hash = crypto.createHash('sha256');
+    hash.update(uuid);
+    const urlHash = hash.digest('hex');
+    
+    // Generate the URL
+    const downloadUrl = `${this.baseDownloadUrl}/api/download/${uuid}`;
+    
+    return downloadUrl;
   }
 }

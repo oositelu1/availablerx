@@ -54,6 +54,7 @@ export interface IStorage {
   updatePresignedLink(id: number, updates: Partial<PresignedLink>): Promise<PresignedLink | undefined>;
   listPresignedLinksForPartner(partnerId: number, includeExpired?: boolean): Promise<(PresignedLink & { file: File })[]>;
   listPresignedLinksForFile(fileId: number): Promise<(PresignedLink & { partner: Partner })[]>;
+  generatePresignedUrl(fileId: number, expirationSeconds?: number): Promise<string>;
   
   // Storage for file data (raw files)
   storeFileData(data: Buffer, fileId: number): Promise<string>;
@@ -70,13 +71,16 @@ export class MemStorage implements IStorage {
   private partners: Map<number, Partner>;
   private files: Map<number, File>;
   private transmissions: Map<number, Transmission>;
+  private presignedLinks: Map<number, PresignedLink>;
   private fileDataStorage: Map<number, Buffer>;
   sessionStore: session.Store;
+  private baseDownloadUrl: string;
   
   private userIdCounter: number;
   private partnerIdCounter: number;
   private fileIdCounter: number;
   private transmissionIdCounter: number;
+  private presignedLinkIdCounter: number;
 
   constructor() {
     this.users = new Map();
