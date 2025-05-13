@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart } from "lucide-react";
-import QRScanner from "@/components/qr-scanner";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 
 interface ProductValidationDialogProps {
@@ -26,7 +25,6 @@ export default function ProductValidationDialog({
   productItems,
   poId
 }: ProductValidationDialogProps) {
-  const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -41,6 +39,13 @@ export default function ProductValidationDialog({
       }
     }>;
   } | null>(null);
+  
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setScanResult(null);
+    }
+  }, [isOpen]);
 
   // Handle successful scan
   const handleScanSuccess = (decodedText: string) => {
@@ -69,8 +74,7 @@ export default function ProductValidationDialog({
       matches
     });
     
-    // Close the scanner
-    setShowScanner(false);
+    // Process scan result
   };
 
   // Find the best match (if any)
@@ -103,7 +107,6 @@ export default function ProductValidationDialog({
   // Reset scanning
   const handleReset = () => {
     setScanResult(null);
-    setShowScanner(false);
   };
 
   // Format a date for display
@@ -132,15 +135,6 @@ export default function ProductValidationDialog({
 
   // Content to display
   const renderContent = () => {
-    if (showScanner) {
-      return (
-        <QRScanner 
-          onScanSuccess={handleScanSuccess}
-          onClose={() => setShowScanner(false)}
-        />
-      );
-    }
-    
     if (scanResult) {
       const { scannedData, matches } = scanResult;
       const foundMatches = matches.filter(m => m.matchResult.matches);
@@ -273,17 +267,17 @@ export default function ProductValidationDialog({
           </p>
         </div>
         
-        <div className="flex flex-col gap-4 items-center">
-          <div className="w-full max-w-xs bg-amber-50 border border-amber-200 rounded-md p-3 text-sm">
-            <div className="font-medium text-amber-800 flex items-center mb-1">
-              <AlertTriangle className="h-4 w-4 mr-1" />
-              Recommended for Testing
+        <div className="flex flex-col gap-3 items-center">
+          <div className="w-full max-w-xs bg-blue-50 border border-blue-200 rounded-md p-4 text-sm shadow-sm">
+            <div className="font-semibold text-blue-800 flex items-center mb-2">
+              <CheckCircle className="h-5 w-5 mr-2 text-blue-600" />
+              Test with Sample Data
             </div>
-            <p className="text-amber-700 mb-2 text-xs">
-              Camera access often fails in sandbox environments. Use sample data for reliable testing.
+            <p className="text-blue-700 mb-3 text-sm">
+              This option uses data from the current EPCIS file to create a valid GS1 code for testing.
             </p>
             <Button 
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => {
                 // Use data from the first product item for testing
                 if (productItems && productItems.length > 0) {
@@ -300,19 +294,19 @@ export default function ProductValidationDialog({
                 }
               }}
             >
-              Use Sample Data
+              Use Sample Data for Testing
             </Button>
           </div>
           
-          <div className="text-sm text-muted-foreground">- or try -</div>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => setShowScanner(true)} 
-            className="w-full max-w-xs"
-          >
-            Start Camera Scanning
-          </Button>
+          <div className="rounded-md bg-gray-50 border border-gray-200 w-full max-w-xs p-3 text-sm">
+            <div className="font-medium text-gray-600 flex items-center mb-1">
+              <AlertTriangle className="h-4 w-4 mr-1 text-gray-500" />
+              Camera Scanning Not Available
+            </div>
+            <p className="text-gray-500 text-xs">
+              Camera scanning is disabled in this environment due to browser security constraints.
+            </p>
+          </div>
         </div>
         
         <div className="bg-muted/40 rounded-md p-3 text-sm">
