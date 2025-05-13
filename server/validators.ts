@@ -325,22 +325,70 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
     
     // Try to find vocabulary elements in EPCISMasterData
     try {
+      console.log('Attempting to extract product info from XML');
       const epcisHeader = result.EPCISDocument.EPCISHeader || result.EPCISDocument['epcis:EPCISHeader'];
-      if (epcisHeader && epcisHeader.extension && epcisHeader.extension.EPCISMasterData) {
-        const masterData = epcisHeader.extension.EPCISMasterData;
+      
+      if (!epcisHeader) {
+        console.log('No EPCISHeader found in document');
+        return { valid: true, metadata };
+      }
+      
+      if (!epcisHeader.extension) {
+        console.log('No extension found in EPCISHeader');
+        return { valid: true, metadata };
+      }
+      
+      if (!epcisHeader.extension.EPCISMasterData) {
+        console.log('No EPCISMasterData found in extension');
+        return { valid: true, metadata };
+      }
+      
+      const masterData = epcisHeader.extension.EPCISMasterData;
+      
+      if (!masterData.VocabularyList || !masterData.VocabularyList.Vocabulary) {
+        console.log('No Vocabulary found in VocabularyList');
+        return { valid: true, metadata };
+      }
+      
+      const vocabularies = Array.isArray(masterData.VocabularyList.Vocabulary) 
+        ? masterData.VocabularyList.Vocabulary 
+        : [masterData.VocabularyList.Vocabulary];
+      
+      console.log(`Found ${vocabularies.length} vocabularies to process`);
+      
+      for (const vocab of vocabularies) {
+        // Look for EPCClass vocabulary which contains product info
+        if (!vocab.ATTRS) {
+          console.log('Vocabulary missing ATTRS property');
+          continue;
+        }
         
-        if (masterData.VocabularyList && masterData.VocabularyList.Vocabulary) {
-          const vocabularies = Array.isArray(masterData.VocabularyList.Vocabulary) 
-            ? masterData.VocabularyList.Vocabulary 
-            : [masterData.VocabularyList.Vocabulary];
+        if (!vocab.ATTRS.type) {
+          console.log('Vocabulary ATTRS missing type property');
+          continue;
+        }
+        
+        const typeValue = vocab.ATTRS.type;
+        console.log(`Vocabulary type: ${typeof typeValue === 'object' ? JSON.stringify(typeValue) : typeValue}`);
+        
+        const isEpcClass = typeof typeValue === 'string' 
+          ? typeValue.includes('EPCClass') 
+          : String(typeValue).includes('EPCClass');
+        
+        if (isEpcClass) {
+          if (!vocab.VocabularyElementList) {
+            console.log('EPCClass vocabulary has no VocabularyElementList');
+            continue;
+          }
           
-          for (const vocab of vocabularies) {
-            // Look for EPCClass vocabulary which contains product info
-            if (vocab.ATTRS && vocab.ATTRS.type && vocab.ATTRS.type.includes('EPCClass')) {
-              if (vocab.VocabularyElementList && vocab.VocabularyElementList.VocabularyElement) {
-                const elements = Array.isArray(vocab.VocabularyElementList.VocabularyElement)
-                  ? vocab.VocabularyElementList.VocabularyElement
-                  : [vocab.VocabularyElementList.VocabularyElement];
+          if (!vocab.VocabularyElementList.VocabularyElement) {
+            console.log('VocabularyElementList has no VocabularyElement');
+            continue;
+          }
+          
+          const elements = Array.isArray(vocab.VocabularyElementList.VocabularyElement)
+            ? vocab.VocabularyElementList.VocabularyElement
+            : [vocab.VocabularyElementList.VocabularyElement];
                 
                 for (const element of elements) {
                   if (element.attribute) {
@@ -354,19 +402,33 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                         const attrId = attr.ATTRS.id;
                         const value = attr._;
                         
+                        const safeIncludes = (str: any, searchValue: string) => {
+                          if (typeof str === 'string') {
+                            return str.includes(searchValue);
+                          }
+                          return String(str).includes(searchValue);
+                        };
+                        
+                        const safeEquals = (a: any, b: string) => {
+                          if (typeof a === 'string') {
+                            return a === b;
+                          }
+                          return String(a) === b;
+                        };
+                        
                         // Map to product info fields
-                        if (attrId.includes('regulatedProductName')) {
+                        if (safeIncludes(attrId, 'regulatedProductName')) {
                           metadata.productInfo.name = value;
-                        } else if (attrId.includes('dosageFormType')) {
+                        } else if (safeIncludes(attrId, 'dosageFormType')) {
                           metadata.productInfo.dosageForm = value;
-                        } else if (attrId.includes('strengthDescription')) {
+                        } else if (safeIncludes(attrId, 'strengthDescription')) {
                           metadata.productInfo.strength = value;
-                        } else if (attrId.includes('additionalTradeItemIdentification') && 
-                                  (attr.ATTRS.typeCode === 'FDA_NDC_11' || attrId.includes('NDC'))) {
+                        } else if (safeIncludes(attrId, 'additionalTradeItemIdentification') && 
+                                  (safeEquals(attr.ATTRS.typeCode, 'FDA_NDC_11') || safeIncludes(attrId, 'NDC'))) {
                           metadata.productInfo.ndc = value;
-                        } else if (attrId.includes('netContentDescription')) {
+                        } else if (safeIncludes(attrId, 'netContentDescription')) {
                           metadata.productInfo.netContent = value;
-                        } else if (attrId.includes('manufacturerOfTradeItemPartyName')) {
+                        } else if (safeIncludes(attrId, 'manufacturerOfTradeItemPartyName')) {
                           metadata.productInfo.manufacturer = value;
                         }
                       }
