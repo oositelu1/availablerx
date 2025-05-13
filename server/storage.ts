@@ -57,6 +57,51 @@ export interface IStorage {
   listPresignedLinksForFile(fileId: number): Promise<(PresignedLink & { partner: Partner })[]>;
   generatePresignedUrl(fileId: number, expirationSeconds?: number): Promise<string>;
   
+  // Purchase Order management
+  createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;
+  getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined>;
+  getPurchaseOrderByPoNumber(poNumber: string): Promise<PurchaseOrder | undefined>;
+  updatePurchaseOrder(id: number, updates: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined>;
+  listPurchaseOrders(filters?: {
+    status?: string;
+    supplierGln?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ orders: PurchaseOrder[], total: number }>;
+  
+  // EPCIS-PO Association management
+  createEpcisPoAssociation(association: InsertEpcisPoAssociation): Promise<EpcisPoAssociation>;
+  getEpcisPoAssociation(id: number): Promise<EpcisPoAssociation | undefined>;
+  updateEpcisPoAssociation(id: number, updates: Partial<EpcisPoAssociation>): Promise<EpcisPoAssociation | undefined>;
+  listEpcisPoAssociationsForFile(fileId: number): Promise<(EpcisPoAssociation & { po: PurchaseOrder })[]>;
+  listEpcisPoAssociationsForPO(poId: number): Promise<(EpcisPoAssociation & { file: File })[]>;
+  
+  // Product Item management
+  createProductItem(item: InsertProductItem): Promise<ProductItem>;
+  getProductItem(id: number): Promise<ProductItem | undefined>;
+  findProductItemBySGTIN(gtin: string, serialNumber: string): Promise<ProductItem | undefined>;
+  findProductItemsByLot(gtin: string, lotNumber: string): Promise<ProductItem[]>;
+  listProductItemsForFile(fileId: number): Promise<ProductItem[]>;
+  listProductItemsForPO(poId: number): Promise<ProductItem[]>;
+  
+  // Scanned Item management
+  createScannedItem(item: InsertScannedItem): Promise<ScannedItem>;
+  getScannedItem(id: number): Promise<ScannedItem | undefined>;
+  updateScannedItem(id: number, updates: Partial<ScannedItem>): Promise<ScannedItem | undefined>;
+  listScannedItemsForSession(sessionId: number): Promise<ScannedItem[]>;
+  
+  // Validation Session management
+  createValidationSession(session: InsertValidationSession): Promise<ValidationSession>;
+  getValidationSession(id: number): Promise<ValidationSession | undefined>;
+  updateValidationSession(id: number, updates: Partial<ValidationSession>): Promise<ValidationSession | undefined>;
+  listValidationSessionsForPO(poId: number): Promise<ValidationSession[]>;
+  
+  // Audit Log management
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  listAuditLogs(entityType?: string, entityId?: number, limit?: number, offset?: number): Promise<{ logs: AuditLog[], total: number }>;
+  
   // Storage for file data (raw files)
   storeFileData(data: Buffer, fileId: number): Promise<string>;
   retrieveFileData(fileId: number): Promise<Buffer | undefined>;
