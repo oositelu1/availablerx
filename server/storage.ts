@@ -1,7 +1,14 @@
-import { users, partners, files, transmissions, presignedLinks } from "@shared/schema";
+import { 
+  users, partners, files, transmissions, presignedLinks,
+  purchaseOrders, epcisPoAssociations, productItems, scannedItems,
+  validationSessions, auditLogs 
+} from "@shared/schema";
 import type { 
   User, InsertUser, Partner, InsertPartner, File, InsertFile, 
-  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink 
+  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink,
+  PurchaseOrder, InsertPurchaseOrder, EpcisPoAssociation, InsertEpcisPoAssociation,
+  ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
+  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";

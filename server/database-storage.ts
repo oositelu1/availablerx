@@ -1,7 +1,14 @@
-import { users, partners, files, transmissions, presignedLinks } from "@shared/schema";
+import { 
+  users, partners, files, transmissions, presignedLinks,
+  purchaseOrders, epcisPoAssociations, productItems, scannedItems,
+  validationSessions, auditLogs
+} from "@shared/schema";
 import type { 
   User, InsertUser, Partner, InsertPartner, File, InsertFile, 
-  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink 
+  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink,
+  PurchaseOrder, InsertPurchaseOrder, EpcisPoAssociation, InsertEpcisPoAssociation,
+  ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
+  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
@@ -438,5 +445,382 @@ export class DatabaseStorage implements IStorage {
     const downloadUrl = `${this.baseDownloadUrl}/api/download/${uuid}`;
     
     return downloadUrl;
+  }
+
+  // Purchase Order Management
+
+  async createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    const [purchaseOrder] = await db.insert(purchaseOrders).values({
+      poNumber: order.poNumber,
+      supplierGln: order.supplierGln,
+      orderDate: order.orderDate,
+      expectedDeliveryDate: order.expectedDeliveryDate || null,
+      status: order.status || 'open',
+      createdBy: order.createdBy,
+      metadata: order.metadata || null
+    }).returning();
+    
+    return purchaseOrder;
+  }
+
+  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
+    const [purchaseOrder] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+    return purchaseOrder;
+  }
+
+  async getPurchaseOrderByPoNumber(poNumber: string): Promise<PurchaseOrder | undefined> {
+    const [purchaseOrder] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.poNumber, poNumber));
+    return purchaseOrder;
+  }
+
+  async updatePurchaseOrder(id: number, updates: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined> {
+    const [updatedOrder] = await db.update(purchaseOrders)
+      .set(updates)
+      .where(eq(purchaseOrders.id, id))
+      .returning();
+    
+    return updatedOrder;
+  }
+
+  async listPurchaseOrders(filters?: {
+    status?: string;
+    supplierGln?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ orders: PurchaseOrder[], total: number }> {
+    // Create a base query
+    let ordersQuery = db.select().from(purchaseOrders);
+    let countQuery = db.select().from(purchaseOrders);
+    
+    // Create a filter array to hold conditions
+    let conditions = [];
+    
+    // Add conditions based on filters
+    if (filters?.status) {
+      conditions.push(eq(purchaseOrders.status, filters.status));
+    }
+    
+    if (filters?.supplierGln) {
+      conditions.push(eq(purchaseOrders.supplierGln, filters.supplierGln));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(gte(purchaseOrders.orderDate, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      conditions.push(lte(purchaseOrders.orderDate, filters.endDate));
+    }
+    
+    // Apply the conditions to both queries
+    if (conditions.length > 0) {
+      ordersQuery = ordersQuery.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+    
+    // Get total count
+    const [countResult] = await countQuery;
+    const total = countResult ? Object.keys(countResult).length : 0;
+    
+    // Apply sorting and pagination
+    ordersQuery = ordersQuery.orderBy(desc(purchaseOrders.orderDate));
+    
+    if (filters?.limit !== undefined) {
+      ordersQuery = ordersQuery.limit(filters.limit);
+    }
+    
+    if (filters?.offset !== undefined) {
+      ordersQuery = ordersQuery.offset(filters.offset);
+    }
+    
+    // Execute the query
+    const ordersResult = await ordersQuery;
+    
+    return { 
+      orders: ordersResult, 
+      total: total || ordersResult.length 
+    };
+  }
+
+  // EPCIS-PO Association management
+
+  async createEpcisPoAssociation(association: InsertEpcisPoAssociation): Promise<EpcisPoAssociation> {
+    const [newAssociation] = await db.insert(epcisPoAssociations).values({
+      fileId: association.fileId,
+      poId: association.poId,
+      associationMethod: association.associationMethod,
+      confidence: association.confidence || null,
+      createdBy: association.createdBy,
+      notes: association.notes || null
+    }).returning();
+    
+    return newAssociation;
+  }
+
+  async getEpcisPoAssociation(id: number): Promise<EpcisPoAssociation | undefined> {
+    const [association] = await db.select().from(epcisPoAssociations).where(eq(epcisPoAssociations.id, id));
+    return association;
+  }
+
+  async updateEpcisPoAssociation(id: number, updates: Partial<EpcisPoAssociation>): Promise<EpcisPoAssociation | undefined> {
+    const [updatedAssociation] = await db.update(epcisPoAssociations)
+      .set(updates)
+      .where(eq(epcisPoAssociations.id, id))
+      .returning();
+    
+    return updatedAssociation;
+  }
+
+  async listEpcisPoAssociationsForFile(fileId: number): Promise<(EpcisPoAssociation & { po: PurchaseOrder })[]> {
+    const associations = await db
+      .select({
+        ...epcisPoAssociations,
+        po: purchaseOrders,
+      })
+      .from(epcisPoAssociations)
+      .where(eq(epcisPoAssociations.fileId, fileId))
+      .innerJoin(purchaseOrders, eq(epcisPoAssociations.poId, purchaseOrders.id))
+      .orderBy(desc(epcisPoAssociations.createdAt));
+      
+    return associations;
+  }
+
+  async listEpcisPoAssociationsForPO(poId: number): Promise<(EpcisPoAssociation & { file: File })[]> {
+    const associations = await db
+      .select({
+        ...epcisPoAssociations,
+        file: files,
+      })
+      .from(epcisPoAssociations)
+      .where(eq(epcisPoAssociations.poId, poId))
+      .innerJoin(files, eq(epcisPoAssociations.fileId, files.id))
+      .orderBy(desc(epcisPoAssociations.createdAt));
+      
+    return associations;
+  }
+
+  // Product Item Management
+
+  async createProductItem(item: InsertProductItem): Promise<ProductItem> {
+    const [productItem] = await db.insert(productItems).values({
+      fileId: item.fileId,
+      gtin: item.gtin,
+      serialNumber: item.serialNumber,
+      lotNumber: item.lotNumber,
+      expirationDate: item.expirationDate,
+      eventTime: item.eventTime,
+      sourceGln: item.sourceGln || null,
+      destinationGln: item.destinationGln || null,
+      bizTransactionList: item.bizTransactionList || null,
+      poId: item.poId || null
+    }).returning();
+    
+    return productItem;
+  }
+
+  async getProductItem(id: number): Promise<ProductItem | undefined> {
+    const [item] = await db.select().from(productItems).where(eq(productItems.id, id));
+    return item;
+  }
+
+  async findProductItemBySGTIN(gtin: string, serialNumber: string): Promise<ProductItem | undefined> {
+    const [item] = await db.select()
+      .from(productItems)
+      .where(and(
+        eq(productItems.gtin, gtin),
+        eq(productItems.serialNumber, serialNumber)
+      ));
+    return item;
+  }
+
+  async findProductItemsByLot(gtin: string, lotNumber: string): Promise<ProductItem[]> {
+    return db.select()
+      .from(productItems)
+      .where(and(
+        eq(productItems.gtin, gtin),
+        eq(productItems.lotNumber, lotNumber)
+      ));
+  }
+
+  async listProductItemsForFile(fileId: number): Promise<ProductItem[]> {
+    return db.select()
+      .from(productItems)
+      .where(eq(productItems.fileId, fileId))
+      .orderBy(desc(productItems.eventTime));
+  }
+
+  async listProductItemsForPO(poId: number): Promise<ProductItem[]> {
+    return db.select()
+      .from(productItems)
+      .where(eq(productItems.poId, poId))
+      .orderBy(desc(productItems.eventTime));
+  }
+
+  // Scanned Item Management
+
+  async createScannedItem(item: InsertScannedItem): Promise<ScannedItem> {
+    const [scannedItem] = await db.insert(scannedItems).values({
+      gtin: item.gtin,
+      serialNumber: item.serialNumber,
+      lotNumber: item.lotNumber,
+      expirationDate: item.expirationDate,
+      rawData: item.rawData,
+      scannedBy: item.scannedBy,
+      scannedVia: item.scannedVia,
+      productItemId: item.productItemId || null,
+      matchResult: item.matchResult,
+      mismatchReason: item.mismatchReason || null,
+      poId: item.poId || null
+    }).returning();
+    
+    return scannedItem;
+  }
+
+  async getScannedItem(id: number): Promise<ScannedItem | undefined> {
+    const [item] = await db.select().from(scannedItems).where(eq(scannedItems.id, id));
+    return item;
+  }
+
+  async updateScannedItem(id: number, updates: Partial<ScannedItem>): Promise<ScannedItem | undefined> {
+    const [updatedItem] = await db.update(scannedItems)
+      .set(updates)
+      .where(eq(scannedItems.id, id))
+      .returning();
+    
+    return updatedItem;
+  }
+
+  async listScannedItemsForSession(sessionId: number): Promise<ScannedItem[]> {
+    // We need to join with validation_sessions and get items scanned within the session timeframe
+    const session = await this.getValidationSession(sessionId);
+    
+    if (!session) {
+      return [];
+    }
+    
+    let query = db.select()
+      .from(scannedItems)
+      .where(
+        and(
+          eq(scannedItems.scannedBy, session.startedBy),
+          gte(scannedItems.scannedAt, session.startedAt)
+        )
+      );
+    
+    // If session is completed, add end time boundary
+    if (session.completedAt) {
+      query = query.where(lte(scannedItems.scannedAt, session.completedAt));
+    }
+    
+    // If session has PO associated, filter by that PO
+    if (session.poId) {
+      query = query.where(eq(scannedItems.poId, session.poId));
+    }
+    
+    return query.orderBy(desc(scannedItems.scannedAt));
+  }
+
+  // Validation Session Management
+
+  async createValidationSession(session: InsertValidationSession): Promise<ValidationSession> {
+    const [validationSession] = await db.insert(validationSessions).values({
+      poId: session.poId || null,
+      fileId: session.fileId || null,
+      startedBy: session.startedBy,
+      status: session.status || 'in_progress',
+      notes: session.notes || null
+    }).returning();
+    
+    return validationSession;
+  }
+
+  async getValidationSession(id: number): Promise<ValidationSession | undefined> {
+    const [session] = await db.select().from(validationSessions).where(eq(validationSessions.id, id));
+    return session;
+  }
+
+  async updateValidationSession(id: number, updates: Partial<ValidationSession>): Promise<ValidationSession | undefined> {
+    const [updatedSession] = await db.update(validationSessions)
+      .set(updates)
+      .where(eq(validationSessions.id, id))
+      .returning();
+    
+    return updatedSession;
+  }
+
+  async listValidationSessionsForPO(poId: number): Promise<ValidationSession[]> {
+    return db.select()
+      .from(validationSessions)
+      .where(eq(validationSessions.poId, poId))
+      .orderBy(desc(validationSessions.startedAt));
+  }
+
+  // Audit Log Management
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [auditLog] = await db.insert(auditLogs).values({
+      action: log.action,
+      entityType: log.entityType,
+      entityId: log.entityId,
+      userId: log.userId,
+      details: log.details || null,
+      ipAddress: log.ipAddress || null
+    }).returning();
+    
+    return auditLog;
+  }
+
+  async listAuditLogs(entityType?: string, entityId?: number, limit?: number, offset?: number): Promise<{ logs: AuditLog[], total: number }> {
+    // Create base queries
+    let logsQuery = db.select().from(auditLogs);
+    let countQuery = db.select().from(auditLogs);
+    
+    // Apply entity filtering if specified
+    if (entityType && entityId) {
+      logsQuery = logsQuery.where(
+        and(
+          eq(auditLogs.entityType, entityType),
+          eq(auditLogs.entityId, entityId)
+        )
+      );
+      
+      countQuery = countQuery.where(
+        and(
+          eq(auditLogs.entityType, entityType),
+          eq(auditLogs.entityId, entityId)
+        )
+      );
+    } else if (entityType) {
+      logsQuery = logsQuery.where(eq(auditLogs.entityType, entityType));
+      countQuery = countQuery.where(eq(auditLogs.entityType, entityType));
+    } else if (entityId) {
+      logsQuery = logsQuery.where(eq(auditLogs.entityId, entityId));
+      countQuery = countQuery.where(eq(auditLogs.entityId, entityId));
+    }
+    
+    // Get total count
+    const [countResult] = await countQuery;
+    const total = countResult ? Object.keys(countResult).length : 0;
+    
+    // Apply sorting and pagination
+    logsQuery = logsQuery.orderBy(desc(auditLogs.timestamp));
+    
+    if (limit !== undefined) {
+      logsQuery = logsQuery.limit(limit);
+    }
+    
+    if (offset !== undefined) {
+      logsQuery = logsQuery.offset(offset);
+    }
+    
+    // Execute the query
+    const logsResult = await logsQuery;
+    
+    return { 
+      logs: logsResult, 
+      total: total || logsResult.length 
+    };
   }
 }
