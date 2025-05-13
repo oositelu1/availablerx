@@ -91,6 +91,12 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
     if (xmlData.epcis) {
       console.log('Found epcis at root');
       epcisRoot = xmlData.epcis;
+    } else if (xmlData.EPCISDocument) {
+      console.log('Found EPCISDocument at root');
+      epcisRoot = xmlData.EPCISDocument;
+    } else if (xmlData['epcis:EPCISDocument']) {
+      console.log('Found namespaced epcis:EPCISDocument at root');
+      epcisRoot = xmlData['epcis:EPCISDocument'];
     } else {
       // Try alternate root element names
       const rootKeys = Object.keys(xmlData);
