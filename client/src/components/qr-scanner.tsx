@@ -33,13 +33,6 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     setError(null);
     
     try {
-      // First, let's check if camera permissions are granted
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-      } catch (permissionErr) {
-        throw new Error("Camera permission denied. Please allow camera access to scan codes.");
-      }
-      
       const html5QrCode = new Html5Qrcode(scannerContainerId);
       qrScannerRef.current = html5QrCode;
       
@@ -51,17 +44,15 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
           const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
           const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
           return { width: qrboxSize, height: qrboxSize };
-        },
-        aspectRatio: 1.0
+        }
       };
       
-      // For browser compatibility, it's better to use 'user' facing mode first
-      // as some browsers default to this and require explicit permission for 'environment'
-      const cameraId = "environment";
+      // Use camera constraints with fewer restrictions
+      const cameraConstraints = { facingMode: "environment" };
       
       // Start scanning
       await html5QrCode.start(
-        cameraId, 
+        cameraConstraints, 
         config,
         (decodedText, decodedResult) => {
           // On successful scan
@@ -75,7 +66,21 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       );
     } catch (err) {
       setIsScanning(false);
-      const errorMsg = err instanceof Error ? err.message : String(err);
+      let errorMsg = err instanceof Error ? err.message : String(err);
+      
+      // Make error messages more user-friendly
+      if (errorMsg.includes("OverconstrainedError")) {
+        errorMsg = "Camera constraints cannot be satisfied. This is common in sandboxed environments like Replit or when no camera is available.";
+      } else if (errorMsg.includes("NotAllowedError")) {
+        errorMsg = "Camera access was denied. Please allow camera access in your browser settings.";
+      } else if (errorMsg.includes("NotFoundError")) {
+        errorMsg = "No camera found. Please ensure your device has a camera and it's not being used by another application.";
+      } else if (errorMsg.includes("NotReadableError")) {
+        errorMsg = "Camera is in use by another application or not accessible.";
+      } else if (errorMsg.includes("AbortError")) {
+        errorMsg = "Camera access was aborted. Please try again.";
+      }
+      
       setError(`Failed to start camera: ${errorMsg}`);
       if (onScanError) onScanError(`Failed to start camera: ${errorMsg}`);
     }

@@ -273,33 +273,45 @@ export default function ProductValidationDialog({
           </p>
         </div>
         
-        <div className="flex flex-col gap-3 items-center">
-          <Button onClick={() => setShowScanner(true)} className="w-full max-w-xs">
-            Start Scanning
-          </Button>
+        <div className="flex flex-col gap-4 items-center">
+          <div className="w-full max-w-xs bg-amber-50 border border-amber-200 rounded-md p-3 text-sm">
+            <div className="font-medium text-amber-800 flex items-center mb-1">
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              Recommended for Testing
+            </div>
+            <p className="text-amber-700 mb-2 text-xs">
+              Camera access often fails in sandbox environments. Use sample data for reliable testing.
+            </p>
+            <Button 
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => {
+                // Use data from the first product item for testing
+                if (productItems && productItems.length > 0) {
+                  const firstItem = productItems[0];
+                  // Create a GS1 DataMatrix code format from actual product data
+                  const sampleCode = `(01)${firstItem.gtin}(10)${firstItem.lotNumber}(17)${
+                    new Date(firstItem.expirationDate).toISOString().split('T')[0].replace(/-/g, '').substring(2)
+                  }(21)${firstItem.serialNumber}`;
+                  handleScanSuccess(sampleCode);
+                } else {
+                  // Fallback sample if no product items are available
+                  const sampleCode = "(01)03090123456789(10)ABC123(17)240530(21)XYZ987654321";
+                  handleScanSuccess(sampleCode);
+                }
+              }}
+            >
+              Use Sample Data
+            </Button>
+          </div>
           
-          <div className="text-sm text-muted-foreground">- or -</div>
+          <div className="text-sm text-muted-foreground">- or try -</div>
           
           <Button 
             variant="outline" 
-            onClick={() => {
-              // Use data from the first product item for testing
-              if (productItems && productItems.length > 0) {
-                const firstItem = productItems[0];
-                // Create a GS1 DataMatrix code format from actual product data
-                const sampleCode = `(01)${firstItem.gtin}(10)${firstItem.lotNumber}(17)${
-                  new Date(firstItem.expirationDate).toISOString().split('T')[0].replace(/-/g, '').substring(2)
-                }(21)${firstItem.serialNumber}`;
-                handleScanSuccess(sampleCode);
-              } else {
-                // Fallback sample if no product items are available
-                const sampleCode = "(01)03090123456789(10)ABC123(17)240530(21)XYZ987654321";
-                handleScanSuccess(sampleCode);
-              }
-            }}
+            onClick={() => setShowScanner(true)} 
             className="w-full max-w-xs"
           >
-            Use Sample Data (For Testing)
+            Start Camera Scanning
           </Button>
         </div>
         
@@ -313,10 +325,11 @@ export default function ProductValidationDialog({
           </ul>
           
           <div className="mt-2 pt-2 border-t border-dashed border-muted">
-            <h4 className="font-medium mb-1">Note:</h4>
+            <h4 className="font-medium mb-1">Important Note:</h4>
             <p className="text-xs text-muted-foreground">
-              Camera access may require secure context (HTTPS) and camera permission.
-              If scanning doesn't work, use the sample data option for testing.
+              Camera access requires a secure context (HTTPS), appropriate camera permissions, 
+              and often doesn't work in sandbox environments like Replit. <strong>Please use 
+              the "Use Sample Data" option</strong> to test the functionality in this environment.
             </p>
           </div>
         </div>
