@@ -93,11 +93,43 @@ export default function FileDetailPage() {
   const { id } = useParams<{ id: string }>();
   const fileId = parseInt(id);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const { toast } = useToast();
 
+  // Define the reprocess mutation
+  const reprocessMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/files/${fileId}/reprocess`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      // Silent success - don't show a toast notification
+      // Invalidate cache to reload file details
+      queryClient.invalidateQueries({ queryKey: [`/api/files/${fileId}`] });
+    },
+    onError: (error: Error) => {
+      // Only show errors, not success messages
+      toast({
+        title: "Metadata update failed",
+        description: error.message || "Failed to refresh file metadata",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Query for file data 
   const { data: file, isLoading: isLoadingFile } = useQuery({
     queryKey: [`/api/files/${fileId}`],
     enabled: !isNaN(fileId),
   });
+  
+  // Check if we need to refresh metadata automatically
+  // Use this instead of useEffect for simplicity
+  if (file && (!file.metadata?.productInfo || 
+      Object.keys(file.metadata?.productInfo || {}).length === 0) && 
+      !reprocessMutation.isPending && !reprocessMutation.isSuccess) {
+    // Only try to reprocess once
+    reprocessMutation.mutate();
+  }
 
   const { data: history, isLoading: isLoadingHistory } = useQuery({
     queryKey: [`/api/files/${fileId}/history`],
@@ -201,7 +233,6 @@ export default function FileDetailPage() {
                     Send to Partner
                   </Button>
                 )}
-                <RefreshMetadataButton fileId={fileId} />
                 <Button variant="outline" onClick={handleDownload}>
                   <Download className="mr-2 h-4 w-4" />
                   Download
