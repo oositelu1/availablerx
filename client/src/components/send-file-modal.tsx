@@ -115,7 +115,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-semibold">Send File to Partner</DialogTitle>
@@ -291,8 +291,8 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
           </div>
         )}
         
-        <DialogFooter className="mt-6 pt-4 border-t">
-          <Button variant="outline" onClick={handleCancel} className="mr-2">
+        <div className="flex justify-end gap-4 mt-6 pt-4 border-t border-gray-200 w-full">
+          <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button
@@ -308,7 +308,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
               "Send File"
             )}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
