@@ -9,6 +9,8 @@ import { processFile, sendFile, retryTransmission } from "./file-processor";
 import { z } from "zod";
 import { insertPartnerSchema } from "@shared/schema";
 import * as fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -427,6 +429,215 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error reprocessing file:', error);
       res.status(500).json({ message: 'Failed to reprocess file' });
+    }
+  });
+  
+  // === Pre-Signed URL Portal ===
+  
+  // Generate a pre-signed URL for sharing a file with a partner
+  app.post('/api/files/:id/share', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    try {
+      const fileId = parseInt(req.params.id);
+      if (isNaN(fileId)) {
+        return res.status(400).json({ message: 'Invalid file ID' });
+      }
+      
+      const partnerId = parseInt(req.body.partnerId);
+      if (isNaN(partnerId)) {
+        return res.status(400).json({ message: 'Invalid partner ID' });
+      }
+      
+      // Validate file exists
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Validate partner exists
+      const partner = await storage.getPartner(partnerId);
+      if (!partner) {
+        return res.status(404).json({ message: 'Partner not found' });
+      }
+      
+      // Get expiration time (default 48 hours unless specified)
+      const expirationSeconds = req.body.expirationSeconds ? 
+        parseInt(req.body.expirationSeconds) : 
+        172800; // 48 hours in seconds
+      
+      // Set one-time use flag (default to false)
+      const isOneTimeUse = req.body.isOneTimeUse === true;
+      
+      // Optional IP restriction
+      const ipRestriction = req.body.ipRestriction || null;
+      
+      // Generate a UUID for the link
+      const uuid = uuidv4();
+      
+      // Hash the UUID for security
+      const hash = crypto.createHash('sha256');
+      hash.update(uuid);
+      const urlHash = hash.digest('hex');
+      
+      // Calculate expiration date
+      const expiresAt = new Date();
+      expiresAt.setSeconds(expiresAt.getSeconds() + expirationSeconds);
+      
+      // Create pre-signed link in database
+      const presignedLink = await storage.createPresignedLink({
+        fileId,
+        partnerId,
+        createdBy: req.user.id,
+        uuid,
+        urlHash,
+        expiresAt,
+        isOneTimeUse,
+        ipRestriction,
+        firstClickedAt: null,
+        downloadedAt: null
+      });
+      
+      // Generate the shareable URL
+      const downloadUrl = `${req.protocol}://${req.get('host')}/api/download/${uuid}`;
+      
+      res.json({
+        ...presignedLink,
+        downloadUrl
+      });
+    } catch (error) {
+      console.error('Error creating pre-signed URL:', error);
+      res.status(500).json({ message: 'Failed to create pre-signed URL' });
+    }
+  });
+  
+  // List all pre-signed links for a file
+  app.get('/api/files/:id/shared-links', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    try {
+      const fileId = parseInt(req.params.id);
+      if (isNaN(fileId)) {
+        return res.status(400).json({ message: 'Invalid file ID' });
+      }
+      
+      // Validate file exists
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Get all shared links for this file
+      const links = await storage.listPresignedLinksForFile(fileId);
+      
+      // Add the download URL to each link
+      const linksWithUrls = links.map(link => ({
+        ...link,
+        downloadUrl: `${req.protocol}://${req.get('host')}/api/download/${link.uuid}`
+      }));
+      
+      res.json(linksWithUrls);
+    } catch (error) {
+      console.error('Error listing pre-signed links:', error);
+      res.status(500).json({ message: 'Failed to list pre-signed links' });
+    }
+  });
+  
+  // List all pre-signed links shared with a partner
+  app.get('/api/partners/:id/shared-links', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    try {
+      const partnerId = parseInt(req.params.id);
+      if (isNaN(partnerId)) {
+        return res.status(400).json({ message: 'Invalid partner ID' });
+      }
+      
+      // Validate partner exists
+      const partner = await storage.getPartner(partnerId);
+      if (!partner) {
+        return res.status(404).json({ message: 'Partner not found' });
+      }
+      
+      // Get include expired flag
+      const includeExpired = req.query.includeExpired === 'true';
+      
+      // Get all shared links for this partner
+      const links = await storage.listPresignedLinksForPartner(partnerId, includeExpired);
+      
+      // Add the download URL to each link
+      const linksWithUrls = links.map(link => ({
+        ...link,
+        downloadUrl: `${req.protocol}://${req.get('host')}/api/download/${link.uuid}`
+      }));
+      
+      res.json(linksWithUrls);
+    } catch (error) {
+      console.error('Error listing partner pre-signed links:', error);
+      res.status(500).json({ message: 'Failed to list partner pre-signed links' });
+    }
+  });
+  
+  // Download a file using a pre-signed URL (public endpoint, no authentication required)
+  app.get('/api/download/:uuid', async (req, res) => {
+    try {
+      const uuid = req.params.uuid;
+      
+      // Look up the pre-signed link
+      const link = await storage.getPresignedLinkByUuid(uuid);
+      if (!link) {
+        return res.status(404).json({ message: 'Download link not found or has expired' });
+      }
+      
+      // Check if the link has expired
+      const now = new Date();
+      if (link.expiresAt < now) {
+        return res.status(403).json({ message: 'Download link has expired' });
+      }
+      
+      // Check IP restriction if set
+      if (link.ipRestriction && req.ip !== link.ipRestriction) {
+        return res.status(403).json({ message: 'Access restricted to specific IP address' });
+      }
+      
+      // Check if this is a one-time use link that's already been used
+      if (link.isOneTimeUse && link.downloadedAt) {
+        return res.status(403).json({ message: 'Download link has already been used' });
+      }
+      
+      // Get the associated file
+      const file = await storage.getFile(link.fileId);
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Retrieve the file data
+      const fileData = await storage.retrieveFileData(file.id);
+      if (!fileData) {
+        return res.status(404).json({ message: 'File data not found' });
+      }
+      
+      // Update the link's firstClickedAt if not already set
+      if (!link.firstClickedAt) {
+        await storage.updatePresignedLink(link.id, {
+          firstClickedAt: now
+        });
+      }
+      
+      // Update the link's downloadedAt if this is a successful download
+      await storage.updatePresignedLink(link.id, {
+        downloadedAt: now
+      });
+      
+      // Set appropriate headers for file download
+      res.setHeader('Content-Type', file.fileType === 'XML' ? 'application/xml' : 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename=${file.originalName}`);
+      
+      // Send the file
+      res.send(fileData);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      res.status(500).json({ message: 'Failed to download file' });
     }
   });
   
