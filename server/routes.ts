@@ -11,6 +11,11 @@ import { insertPartnerSchema } from "@shared/schema";
 import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import { poRouter } from './po-routes';
+import { associationRouter } from './epcis-po-association-routes';
+import { productItemRouter } from './product-item-routes';
+import { validationRouter } from './validation-routes';
+import { auditLogRouter } from './audit-log-routes';
 
 // Configure multer for file uploads
 const upload = multer({
