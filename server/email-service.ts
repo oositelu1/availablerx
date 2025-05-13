@@ -4,13 +4,25 @@ import { Partner } from '@shared/schema';
 // Initialize SendGrid
 const sendgrid = new MailService();
 
+// Email configuration flags
+let hasSendGridKey = false;
+let hasSenderVerification = true; // Assume true until proven otherwise
+let emailServiceReady = false;
+
 // Check if SendGrid API key is available
-const hasSendGridKey = !!process.env.SENDGRID_API_KEY;
-if (hasSendGridKey) {
-  sendgrid.setApiKey(process.env.SENDGRID_API_KEY as string);
-  console.log('SendGrid API key configured');
+if (process.env.SENDGRID_API_KEY) {
+  try {
+    sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
+    hasSendGridKey = true;
+    console.log('SendGrid API key configured');
+  } catch (err) {
+    console.error('Error setting SendGrid API key:', err);
+  }
 } else {
-  console.warn('SendGrid API key not found. Email notifications will be logged but not sent.');
+  console.warn(
+    'SendGrid API key not found. Email notifications will be logged but not sent.' +
+    '\nTo enable email sending, please set the SENDGRID_API_KEY environment variable.'
+  );
 }
 
 // Sender email configuration
@@ -21,6 +33,38 @@ const SENDER_NAME = process.env.SENDER_NAME || 'EPCIS Portal';
 const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || '';
 const EMAIL_ENABLED = process.env.EMAIL_ENABLED !== 'false'; // Enabled by default
 const APP_URL = process.env.APP_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+
+// Set email service ready if all conditions are met
+emailServiceReady = hasSendGridKey && hasSenderVerification && EMAIL_ENABLED;
+
+// Log email configuration
+console.log(`Email Service Configuration:
+- Service Ready: ${emailServiceReady ? 'Yes' : 'No'}
+- SendGrid API Key: ${hasSendGridKey ? 'Present' : 'Missing'}
+- Sender Email: ${SENDER_EMAIL}
+- Email Sending Enabled: ${EMAIL_ENABLED ? 'Yes' : 'No'}
+`);
+
+// Information about SendGrid sender verification
+const SENDER_VERIFICATION_INFO = `
+IMPORTANT: SendGrid requires sender email verification
+------------------------------------------------------
+To send emails with SendGrid, you must verify your sender identity:
+
+1. Log in to your SendGrid account
+2. Go to Settings > Sender Authentication
+3. Verify a Single Sender or set up Domain Authentication
+4. Use the verified email address in your SENDER_EMAIL environment variable
+   (Currently set to: ${SENDER_EMAIL})
+
+For more information, visit:
+https://sendgrid.com/docs/for-developers/sending-email/sender-identity/
+`;
+
+// Check if we should show the verification info
+if (hasSendGridKey && !hasSenderVerification) {
+  console.warn(SENDER_VERIFICATION_INFO);
+}
 
 interface EmailOptions {
   to: string;
@@ -41,12 +85,13 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   console.log(`Body (text): ${options.text.substring(0, 100)}...`);
   console.log('--- End Email Details ---\n');
   
-  // If email is disabled or SendGrid API key is not configured, just log and return success
+  // If email is disabled, just log and return success
   if (!EMAIL_ENABLED) {
     console.log('Email sending is disabled. Email would have been sent to:', options.to);
     return true;
   }
   
+  // If SendGrid API key is not configured, just log and return success
   if (!hasSendGridKey) {
     console.log('SendGrid API key not configured. Email would have been sent to:', options.to);
     return true;
@@ -76,15 +121,42 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   } catch (error: any) {
     console.error('Error sending email:', error);
     
-    // Log more detailed error information
-    if (error.response) {
+    // Check for sender verification error
+    if (error.response && 
+        error.response.body && 
+        error.response.body.errors && 
+        error.response.body.errors.length > 0) {
+      const firstError = error.response.body.errors[0];
+      
+      // Look for sender verification error
+      if (firstError.message && 
+          firstError.message.includes('from address does not match a verified Sender Identity')) {
+        
+        console.error('\nSENDER VERIFICATION ERROR: The email address you are using as the sender is not verified with SendGrid.');
+        console.error(SENDER_VERIFICATION_INFO);
+        
+        // Update the flag for sender verification
+        hasSenderVerification = false;
+        emailServiceReady = false;
+      }
+      
+      // Log detailed error information
+      console.error('SendGrid error details:', {
+        message: firstError.message,
+        field: firstError.field,
+        help: firstError.help
+      });
+    } else if (error.response) {
+      // Log general error details
       console.error('SendGrid error details:', {
         status: error.code,
         body: error.response.body
       });
     }
     
-    // Email failed to send, but application should continue
+    // Even if email sending fails, application should continue
+    // Just log that the email would have been sent
+    console.log(`Email would have been sent to ${options.to} (failed due to SendGrid error)`);
     return false;
   }
 }
