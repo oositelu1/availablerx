@@ -371,9 +371,22 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
         const typeValue = vocab.ATTRS.type;
         console.log(`Vocabulary type: ${typeof typeValue === 'object' ? JSON.stringify(typeValue) : typeValue}`);
         
-        const isEpcClass = typeof typeValue === 'string' 
-          ? typeValue.includes('EPCClass') 
-          : String(typeValue).includes('EPCClass');
+        const safeIncludes = (str: any, searchValue: string) => {
+          if (typeof str === 'string') {
+            return str.includes(searchValue);
+          }
+          return String(str).includes(searchValue);
+        };
+        
+        const safeEquals = (a: any, b: string) => {
+          if (typeof a === 'string') {
+            return a === b;
+          }
+          return String(a) === b;
+        };
+        
+        // Check if it's an EPCClass vocabulary
+        const isEpcClass = safeIncludes(typeValue, 'EPCClass');
         
         if (isEpcClass) {
           if (!vocab.VocabularyElementList) {
@@ -389,59 +402,50 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
           const elements = Array.isArray(vocab.VocabularyElementList.VocabularyElement)
             ? vocab.VocabularyElementList.VocabularyElement
             : [vocab.VocabularyElementList.VocabularyElement];
+          
+          for (const element of elements) {
+            if (!element.attribute) {
+              console.log('VocabularyElement has no attributes');
+              continue;
+            }
+            
+            const attributes = Array.isArray(element.attribute) 
+              ? element.attribute 
+              : [element.attribute];
+            
+            // Extract product attributes
+            for (const attr of attributes) {
+              if (attr.ATTRS && attr.ATTRS.id) {
+                const attrId = attr.ATTRS.id;
+                const value = attr._;
                 
-                for (const element of elements) {
-                  if (element.attribute) {
-                    const attributes = Array.isArray(element.attribute) 
-                      ? element.attribute 
-                      : [element.attribute];
-                    
-                    // Extract product attributes
-                    for (const attr of attributes) {
-                      if (attr.ATTRS && attr.ATTRS.id) {
-                        const attrId = attr.ATTRS.id;
-                        const value = attr._;
-                        
-                        const safeIncludes = (str: any, searchValue: string) => {
-                          if (typeof str === 'string') {
-                            return str.includes(searchValue);
-                          }
-                          return String(str).includes(searchValue);
-                        };
-                        
-                        const safeEquals = (a: any, b: string) => {
-                          if (typeof a === 'string') {
-                            return a === b;
-                          }
-                          return String(a) === b;
-                        };
-                        
-                        // Map to product info fields
-                        if (safeIncludes(attrId, 'regulatedProductName')) {
-                          metadata.productInfo.name = value;
-                        } else if (safeIncludes(attrId, 'dosageFormType')) {
-                          metadata.productInfo.dosageForm = value;
-                        } else if (safeIncludes(attrId, 'strengthDescription')) {
-                          metadata.productInfo.strength = value;
-                        } else if (safeIncludes(attrId, 'additionalTradeItemIdentification') && 
-                                  (safeEquals(attr.ATTRS.typeCode, 'FDA_NDC_11') || safeIncludes(attrId, 'NDC'))) {
-                          metadata.productInfo.ndc = value;
-                        } else if (safeIncludes(attrId, 'netContentDescription')) {
-                          metadata.productInfo.netContent = value;
-                        } else if (safeIncludes(attrId, 'manufacturerOfTradeItemPartyName')) {
-                          metadata.productInfo.manufacturer = value;
-                        }
-                      }
-                    }
-                  }
+                // Map to product info fields
+                if (safeIncludes(attrId, 'regulatedProductName')) {
+                  metadata.productInfo.name = value;
+                } else if (safeIncludes(attrId, 'dosageFormType')) {
+                  metadata.productInfo.dosageForm = value;
+                } else if (safeIncludes(attrId, 'strengthDescription')) {
+                  metadata.productInfo.strength = value;
+                } else if (safeIncludes(attrId, 'additionalTradeItemIdentification') && 
+                          (safeEquals(attr.ATTRS.typeCode, 'FDA_NDC_11') || safeIncludes(attrId, 'NDC'))) {
+                  metadata.productInfo.ndc = value;
+                } else if (safeIncludes(attrId, 'netContentDescription')) {
+                  metadata.productInfo.netContent = value;
+                } else if (safeIncludes(attrId, 'manufacturerOfTradeItemPartyName')) {
+                  metadata.productInfo.manufacturer = value;
                 }
               }
             }
           }
         }
       }
-      
-      // Look for lot number and expiration date in events
+    } catch (error) {
+      console.error('Error extracting product info:', error);
+    }
+    
+    // Look for lot number and expiration date in events
+    try {
+      // Use the existing epcisBody variable from the outer scope
       if (epcisBody) {
         // Check ObjectEvents for lot number and expiration date
         const objectEvents = epcisBody.ObjectEvent || epcisBody['epcis:ObjectEvent'];
@@ -463,7 +467,7 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
               
               // Look for expiration date
               const expiry = ilmd.itemExpirationDate || ilmd['epcis:itemExpirationDate'] || 
-                             ilmd['cbvmda:itemExpirationDate'];
+                           ilmd['cbvmda:itemExpirationDate'];
               if (expiry) {
                 metadata.productInfo.expirationDate = expiry;
               }
@@ -472,7 +476,7 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
         }
       }
     } catch (error) {
-      console.log('Error extracting product info:', error);
+      console.log('Error extracting lot/expiry info:', error);
       // Don't fail validation just because we couldn't extract product info
     }
     
