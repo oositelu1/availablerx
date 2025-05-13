@@ -568,8 +568,8 @@ export default function FileDetailPage() {
 
           <Card>
             <CardHeader>
-              <Tabs defaultValue="transmissions" className="w-full">
-                <TabsList className="grid grid-cols-3 w-full mb-4">
+              <Tabs defaultValue="transmissions">
+                <TabsList className="grid grid-cols-3 w-full">
                   <TabsTrigger value="transmissions" className="flex items-center">
                     <Send className="h-4 w-4 mr-2" />
                     Transmission History
@@ -584,174 +584,171 @@ export default function FileDetailPage() {
                   </TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="transmissions">
-                  <CardDescription>
-                    Track all send attempts and delivery confirmations for this file
-                  </CardDescription>
-                </TabsContent>
-                
-                <TabsContent value="purchase-orders">
-                  <CardDescription>
-                    Manage purchase order associations for this EPCIS file
-                  </CardDescription>
-                </TabsContent>
-                
-                <TabsContent value="presigned">
-                  <CardDescription>
-                    Share this file securely with partners using expiring download links
-                  </CardDescription>
-                </TabsContent>
-              </Tabs>
-            </CardHeader>
-            
-            <CardContent>
-              <Tabs defaultValue="transmissions" className="w-full">
-                <TabsContent value="transmissions">
-                  {isLoadingHistory ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-10 w-full" />
-                      <Skeleton className="h-10 w-full" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                  ) : history && history.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Partner</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Date & Time</TableHead>
-                          <TableHead>Sent By</TableHead>
-                          <TableHead>Transport Type</TableHead>
-                          <TableHead>Confirmation</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {history.map((transmission) => (
-                          <TableRow key={transmission.id}>
-                            <TableCell className="font-medium">
-                              {transmission.partner.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={`${
-                                  transmission.status === "delivered"
-                                    ? "text-success"
-                                    : transmission.status === "failed"
-                                    ? "text-destructive"
-                                    : "text-warning"
-                                }`}
-                              >
-                                {transmission.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{format(new Date(transmission.sentAt), "PPP p")}</TableCell>
-                            <TableCell>System</TableCell>
-                            <TableCell>{transmission.transportType}</TableCell>
-                            <TableCell className="max-w-xs truncate" title={transmission.deliveryConfirmation}>
-                              {transmission.deliveryConfirmation || "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="text-center py-8 text-neutral-500">
-                      <File className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
-                      <p>This file has not been sent to any partners yet.</p>
-                      {file.status === "validated" && (
-                        <Button className="mt-4" onClick={handleSend}>
-                          <Send className="mr-2 h-4 w-4" />
-                          Send to Partner
-                        </Button>
+                <div className="mt-4">
+                  <TabsContent value="transmissions">
+                    <div>
+                      <CardDescription className="mb-6">
+                        Track all send attempts and delivery confirmations for this file
+                      </CardDescription>
+                      
+                      {isLoadingHistory ? (
+                        <div className="space-y-4">
+                          <Skeleton className="h-10 w-full" />
+                          <Skeleton className="h-10 w-full" />
+                          <Skeleton className="h-10 w-full" />
+                        </div>
+                      ) : history && history.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Partner</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Date & Time</TableHead>
+                              <TableHead>Sent By</TableHead>
+                              <TableHead>Transport Type</TableHead>
+                              <TableHead>Confirmation</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {history.map((transmission) => (
+                              <TableRow key={transmission.id}>
+                                <TableCell className="font-medium">
+                                  {transmission.partner.name}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={`${
+                                      transmission.status === "delivered"
+                                        ? "text-success"
+                                        : transmission.status === "failed"
+                                        ? "text-destructive"
+                                        : "text-warning"
+                                    }`}
+                                  >
+                                    {transmission.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{format(new Date(transmission.sentAt), "PPP p")}</TableCell>
+                                <TableCell>System</TableCell>
+                                <TableCell>{transmission.transportType}</TableCell>
+                                <TableCell className="max-w-xs truncate" title={transmission.deliveryConfirmation}>
+                                  {transmission.deliveryConfirmation || "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center py-8 text-neutral-500">
+                          <File className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
+                          <p>This file has not been sent to any partners yet.</p>
+                          {file.status === "validated" && (
+                            <Button className="mt-4" onClick={handleSend}>
+                              <Send className="mr-2 h-4 w-4" />
+                              Send to Partner
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="presigned">
-                  <PresignedLinks fileId={fileId} />
-                </TabsContent>
-                
-                <TabsContent value="purchase-orders">
-                  {isLoadingAssociations ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-10 w-full" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                  ) : associations && associations.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="text-lg font-medium">Associated Purchase Orders</h3>
-                          <p className="text-sm text-muted-foreground">
-                            This file is associated with {associations.length} purchase order{associations.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <AssociatePODialog fileId={fileId}>
-                          <Button variant="outline" size="sm">
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            Add Association
-                          </Button>
-                        </AssociatePODialog>
-                      </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="purchase-orders">
+                    <div>
+                      <CardDescription className="mb-6">
+                        Manage purchase order associations for this EPCIS file
+                      </CardDescription>
                       
-                      <div className="space-y-3">
-                        {associations.map((association) => (
-                          <Card key={association.id} className="overflow-hidden">
-                            <div className="flex bg-muted/20">
-                              <div className="p-4 flex-1">
-                                <div className="flex items-center">
-                                  <ShoppingCart className="h-5 w-5 text-primary mr-2" />
-                                  <div>
-                                    <h4 className="text-base font-medium">PO #{association.po.poNumber}</h4>
-                                    <div className="text-sm text-muted-foreground">
-                                      Association Method: {association.associationMethod.replace('_', ' ')}
-                                      {association.confidence && ` (${association.confidence}% confidence)`}
+                      {isLoadingAssociations ? (
+                        <div className="space-y-4">
+                          <Skeleton className="h-10 w-full" />
+                          <Skeleton className="h-10 w-full" />
+                        </div>
+                      ) : associations && associations.length > 0 ? (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h3 className="text-lg font-medium">Associated Purchase Orders</h3>
+                              <p className="text-sm text-muted-foreground">
+                                This file is associated with {associations.length} purchase order{associations.length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            <AssociatePODialog fileId={fileId}>
+                              <Button variant="outline" size="sm">
+                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                Add Association
+                              </Button>
+                            </AssociatePODialog>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {associations.map((association) => (
+                              <Card key={association.id} className="overflow-hidden">
+                                <div className="flex bg-muted/20">
+                                  <div className="p-4 flex-1">
+                                    <div className="flex items-center">
+                                      <ShoppingCart className="h-5 w-5 text-primary mr-2" />
+                                      <div>
+                                        <h4 className="text-base font-medium">PO #{association.po.poNumber}</h4>
+                                        <div className="text-sm text-muted-foreground">
+                                          Association Method: {association.associationMethod.replace('_', ' ')}
+                                          {association.confidence && ` (${association.confidence}% confidence)`}
+                                        </div>
+                                      </div>
                                     </div>
+                                    
+                                    {association.notes && (
+                                      <div className="mt-2 text-sm">
+                                        <div className="font-medium">Notes:</div>
+                                        <div className="text-muted-foreground">{association.notes}</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="py-4 pr-4 flex items-center">
+                                    <Button 
+                                      variant="secondary" 
+                                      onClick={() => window.location.href = `/purchase-orders/${association.po.id}`}
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      View PO Details
+                                    </Button>
                                   </div>
                                 </div>
-                                
-                                {association.notes && (
-                                  <div className="mt-2 text-sm">
-                                    <div className="font-medium">Notes:</div>
-                                    <div className="text-muted-foreground">{association.notes}</div>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="py-4 pr-4 flex items-center">
-                                <Button 
-                                  variant="secondary" 
-                                  onClick={() => window.location.href = `/purchase-orders/${association.po.id}`}
-                                >
-                                  <FileText className="mr-2 h-4 w-4" />
-                                  View PO Details
-                                </Button>
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                          <h3 className="text-lg font-medium mb-1">No Purchase Order Associations</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            This file has not been associated with any purchase orders yet.
+                          </p>
+                          <AssociatePODialog fileId={fileId}>
+                            <Button>
+                              <ShoppingCart className="mr-2 h-4 w-4" />
+                              Associate with PO
+                            </Button>
+                          </AssociatePODialog>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <h3 className="text-lg font-medium mb-1">No Purchase Order Associations</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        This file has not been associated with any purchase orders yet.
-                      </p>
-                      <AssociatePODialog fileId={fileId}>
-                        <Button>
-                          <ShoppingCart className="mr-2 h-4 w-4" />
-                          Associate with PO
-                        </Button>
-                      </AssociatePODialog>
+                  </TabsContent>
+                  
+                  <TabsContent value="presigned">
+                    <div>
+                      <CardDescription className="mb-6">
+                        Share this file securely with partners using expiring download links
+                      </CardDescription>
+                      <PresignedLinks fileId={fileId} />
                     </div>
-                  )}
-                </TabsContent>
+                  </TabsContent>
+                </div>
               </Tabs>
-            </CardContent>
+            </CardHeader>
           </Card>
         </>
       ) : (
