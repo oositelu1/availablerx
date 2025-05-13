@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 import { insertEpcisPoAssociationSchema } from '@shared/schema';
-import { z } from 'zod';
 import { TypedRequestBody } from './types';
+import { z } from 'zod';
 
 // EPCIS-PO Association routes
 export const associationRouter = Router();
@@ -15,7 +15,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// Create a new association between EPCIS file and Purchase Order
+// Create a new association between EPCIS file and purchase order
 associationRouter.post(
   '/',
   isAuthenticated,
@@ -27,23 +27,23 @@ associationRouter.post(
         return res.status(400).json({ error: 'Invalid association data', details: validation.error });
       }
 
+      // Verify file exists
+      const file = await storage.getFile(validation.data.fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      // Verify PO exists
+      const po = await storage.getPurchaseOrder(validation.data.poId);
+      if (!po) {
+        return res.status(404).json({ error: 'Purchase order not found' });
+      }
+
       // Add current user as creator
       const associationData = {
         ...validation.data,
         createdBy: req.user!.id
       };
-
-      // Verify the file exists
-      const file = await storage.getFile(associationData.fileId);
-      if (!file) {
-        return res.status(404).json({ error: 'File not found' });
-      }
-
-      // Verify the purchase order exists
-      const po = await storage.getPurchaseOrder(associationData.poId);
-      if (!po) {
-        return res.status(404).json({ error: 'Purchase order not found' });
-      }
 
       // Create the association
       const association = await storage.createEpcisPoAssociation(associationData);
@@ -63,13 +63,13 @@ associationRouter.post(
 
       res.status(201).json(association);
     } catch (error) {
-      console.error('Error creating EPCIS-PO association:', error);
-      res.status(500).json({ error: 'Error creating EPCIS-PO association' });
+      console.error('Error creating association:', error);
+      res.status(500).json({ error: 'Error creating association' });
     }
   }
 );
 
-// Get an association by ID
+// Get association by ID
 associationRouter.get('/:id', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
@@ -110,6 +110,21 @@ associationRouter.patch('/:id', isAuthenticated, async (req: Request, res: Respo
       return res.status(400).json({ error: 'Invalid update data', details: validation.error });
     }
 
+    // If updating fileId or poId, verify they exist
+    if (validation.data.fileId && validation.data.fileId !== existingAssociation.fileId) {
+      const file = await storage.getFile(validation.data.fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+    }
+    
+    if (validation.data.poId && validation.data.poId !== existingAssociation.poId) {
+      const po = await storage.getPurchaseOrder(validation.data.poId);
+      if (!po) {
+        return res.status(404).json({ error: 'Purchase order not found' });
+      }
+    }
+
     // Update the association
     const updatedAssociation = await storage.updateEpcisPoAssociation(id, validation.data);
 
@@ -137,7 +152,7 @@ associationRouter.get('/file/:fileId', isAuthenticated, async (req: Request, res
       return res.status(400).json({ error: 'Invalid file ID' });
     }
 
-    // Verify the file exists
+    // Verify file exists
     const file = await storage.getFile(fileId);
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
@@ -159,7 +174,7 @@ associationRouter.get('/po/:poId', isAuthenticated, async (req: Request, res: Re
       return res.status(400).json({ error: 'Invalid purchase order ID' });
     }
 
-    // Verify the purchase order exists
+    // Verify purchase order exists
     const po = await storage.getPurchaseOrder(poId);
     if (!po) {
       return res.status(404).json({ error: 'Purchase order not found' });

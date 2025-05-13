@@ -117,6 +117,41 @@ export async function processFile(
     // Store the actual file data
     await storage.storeFileData(fileBuffer, file.id);
     
+    // Extract and store product items if available
+    if (xmlValidation.metadata?.productItems && Array.isArray(xmlValidation.metadata.productItems)) {
+      try {
+        console.log(`Extracting ${xmlValidation.metadata.productItems.length} product items from EPCIS file`);
+        
+        for (const item of xmlValidation.metadata.productItems) {
+          try {
+            // Check required fields are present
+            if (!item.gtin || !item.serialNumber || !item.lotNumber || !item.expirationDate) {
+              console.warn('Skipping product item with missing required fields:', item);
+              continue;
+            }
+            
+            // Create a product item record
+            await storage.createProductItem({
+              fileId: file.id,
+              gtin: item.gtin,
+              serialNumber: item.serialNumber,
+              lotNumber: item.lotNumber,
+              expirationDate: new Date(item.expirationDate),
+              eventTime: new Date(item.eventTime || Date.now()),
+              sourceGln: item.sourceGln || null,
+              destinationGln: item.destinationGln || null,
+              bizTransactionList: item.bizTransactionList || null,
+              poId: null // Will be associated later
+            });
+          } catch (itemErr) {
+            console.error('Error storing product item:', itemErr);
+          }
+        }
+      } catch (extractErr) {
+        console.error('Error extracting product items:', extractErr);
+      }
+    }
+    
     return {
       success: true,
       file

@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
-import { isAdmin } from './auth';
 
 // Audit Log routes
 export const auditLogRouter = Router();
@@ -13,31 +12,21 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// List audit logs - admins can see all logs, regular users can only see their own
+// Get all audit logs with optional filtering
 auditLogRouter.get('/', isAuthenticated, async (req: Request, res: Response) => {
   try {
-    // Parse query parameters
-    const entityType = req.query.entityType as string | undefined;
-    const entityId = req.query.entityId ? parseInt(req.query.entityId as string) : undefined;
+    // Parse pagination parameters
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
+    // Get audit logs with optional entity type filter
+    const entityType = req.query.entityType as string | undefined;
+    const logs = await storage.listAuditLogs(entityType, undefined, limit, offset);
     
-    // Non-admins can only see their own logs
-    const isAdminUser = req.user!.role === 'administrator';
-    
-    // Get audit logs
-    const result = await storage.listAuditLogs(entityType, entityId, limit, offset);
-    
-    // If not admin, filter to show only user's own logs
-    if (!isAdminUser) {
-      result.logs = result.logs.filter(log => log.userId === req.user!.id);
-      result.total = result.logs.length; // Adjust total accordingly
-    }
-    
-    res.json(result);
+    res.json(logs);
   } catch (error) {
-    console.error('Error listing audit logs:', error);
-    res.status(500).json({ error: 'Error listing audit logs' });
+    console.error('Error retrieving audit logs:', error);
+    res.status(500).json({ error: 'Error retrieving audit logs' });
   }
 });
 
@@ -50,45 +39,63 @@ auditLogRouter.get('/entity/:type/:id', isAuthenticated, async (req: Request, re
     if (isNaN(entityId)) {
       return res.status(400).json({ error: 'Invalid entity ID' });
     }
-    
-    // Non-admins have restricted access to entity logs based on ownership
-    const isAdminUser = req.user!.role === 'administrator';
-    
-    // Get all logs for this entity
-    const result = await storage.listAuditLogs(entityType, entityId);
-    
-    // If not admin, filter based on entity type and access rules
-    if (!isAdminUser) {
-      // For now, show all logs for the entity to all authenticated users
-      // In a stricter system, we would check entity ownership here
-    }
-    
-    res.json(result);
+
+    // Parse pagination parameters
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
+    const logs = await storage.listAuditLogs(entityType, entityId, limit, offset);
+    res.json(logs);
   } catch (error) {
     console.error('Error retrieving entity audit logs:', error);
     res.status(500).json({ error: 'Error retrieving entity audit logs' });
   }
 });
 
-// Get user's own audit logs 
+// Get audit logs for a specific user
 auditLogRouter.get('/user', isAuthenticated, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    
-    // Get all logs for this user
+    // Get the user ID from the query parameter or use the current user
+    let userId = req.user!.id;
+    if (req.query.userId) {
+      userId = parseInt(req.query.userId as string);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+      }
+    }
+
+    // Parse pagination parameters
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
+    // Use specialized query for user logs
+    const query = `
+      SELECT * FROM audit_logs 
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
     
-    // Custom query to get user's logs
-    const userLogs = await storage.listAuditLogs(undefined, undefined, limit, offset);
-    const filteredLogs = {
-      logs: userLogs.logs.filter(log => log.userId === userId),
-      total: 0
-    };
-    
-    filteredLogs.total = filteredLogs.logs.length;
-    
-    res.json(filteredLogs);
+    // Get count of total logs for this user
+    const countQuery = `
+      SELECT COUNT(*) as total FROM audit_logs 
+      WHERE user_id = $1
+    `;
+
+    try {
+      const { rows: logRows } = await storage.executeRawSql(query, [userId, limit, offset]);
+      const { rows: countRows } = await storage.executeRawSql(countQuery, [userId]);
+      
+      const logs = {
+        logs: logRows,
+        total: parseInt(countRows[0].total)
+      };
+      
+      res.json(logs);
+    } catch (dbErr) {
+      console.error('Database error:', dbErr);
+      res.status(500).json({ error: 'Error retrieving user audit logs' });
+    }
   } catch (error) {
     console.error('Error retrieving user audit logs:', error);
     res.status(500).json({ error: 'Error retrieving user audit logs' });

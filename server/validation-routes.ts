@@ -1,10 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 import { insertValidationSessionSchema, insertScannedItemSchema } from '@shared/schema';
-import { z } from 'zod';
 import { TypedRequestBody } from './types';
+import { z } from 'zod';
 
-// Validation and Scanning routes
+// Validation Session routes
 export const validationRouter = Router();
 
 // Check if user is authenticated
@@ -17,7 +17,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 
 // Create a new validation session
 validationRouter.post(
-  '/sessions',
+  '/',
   isAuthenticated,
   async (req: TypedRequestBody<z.infer<typeof insertValidationSessionSchema>>, res: Response) => {
     try {
@@ -26,32 +26,24 @@ validationRouter.post(
       if (!validation.success) {
         return res.status(400).json({ error: 'Invalid validation session data', details: validation.error });
       }
-
-      // Verify related entities exist
-      if (validation.data.poId) {
-        const po = await storage.getPurchaseOrder(validation.data.poId);
-        if (!po) {
-          return res.status(404).json({ error: 'Purchase order not found' });
-        }
+      
+      // Verify purchase order exists
+      const po = await storage.getPurchaseOrder(validation.data.poId);
+      if (!po) {
+        return res.status(404).json({ error: 'Purchase order not found' });
       }
 
-      if (validation.data.fileId) {
-        const file = await storage.getFile(validation.data.fileId);
-        if (!file) {
-          return res.status(404).json({ error: 'File not found' });
-        }
-      }
-
-      // Add current user as starter
+      // Add creator info
       const sessionData = {
         ...validation.data,
-        startedBy: req.user!.id
+        createdBy: req.user!.id,
+        status: 'IN_PROGRESS' // Default status
       };
 
-      // Create the validation session
+      // Create validation session
       const session = await storage.createValidationSession(sessionData);
 
-      // Create audit log entry
+      // Create audit log
       await storage.createAuditLog({
         action: 'CREATE_VALIDATION_SESSION',
         entityType: 'validation_session',
@@ -59,7 +51,7 @@ validationRouter.post(
         userId: req.user!.id,
         details: { 
           poId: session.poId,
-          fileId: session.fileId
+          location: session.location
         }
       });
 
@@ -72,11 +64,11 @@ validationRouter.post(
 );
 
 // Get a validation session by ID
-validationRouter.get('/sessions/:id', isAuthenticated, async (req: Request, res: Response) => {
+validationRouter.get('/:id', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
+      return res.status(400).json({ error: 'Invalid validation session ID' });
     }
 
     const session = await storage.getValidationSession(id);
@@ -91,48 +83,39 @@ validationRouter.get('/sessions/:id', isAuthenticated, async (req: Request, res:
   }
 });
 
-// Update a validation session (e.g., mark as complete)
-validationRouter.patch('/sessions/:id', isAuthenticated, async (req: Request, res: Response) => {
+// Update a validation session (e.g., change status, add notes)
+validationRouter.patch('/:id', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
+      return res.status(400).json({ error: 'Invalid validation session ID' });
     }
 
-    // Get the existing session
+    // Get existing session
     const existingSession = await storage.getValidationSession(id);
     if (!existingSession) {
       return res.status(404).json({ error: 'Validation session not found' });
     }
 
-    // Ensure user can update this session (must be the starter or an admin)
-    if (req.user!.role !== 'administrator' && existingSession.startedBy !== req.user!.id) {
-      return res.status(403).json({ error: 'Not authorized to update this session' });
-    }
-
-    // Validate the update data (partial validation)
+    // Validate update data
     const updateSchema = insertValidationSessionSchema.partial();
     const validation = updateSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({ error: 'Invalid update data', details: validation.error });
     }
 
-    // Special handling for session completion
-    let updates = validation.data;
-    if (updates.status === 'completed') {
-      // Need to manually add completedAt since it's not in the schema
-      await storage.updateValidationSession(id, {
-        ...updates,
-        completedAt: new Date()
-      });
-      const updatedSession = await storage.getValidationSession(id);
-      return res.json(updatedSession);
+    // If changing PO, verify it exists
+    if (validation.data.poId && validation.data.poId !== existingSession.poId) {
+      const po = await storage.getPurchaseOrder(validation.data.poId);
+      if (!po) {
+        return res.status(404).json({ error: 'Purchase order not found' });
+      }
     }
 
-    // Update the session
-    const updatedSession = await storage.updateValidationSession(id, updates);
+    // Update session
+    const updatedSession = await storage.updateValidationSession(id, validation.data);
 
-    // Create audit log entry
+    // Create audit log
     await storage.createAuditLog({
       action: 'UPDATE_VALIDATION_SESSION',
       entityType: 'validation_session',
@@ -148,15 +131,15 @@ validationRouter.patch('/sessions/:id', isAuthenticated, async (req: Request, re
   }
 });
 
-// Get validation sessions for a purchase order
-validationRouter.get('/sessions/po/:poId', isAuthenticated, async (req: Request, res: Response) => {
+// List all validation sessions for a purchase order
+validationRouter.get('/po/:poId', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const poId = parseInt(req.params.poId);
     if (isNaN(poId)) {
       return res.status(400).json({ error: 'Invalid purchase order ID' });
     }
 
-    // Verify the purchase order exists
+    // Verify purchase order exists
     const po = await storage.getPurchaseOrder(poId);
     if (!po) {
       return res.status(404).json({ error: 'Purchase order not found' });
@@ -165,140 +148,181 @@ validationRouter.get('/sessions/po/:poId', isAuthenticated, async (req: Request,
     const sessions = await storage.listValidationSessionsForPO(poId);
     res.json(sessions);
   } catch (error) {
-    console.error('Error retrieving purchase order validation sessions:', error);
+    console.error('Error retrieving validation sessions:', error);
     res.status(500).json({ error: 'Error retrieving validation sessions' });
   }
 });
 
-// Record a scanned item
+// Add a scanned item to a validation session
 validationRouter.post(
-  '/scan',
+  '/:id/scan',
   isAuthenticated,
   async (req: TypedRequestBody<z.infer<typeof insertScannedItemSchema>>, res: Response) => {
     try {
+      const sessionId = parseInt(req.params.id);
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ error: 'Invalid validation session ID' });
+      }
+
+      // Verify session exists
+      const session = await storage.getValidationSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Validation session not found' });
+      }
+
       // Validate the request body
       const validation = insertScannedItemSchema.safeParse(req.body);
       if (!validation.success) {
         return res.status(400).json({ error: 'Invalid scanned item data', details: validation.error });
       }
 
-      // Add current user as scanner
-      const scanData = {
+      // Add session ID and scanner info
+      const scannedItemData = {
         ...validation.data,
+        sessionId,
         scannedBy: req.user!.id
       };
 
-      // Check if PO exists if provided
-      if (scanData.poId) {
-        const po = await storage.getPurchaseOrder(scanData.poId);
-        if (!po) {
-          return res.status(404).json({ error: 'Purchase order not found' });
-        }
-      }
+      // Process the scanned item data
+      // If GTIN and serialNumber are provided, try to find product item in database
+      let matchStatus = 'UNKNOWN';
+      let matchedItemId = null;
 
-      // Try to find a matching product item if not already matched
-      if (!scanData.productItemId) {
-        const matchingItem = await storage.findProductItemBySGTIN(scanData.gtin, scanData.serialNumber);
-        
-        if (matchingItem) {
-          scanData.productItemId = matchingItem.id;
-          scanData.matchResult = 'matched';
+      if (scannedItemData.gtin && scannedItemData.serialNumber) {
+        // Look up product item by SGTIN
+        const productItem = await storage.findProductItemBySGTIN(
+          scannedItemData.gtin,
+          scannedItemData.serialNumber
+        );
+
+        if (productItem) {
+          // Check if the product is associated with the session's PO
+          if (productItem.poId === session.poId) {
+            matchStatus = 'MATCH_PO';
+          } else if (productItem.poId) {
+            matchStatus = 'MATCH_DIFFERENT_PO';
+          } else {
+            matchStatus = 'MATCH_NO_PO';
+          }
+          
+          matchedItemId = productItem.id;
         } else {
-          scanData.matchResult = 'not_found';
+          matchStatus = 'NO_MATCH';
         }
       }
 
-      // Record the scan
-      const scannedItem = await storage.createScannedItem(scanData);
+      // Update the scanned item data with match information
+      const finalScannedItemData = {
+        ...scannedItemData,
+        matchStatus,
+        matchedItemId
+      };
 
-      // Create audit log entry
+      // Create the scanned item
+      const scannedItem = await storage.createScannedItem(finalScannedItemData);
+
+      // Create audit log
       await storage.createAuditLog({
-        action: 'RECORD_SCAN',
+        action: 'SCAN_ITEM',
         entityType: 'scanned_item',
         entityId: scannedItem.id,
         userId: req.user!.id,
         details: { 
-          gtin: scannedItem.gtin,
-          serialNumber: scannedItem.serialNumber,
-          matchResult: scannedItem.matchResult
+          sessionId,
+          barcode: scannedItem.rawData,
+          matchStatus
         }
       });
 
-      // Create a custom type extending InsertScannedItem to include sessionId
-      interface ScannedItemWithSession extends z.infer<typeof insertScannedItemSchema> {
-        sessionId?: number;
-      }
-
-      // If this is part of a validation session, update the counts
-      const bodyWithSession = req.body as ScannedItemWithSession;
-      if (bodyWithSession.sessionId) {
-        const sessionId = parseInt(String(bodyWithSession.sessionId));
-        if (!isNaN(sessionId)) {
-          const session = await storage.getValidationSession(sessionId);
-          if (session) {
-            const totalScanned = (session.totalScanned || 0) + 1;
-            const totalMatched = scannedItem.matchResult === 'matched' 
-              ? (session.totalMatched || 0) + 1 
-              : (session.totalMatched || 0);
-            const totalMismatched = scannedItem.matchResult === 'mismatch' 
-              ? (session.totalMismatched || 0) + 1 
-              : (session.totalMismatched || 0);
-            
-            await storage.updateValidationSession(sessionId, {
-              totalScanned,
-              totalMatched,
-              totalMismatched
-            });
-          }
-        }
-      }
-
-      res.status(201).json(scannedItem);
+      res.status(201).json({
+        ...scannedItem,
+        matchedItem: matchedItemId ? await storage.getProductItem(matchedItemId) : null
+      });
     } catch (error) {
-      console.error('Error recording scanned item:', error);
-      res.status(500).json({ error: 'Error recording scanned item' });
+      console.error('Error adding scanned item:', error);
+      res.status(500).json({ error: 'Error adding scanned item' });
     }
   }
 );
 
-// Get scanned items for a validation session
-validationRouter.get('/scans/session/:sessionId', isAuthenticated, async (req: Request, res: Response) => {
+// Get all scanned items for a validation session
+validationRouter.get('/:id/scans', isAuthenticated, async (req: Request, res: Response) => {
   try {
-    const sessionId = parseInt(req.params.sessionId);
+    const sessionId = parseInt(req.params.id);
     if (isNaN(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
+      return res.status(400).json({ error: 'Invalid validation session ID' });
     }
 
-    // Verify the session exists
+    // Verify session exists
     const session = await storage.getValidationSession(sessionId);
     if (!session) {
       return res.status(404).json({ error: 'Validation session not found' });
     }
 
     const scannedItems = await storage.listScannedItemsForSession(sessionId);
-    res.json(scannedItems);
+    
+    // Get detailed info for matched product items
+    const enhancedItems = await Promise.all(scannedItems.map(async (item) => {
+      if (item.matchedItemId) {
+        const productItem = await storage.getProductItem(item.matchedItemId);
+        return {
+          ...item,
+          matchedItem: productItem
+        };
+      }
+      return {
+        ...item,
+        matchedItem: null
+      };
+    }));
+
+    res.json(enhancedItems);
   } catch (error) {
-    console.error('Error retrieving session scanned items:', error);
+    console.error('Error retrieving scanned items:', error);
     res.status(500).json({ error: 'Error retrieving scanned items' });
   }
 });
 
-// Get a scanned item by ID
-validationRouter.get('/scans/:id', isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid scanned item ID' });
-    }
+// Update a scanned item
+validationRouter.patch(
+  '/scan/:id',
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid scanned item ID' });
+      }
 
-    const scannedItem = await storage.getScannedItem(id);
-    if (!scannedItem) {
-      return res.status(404).json({ error: 'Scanned item not found' });
-    }
+      // Verify scanned item exists
+      const scannedItem = await storage.getScannedItem(id);
+      if (!scannedItem) {
+        return res.status(404).json({ error: 'Scanned item not found' });
+      }
 
-    res.json(scannedItem);
-  } catch (error) {
-    console.error('Error retrieving scanned item:', error);
-    res.status(500).json({ error: 'Error retrieving scanned item' });
+      // Validate update data
+      const updateSchema = insertScannedItemSchema.partial();
+      const validation = updateSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Invalid update data', details: validation.error });
+      }
+
+      // Update scanned item
+      const updatedItem = await storage.updateScannedItem(id, validation.data);
+
+      // Create audit log
+      await storage.createAuditLog({
+        action: 'UPDATE_SCANNED_ITEM',
+        entityType: 'scanned_item',
+        entityId: id,
+        userId: req.user!.id,
+        details: { updates: req.body }
+      });
+
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('Error updating scanned item:', error);
+      res.status(500).json({ error: 'Error updating scanned item' });
+    }
   }
-});
+);
