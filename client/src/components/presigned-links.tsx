@@ -45,14 +45,12 @@ export function PresignedLinks({ fileId }: PresignedLinksProps) {
 
   // Fetch the file's pre-signed links
   const { data: links, isLoading: isLinksLoading } = useQuery<PresignedLinkData[]>({
-    queryKey: ['/api/files', fileId, 'shared-links'],
-    queryFn: getQueryFn(),
+    queryKey: [`/api/files/${fileId}/presigned-links`],
   });
 
   // Fetch all partners for the dropdown
   const { data: partners, isLoading: isPartnersLoading } = useQuery<Partner[]>({
     queryKey: ['/api/partners'],
-    queryFn: getQueryFn(),
   });
 
   // Create a new pre-signed link
@@ -64,7 +62,7 @@ export function PresignedLinks({ fileId }: PresignedLinksProps) {
 
       const expirationSeconds = parseInt(expirationHours) * 3600; // Convert hours to seconds
       
-      const res = await apiRequest('POST', `/api/files/${fileId}/share`, {
+      const res = await apiRequest('POST', `/api/files/${fileId}/presigned-links`, {
         partnerId: parseInt(selectedPartnerId),
         expirationSeconds,
         isOneTimeUse,
@@ -86,7 +84,7 @@ export function PresignedLinks({ fileId }: PresignedLinksProps) {
       setIpRestriction('');
       
       // Invalidate queries to refresh the links list
-      queryClient.invalidateQueries({ queryKey: ['/api/files', fileId, 'shared-links'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/files/${fileId}/presigned-links`] });
     },
     onError: (error: Error) => {
       toast({
@@ -325,16 +323,3 @@ export function PresignedLinks({ fileId }: PresignedLinksProps) {
   );
 }
 
-function getQueryFn(options = {}) {
-  return async ({ queryKey }: { queryKey: string[] }) => {
-    const endpoint = Array.isArray(queryKey) ? queryKey.join('/') : queryKey;
-    const response = await fetch(endpoint);
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to fetch data');
-    }
-    
-    return response.json();
-  };
-}
