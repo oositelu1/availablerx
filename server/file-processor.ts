@@ -5,7 +5,7 @@ import { exec as execCb } from 'child_process';
 import tmp from 'tmp';
 import axios from 'axios';
 import { storage } from './storage';
-import { validateZipContents, validateXml, computeSHA256, ERROR_CODES } from './validators';
+import { validateEpcisFile, computeSHA256, ERROR_CODES } from './validators';
 import { InsertFile, InsertTransmission, File } from '@shared/schema';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
@@ -62,26 +62,32 @@ export async function processFile(
     
     let xmlBuffer: Buffer;
     
-    // If it's a ZIP, extract and validate its contents
+    // We don't handle ZIP files currently, only direct XML
     if (isZip) {
-      const zipValidation = await validateZipContents(fileBuffer);
-      
-      if (!zipValidation.valid) {
-        return {
-          success: false,
-          errorCode: zipValidation.errorCode,
-          errorMessage: zipValidation.errorMessage
-        };
-      }
-      
-      xmlBuffer = zipValidation.xmlBuffer!;
+      return {
+        success: false,
+        errorCode: ERROR_CODES.FILE_READ_ERROR,
+        errorMessage: 'ZIP files are not supported. Please extract and upload the XML file directly.'
+      };
     } else {
       // It's an XML file, use it directly
       xmlBuffer = fileBuffer;
     }
     
+    // Save XML to temp file for validation
+    await ensureTempDir();
+    const tempFilePath = path.join(TMP_DIR, `temp_${Date.now()}.xml`);
+    await fs.writeFile(tempFilePath, xmlBuffer);
+    
     // Validate the XML content against EPCIS 1.2 schema
-    const xmlValidation = await validateXml(xmlBuffer);
+    const xmlValidation = await validateEpcisFile(tempFilePath);
+    
+    // Clean up temp file
+    try {
+      await fs.unlink(tempFilePath);
+    } catch (error) {
+      console.error('Error removing temp file:', error);
+    }
     
     if (!xmlValidation.valid) {
       return {
