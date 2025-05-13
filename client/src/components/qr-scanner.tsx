@@ -20,10 +20,24 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   useEffect(() => {
     // Clean up scanner on component unmount
     return () => {
-      if (qrScannerRef.current && qrScannerRef.current.isScanning) {
-        qrScannerRef.current
-          .stop()
-          .catch((error) => console.error('Error stopping scanner:', error));
+      try {
+        if (qrScannerRef.current) {
+          // Check if it's scanning before attempting to stop
+          if (qrScannerRef.current.isScanning) {
+            qrScannerRef.current.stop()
+              .catch((error) => console.error('Error stopping scanner:', error));
+          }
+          
+          // Clear the scanner container to avoid DOM issues
+          const container = document.getElementById(scannerContainerId);
+          if (container) {
+            while (container.firstChild) {
+              container.removeChild(container.firstChild);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error during QR scanner cleanup:', error);
       }
     };
   }, []);
@@ -36,15 +50,11 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       const html5QrCode = new Html5Qrcode(scannerContainerId);
       qrScannerRef.current = html5QrCode;
       
-      // Use responsive configuration for better compatibility
+      // Use fixed configuration to avoid calculation errors
       const config = { 
         fps: 10, 
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdgePercentage = 0.7; // 70% of the smaller edge
-          const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-          return { width: qrboxSize, height: qrboxSize };
-        }
+        qrbox: { width: 250, height: 250 }, // Fixed size to avoid calculation errors
+        aspectRatio: 1.0
       };
       
       // Use camera constraints with fewer restrictions
@@ -87,16 +97,39 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   };
 
   const handleStop = () => {
-    if (qrScannerRef.current && qrScannerRef.current.isScanning) {
-      qrScannerRef.current
-        .stop()
-        .then(() => {
+    try {
+      if (qrScannerRef.current) {
+        if (qrScannerRef.current.isScanning) {
+          qrScannerRef.current
+            .stop()
+            .then(() => {
+              setIsScanning(false);
+            })
+            .catch((err) => {
+              setError(`Error stopping scanner: ${err}`);
+              setIsScanning(false);
+            });
+        } else {
           setIsScanning(false);
-        })
-        .catch((err) => {
-          setError(`Error stopping scanner: ${err}`);
-          setIsScanning(false);
-        });
+        }
+        
+        // Clean up the HTML elements to prevent DOM errors
+        const container = document.getElementById(scannerContainerId);
+        if (container) {
+          setTimeout(() => {
+            try {
+              while (container.firstChild) {
+                container.removeChild(container.firstChild);
+              }
+            } catch (cleanupErr) {
+              console.error('Error cleaning up scanner DOM:', cleanupErr);
+            }
+          }, 300); // Small delay to ensure stop has completed
+        }
+      }
+    } catch (err) {
+      console.error('Error in handleStop:', err);
+      setIsScanning(false);
     }
   };
 
