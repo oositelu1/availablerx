@@ -10,6 +10,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import ProductValidationDialog from "@/components/product-validation-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Table,
