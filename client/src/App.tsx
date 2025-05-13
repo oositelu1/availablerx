@@ -6,6 +6,7 @@ import UploadPage from "@/pages/upload-page";
 import PartnersPage from "@/pages/partners-page";
 import FileHistoryPage from "@/pages/file-history-page";
 import FileDetailPage from "@/pages/file-detail-page";
+import ProductItemsPage from "@/pages/product-items-page";
 import SettingsPage from "@/pages/settings-page";
 import AuthPage from "@/pages/auth-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
@@ -23,6 +24,7 @@ function Router() {
       <ProtectedRoute path="/partners" component={PartnersPage} />
       <ProtectedRoute path="/files" component={FileHistoryPage} />
       <ProtectedRoute path="/files/:id" component={FileDetailPage} />
+      <ProtectedRoute path="/product-items/file/:fileId" component={ProductItemsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
