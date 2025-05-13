@@ -37,6 +37,10 @@ export function RecentPurchaseOrders({ limit = 5 }: { limit?: number }) {
     }
   };
   
+  // Extract the purchase orders array from the response
+  const purchaseOrdersArray = Array.isArray(purchaseOrders) ? purchaseOrders : 
+    (purchaseOrders && purchaseOrders.orders ? purchaseOrders.orders : []);
+
   return (
     <Table>
       <TableHeader>
@@ -59,8 +63,8 @@ export function RecentPurchaseOrders({ limit = 5 }: { limit?: number }) {
               <TableCell><Skeleton className="h-6 w-24 ml-auto" /></TableCell>
             </TableRow>
           ))
-        ) : purchaseOrders && purchaseOrders.length > 0 ? (
-          purchaseOrders.slice(0, limit).map((po) => (
+        ) : purchaseOrdersArray.length > 0 ? (
+          purchaseOrdersArray.slice(0, limit).map((po) => (
             <TableRow key={po.id}>
               <TableCell className="font-medium">{po.poNumber}</TableCell>
               <TableCell>{po.supplier}</TableCell>

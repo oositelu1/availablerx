@@ -105,7 +105,10 @@ export default function PurchaseOrdersPage() {
   };
 
   // Filter purchase orders based on search query and status
-  const filteredPOs = purchaseOrders ? purchaseOrders.filter(po => {
+  const purchaseOrdersArray = Array.isArray(purchaseOrders) ? purchaseOrders : 
+    (purchaseOrders && purchaseOrders.orders ? purchaseOrders.orders : []);
+    
+  const filteredPOs = purchaseOrdersArray.filter(po => {
     const matchesSearch = searchQuery === "" || 
       po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       po.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -114,7 +117,7 @@ export default function PurchaseOrdersPage() {
     const matchesStatus = statusFilter === "all" || po.status === statusFilter;
     
     return matchesSearch && matchesStatus;
-  }) : [];
+  });
 
   // Status badge color mapping
   const getStatusColor = (status: string) => {

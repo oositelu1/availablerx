@@ -49,22 +49,33 @@ export default function PurchaseOrderDetailPage() {
   });
   
   // Fetch associated EPCIS files
-  const { data: associatedFiles, isLoading: isLoadingFiles } = useQuery({
+  const { data: associatedFilesResponse, isLoading: isLoadingFiles } = useQuery({
     queryKey: [`/api/purchase-orders/${poId}/files`],
     enabled: !!poId,
   });
   
+  // Extract the associated files array from the response
+  const associatedFiles = Array.isArray(associatedFilesResponse) ? associatedFilesResponse : 
+    (associatedFilesResponse && associatedFilesResponse.associations ? associatedFilesResponse.associations : []);
+  
   // Fetch product items from this purchase order
-  const { data: productItems, isLoading: isLoadingItems } = useQuery({
+  const { data: productItemsResponse, isLoading: isLoadingItems } = useQuery({
     queryKey: [`/api/purchase-orders/${poId}/products`],
     enabled: !!poId,
   });
   
+  // Extract the product items array from the response
+  const productItems = Array.isArray(productItemsResponse) ? productItemsResponse : 
+    (productItemsResponse && productItemsResponse.items ? productItemsResponse.items : []);
+  
   // Fetch all files for association dropdown
-  const { data: allFiles, isLoading: isLoadingAllFiles } = useQuery({
+  const { data: allFilesResponse, isLoading: isLoadingAllFiles } = useQuery({
     queryKey: ['/api/files'],
     enabled: associateDialogOpen, // Only load when dialog is open
   });
+  
+  // Extract the files array from the response
+  const allFiles = allFilesResponse?.files || [];
   
   // Set up form for associating files
   const form = useForm<AssociationFormValues>({
@@ -121,9 +132,9 @@ export default function PurchaseOrderDetailPage() {
   };
   
   // Filter out already associated files from the dropdown
-  const availableFiles = allFiles?.files?.filter(file => {
-    return !associatedFiles?.some(association => association.file.id === file.id);
-  }) || [];
+  const availableFiles = allFiles.filter(file => {
+    return !associatedFiles.some(association => association.file && association.file.id === file.id);
+  });
   
   // Status badge color mapping
   const getStatusColor = (status: string) => {
