@@ -1,34 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, AlertTriangle, QrCode } from 'lucide-react';
-import QRScanner from './qr-scanner';
-import { parseQRCode, compareWithEPCISData, type ParsedQRData } from '@/lib/qr-code-parser';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart } from "lucide-react";
+import QRScanner from "@/components/qr-scanner";
+import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 
 interface ProductValidationDialogProps {
   isOpen: boolean;
@@ -50,330 +27,282 @@ export default function ProductValidationDialog({
   poId
 }: ProductValidationDialogProps) {
   const [showScanner, setShowScanner] = useState(false);
-  const [scannedData, setScannedData] = useState<ParsedQRData | null>(null);
-  const [matchResults, setMatchResults] = useState<{
-    matchedItem?: any;
-    matches: boolean;
-    gtinMatch: boolean;
-    lotMatch: boolean;
-    expirationMatch: boolean;
-    serialMatch: boolean;
-  } | null>(null);
-  const [currentStep, setCurrentStep] = useState<'initial' | 'scanning' | 'results'>('initial');
-  const [validationHistory, setValidationHistory] = useState<Array<{
+  const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
-    matchResults: any;
-    matchedItem?: any;
-  }>>([]);
+    matches: Array<{
+      productItem: typeof productItems[0];
+      matchResult: {
+        matches: boolean;
+        gtinMatch: boolean;
+        lotMatch: boolean;
+        serialMatch: boolean;
+        expirationMatch: boolean;
+      }
+    }>;
+  } | null>(null);
 
-  // Reset state when dialog opens/closes
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep('initial');
-      setScannedData(null);
-      setMatchResults(null);
-    }
-  }, [isOpen]);
-
-  const handleStartScan = () => {
-    setShowScanner(true);
-    setCurrentStep('scanning');
-  };
-
-  const handleScanSuccess = (decodedText: string, decodedResult: any) => {
-    const parsed = parseQRCode(decodedText);
-    setScannedData(parsed);
+  // Handle successful scan
+  const handleScanSuccess = (decodedText: string) => {
+    // Parse the QR code data
+    const parsedData = parseQRCode(decodedText);
     
-    // Find matching product in EPCIS data
-    const matchedItem = findMatchingProduct(parsed);
-    
-    if (matchedItem) {
-      const comparison = compareWithEPCISData(parsed, matchedItem);
-      setMatchResults({
-        ...comparison,
-        matchedItem
+    // Find matching products
+    const matches = productItems.map(productItem => {
+      const matchResult = compareWithEPCISData(parsedData, {
+        gtin: productItem.gtin,
+        lotNumber: productItem.lotNumber,
+        expirationDate: productItem.expirationDate,
+        serialNumber: productItem.serialNumber
       });
-    } else {
-      setMatchResults({
-        matches: false,
-        gtinMatch: false,
-        lotMatch: false,
-        expirationMatch: false,
-        serialMatch: false
-      });
-    }
+      
+      return {
+        productItem,
+        matchResult
+      };
+    });
+
+    // Set the scan result
+    setScanResult({
+      timestamp: new Date(),
+      scannedData: parsedData,
+      matches
+    });
     
-    // Add to validation history
-    setValidationHistory(prev => [
-      {
-        timestamp: new Date(),
-        scannedData: parsed,
-        matchResults: matchResults || {
-          matches: false,
-          gtinMatch: false,
-          lotMatch: false,
-          expirationMatch: false,
-          serialMatch: false
-        },
-        matchedItem
-      },
-      ...prev
-    ]);
-    
+    // Close the scanner
     setShowScanner(false);
-    setCurrentStep('results');
   };
 
-  const handleScanError = (error: string) => {
-    console.error('Scan error:', error);
-    // Stay on scanning step but show an error
-  };
-
-  const handleCancelScan = () => {
-    setShowScanner(false);
-    setCurrentStep('initial');
-  };
-
+  // Find the best match (if any)
   const findMatchingProduct = (qrData: ParsedQRData) => {
-    // Try to find an exact match with GTIN + serial number first
-    if (qrData.gtin && qrData.serialNumber) {
-      const exactMatch = productItems.find(
-        item => item.gtin === qrData.gtin && item.serialNumber === qrData.serialNumber
-      );
-      if (exactMatch) return exactMatch;
-    }
+    // First check for exact matches (GTIN + lot number + serial number)
+    const exactMatch = productItems.find(item => 
+      item.gtin === qrData.gtin && 
+      item.lotNumber?.toLowerCase() === qrData.lotNumber?.toLowerCase() &&
+      item.serialNumber === qrData.serialNumber
+    );
     
-    // Try to find a match with GTIN + lot number if no exact match
-    if (qrData.gtin && qrData.lotNumber) {
-      const lotMatch = productItems.find(
-        item => item.gtin === qrData.gtin && 
-                item.lotNumber.toLowerCase() === qrData.lotNumber?.toLowerCase()
-      );
-      if (lotMatch) return lotMatch;
-    }
+    if (exactMatch) return exactMatch;
     
-    // Finally, just try to match by GTIN if nothing else matches
-    if (qrData.gtin) {
-      return productItems.find(item => item.gtin === qrData.gtin);
+    // Then check for GTIN + lot number matches
+    const lotMatch = productItems.find(item => 
+      item.gtin === qrData.gtin && 
+      item.lotNumber?.toLowerCase() === qrData.lotNumber?.toLowerCase()
+    );
+    
+    if (lotMatch) return lotMatch;
+    
+    // Finally, check for just GTIN matches
+    const gtinMatch = productItems.find(item => 
+      item.gtin === qrData.gtin
+    );
+    
+    return gtinMatch;
+  };
+
+  // Reset scanning
+  const handleReset = () => {
+    setScanResult(null);
+    setShowScanner(false);
+  };
+
+  // Format a date for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  // Helper to convert GTIN to NDC format if possible
+  const gtinToNDC = (gtin: string | undefined) => {
+    if (!gtin || gtin.length !== 14) return null;
+    
+    // Standard conversion: remove first 3 digits (usually '003') and checksum digit
+    // Format as 5-4-2
+    const ndc = gtin.substring(3, 12);
+    if (ndc.length === 9) {
+      return `${ndc.substring(0, 5)}-${ndc.substring(5, 9)}-${ndc.substring(9)}`;
     }
     
     return null;
   };
 
-  const renderStatus = (isMatch: boolean) => {
-    if (isMatch) {
+  // Content to display
+  const renderContent = () => {
+    if (showScanner) {
       return (
-        <div className="flex items-center text-green-600">
-          <CheckCircle2 className="w-4 h-4 mr-1" />
-          <span>Match</span>
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex items-center text-red-600">
-          <XCircle className="w-4 h-4 mr-1" />
-          <span>No Match</span>
-        </div>
+        <QRScanner 
+          onScanSuccess={handleScanSuccess}
+          onClose={() => setShowScanner(false)}
+        />
       );
     }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Product Verification</DialogTitle>
-          <DialogDescription>
-            Scan GS1 DataMatrix code from the physical product to verify against EPCIS data
-          </DialogDescription>
-        </DialogHeader>
-
-        {currentStep === 'initial' && (
-          <div className="py-4 text-center">
-            <div className="bg-muted p-8 rounded-md mb-4 flex flex-col items-center justify-center">
-              <QrCode className="h-16 w-16 mb-4 text-primary" />
-              <h3 className="text-lg font-medium mb-2">Verify Physical Products</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Scan the DataMatrix code on the physical product to verify it matches EPCIS data
-              </p>
-              <Button onClick={handleStartScan} className="mt-2">
-                Start Scanning
-              </Button>
+    
+    if (scanResult) {
+      const { scannedData, matches } = scanResult;
+      const foundMatches = matches.filter(m => m.matchResult.matches);
+      const bestMatch = foundMatches.length > 0 ? foundMatches[0] : null;
+      
+      return (
+        <div className="space-y-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium mb-2">Scan Results</h3>
+            
+            {bestMatch ? (
+              <Alert variant="default" className="bg-success/10 border-success">
+                <CheckCircle className="h-5 w-5 text-success" />
+                <AlertTitle>Valid Product!</AlertTitle>
+                <AlertDescription>
+                  This product matches an item in the EPCIS data.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="destructive">
+                <CircleAlert className="h-5 w-5" />
+                <AlertTitle>No Match Found</AlertTitle>
+                <AlertDescription>
+                  This product does not match any items in the EPCIS data.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-sm font-medium mb-1">Scanned Information</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="bg-muted p-2 rounded">
+                  <span className="text-xs text-muted-foreground block">GTIN:</span>
+                  <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
+                </div>
+                
+                <div className="bg-muted p-2 rounded">
+                  <span className="text-xs text-muted-foreground block">NDC:</span>
+                  <span className="font-mono">{gtinToNDC(scannedData.gtin) || 'N/A'}</span>
+                </div>
+                
+                <div className="bg-muted p-2 rounded">
+                  <span className="text-xs text-muted-foreground block">Lot Number:</span>
+                  <span className="font-mono">{scannedData.lotNumber || 'N/A'}</span>
+                </div>
+                
+                <div className="bg-muted p-2 rounded">
+                  <span className="text-xs text-muted-foreground block">Serial Number:</span>
+                  <span className="font-mono">{scannedData.serialNumber || 'N/A'}</span>
+                </div>
+                
+                <div className="bg-muted p-2 rounded">
+                  <span className="text-xs text-muted-foreground block">Expiration Date:</span>
+                  <span className="font-mono">{scannedData.expirationDate ? formatDate(scannedData.expirationDate) : 'N/A'}</span>
+                </div>
+                
+                <div className="bg-muted p-2 rounded">
+                  <span className="text-xs text-muted-foreground block">Format:</span>
+                  <span className={`font-mono ${scannedData.isGS1Format ? 'text-success' : 'text-warning'}`}>
+                    {scannedData.isGS1Format ? 'GS1 DataMatrix' : 'Non-GS1 Format'}
+                  </span>
+                </div>
+              </div>
             </div>
             
-            {validationHistory.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-md font-medium mb-2 text-left">Validation History</h3>
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Result</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {validationHistory.slice(0, 5).map((record, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs">
-                            {record.timestamp.toLocaleTimeString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-xs font-medium">
-                              {record.scannedData.gtin || 'Unknown GTIN'}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Lot: {record.scannedData.lotNumber || 'N/A'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={record.matchResults.matches ? "success" : "destructive"}>
-                              {record.matchResults.matches ? "Verified" : "Failed"}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+            {bestMatch && (
+              <div>
+                <h4 className="text-sm font-medium mb-1">Match Details</h4>
+                <div className="border rounded-md p-3 bg-muted/30">
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <Badge variant={bestMatch.matchResult.gtinMatch ? "success" : "destructive"}>
+                      {bestMatch.matchResult.gtinMatch ? "GTIN Match" : "GTIN Mismatch"}
+                    </Badge>
+                    <Badge variant={bestMatch.matchResult.lotMatch ? "success" : "destructive"}>
+                      {bestMatch.matchResult.lotMatch ? "Lot Match" : "Lot Mismatch"}
+                    </Badge>
+                    {bestMatch.matchResult.serialMatch !== undefined && (
+                      <Badge variant={bestMatch.matchResult.serialMatch ? "success" : "destructive"}>
+                        {bestMatch.matchResult.serialMatch ? "Serial Match" : "Serial Mismatch"}
+                      </Badge>
+                    )}
+                    {bestMatch.matchResult.expirationMatch !== undefined && (
+                      <Badge variant={bestMatch.matchResult.expirationMatch ? "success" : "destructive"}>
+                        {bestMatch.matchResult.expirationMatch ? "Expiration Match" : "Expiration Mismatch"}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="text-sm">
+                    <p><strong>GTIN:</strong> {bestMatch.productItem.gtin}</p>
+                    <p><strong>Lot:</strong> {bestMatch.productItem.lotNumber}</p>
+                    <p><strong>Serial:</strong> {bestMatch.productItem.serialNumber}</p>
+                    <p><strong>Expiration:</strong> {formatDate(bestMatch.productItem.expirationDate)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {poId && (
+              <div className="mt-4 pt-2 border-t">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Associated with Purchase Order #{poId}
+                  </span>
                 </div>
               </div>
             )}
           </div>
-        )}
-
-        {currentStep === 'scanning' && showScanner && (
-          <QRScanner 
-            onScanSuccess={handleScanSuccess} 
-            onScanError={handleScanError}
-            onClose={handleCancelScan}
-          />
-        )}
-
-        {currentStep === 'results' && scannedData && matchResults && (
-          <div className="py-2">
-            <Alert variant={matchResults.matches ? "default" : "destructive"} className="mb-4">
-              <AlertTitle className="flex items-center">
-                {matchResults.matches ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Product Verified
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Verification Failed
-                  </>
-                )}
-              </AlertTitle>
-              <AlertDescription>
-                {matchResults.matches
-                  ? "The scanned product matches EPCIS data"
-                  : "The scanned product does not match any product in EPCIS data"}
-              </AlertDescription>
-            </Alert>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Scanned Product</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">GTIN:</span>
-                      <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Lot Number:</span>
-                      <span>{scannedData.lotNumber || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Expiration:</span>
-                      <span>{scannedData.expirationDate || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Serial Number:</span>
-                      <span className="font-mono">{scannedData.serialNumber || 'N/A'}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">EPCIS Data</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  {matchResults.matchedItem ? (
-                    <div className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">GTIN:</span>
-                        <span className="font-mono">{matchResults.matchedItem.gtin}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Lot Number:</span>
-                        <span>{matchResults.matchedItem.lotNumber}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Expiration:</span>
-                        <span>{matchResults.matchedItem.expirationDate}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Serial Number:</span>
-                        <span className="font-mono">{matchResults.matchedItem.serialNumber}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-muted-foreground">
-                      No matching product found
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {matchResults.matchedItem && (
-              <Card className="mb-4">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Validation Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex justify-between items-center border p-2 rounded-md">
-                      <span className="text-sm">GTIN</span>
-                      {renderStatus(matchResults.gtinMatch)}
-                    </div>
-                    <div className="flex justify-between items-center border p-2 rounded-md">
-                      <span className="text-sm">Lot Number</span>
-                      {renderStatus(matchResults.lotMatch)}
-                    </div>
-                    <div className="flex justify-between items-center border p-2 rounded-md">
-                      <span className="text-sm">Expiration Date</span>
-                      {renderStatus(matchResults.expirationMatch)}
-                    </div>
-                    <div className="flex justify-between items-center border p-2 rounded-md">
-                      <span className="text-sm">Serial Number</span>
-                      {renderStatus(matchResults.serialMatch)}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            <div className="flex gap-2">
-              <Button onClick={handleStartScan}>Scan Another</Button>
-              <Button variant="outline" onClick={() => setCurrentStep('initial')}>Back</Button>
-            </div>
+          
+          <div className="flex justify-between mt-4 pt-4 border-t">
+            <Button onClick={handleReset} variant="outline">
+              Scan Another
+            </Button>
+            <Button onClick={onClose}>Done</Button>
           </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-6 py-4">
+        <div className="text-center">
+          <Scan className="h-12 w-12 text-primary/60 mx-auto mb-3" />
+          <h3 className="text-lg font-medium mb-1">Scan Product Code</h3>
+          <p className="text-sm text-muted-foreground">
+            Scan a product's 2D DataMatrix or QR code to validate it against the EPCIS data.
+          </p>
+        </div>
+        
+        <div className="flex justify-center">
+          <Button onClick={() => setShowScanner(true)} className="w-full max-w-xs">
+            Start Scanning
           </Button>
-        </DialogFooter>
+        </div>
+        
+        <div className="bg-muted/40 rounded-md p-3 text-sm">
+          <h4 className="font-medium mb-2">What Can Be Validated:</h4>
+          <ul className="space-y-1 list-disc pl-5 text-muted-foreground">
+            <li>Product GTIN (Global Trade Item Number)</li>
+            <li>Lot/Batch number</li>
+            <li>Serial number</li>
+            <li>Expiration date</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Product Validation</DialogTitle>
+          <DialogDescription>
+            Validate physical products against EPCIS data by scanning product codes.
+          </DialogDescription>
+        </DialogHeader>
+        
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );

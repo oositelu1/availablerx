@@ -492,7 +492,17 @@ export default function FileDetailPage() {
                                 {/* Display Serial Numbers from product items */}
                                 {productItems && productItems.length > 0 && (
                                   <>
-                                    <div className="text-sm font-medium text-neutral-700">Serial Number(s):</div>
+                                    <div className="flex justify-between items-center">
+                                      <div className="text-sm font-medium text-neutral-700">Serial Number(s):</div>
+                                      <Button 
+                                        onClick={handleOpenValidationDialog} 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="flex items-center gap-1">
+                                        <QrCode className="h-3.5 w-3.5" />
+                                        <span className="text-xs">Scan &amp; Validate</span>
+                                      </Button>
+                                    </div>
                                     <div className="text-sm">
                                       {productItems.length === 1 ? (
                                         <code className="bg-primary/5 px-1 py-0.5 rounded text-xs font-mono">
@@ -534,7 +544,17 @@ export default function FileDetailPage() {
                                   file.metadata.productItems && 
                                   file.metadata.productItems.length > 0 && (
                                   <>
-                                    <div className="text-sm font-medium text-neutral-700">Serial Number(s):</div>
+                                    <div className="flex justify-between items-center">
+                                      <div className="text-sm font-medium text-neutral-700">Serial Number(s):</div>
+                                      <Button 
+                                        onClick={handleOpenValidationDialog} 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="flex items-center gap-1">
+                                        <QrCode className="h-3.5 w-3.5" />
+                                        <span className="text-xs">Scan &amp; Validate</span>
+                                      </Button>
+                                    </div>
                                     <div className="text-sm">
                                       {file.metadata.productItems.length === 1 ? (
                                         <code className="bg-primary/5 px-1 py-0.5 rounded text-xs font-mono">
@@ -822,6 +842,16 @@ export default function FileDetailPage() {
         setIsOpen={setSendModalOpen}
         fileId={fileId}
       />
+      
+      {/* Product Validation Dialog */}
+      {validationDialogOpen && (
+        <ProductValidationDialog
+          isOpen={validationDialogOpen}
+          onClose={() => setValidationDialogOpen(false)}
+          productItems={productItems || []}
+          poId={associations && associations.length > 0 ? associations[0].poId : null}
+        />
+      )}
     </Layout>
   );
 }
