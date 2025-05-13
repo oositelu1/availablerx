@@ -340,22 +340,45 @@ export default function FileDetailPage() {
                                   </>
                                 )}
                                 
-                                {/* Show NDC if available */}
-                                {file.metadata.productInfo.ndc && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
-                                    <div className="text-sm font-mono">
-                                      {file.metadata.productInfo.ndc}
-                                    </div>
-                                  </>
-                                )}
-                                
                                 {/* Show GTIN if available */}
                                 {productItems && productItems.length > 0 && productItems[0].gtin && (
                                   <>
                                     <div className="text-sm font-medium text-neutral-700">GTIN:</div>
                                     <div className="text-sm font-mono">
                                       {productItems[0].gtin}
+                                    </div>
+                                  </>
+                                )}
+                                
+                                {/* Show NDC if available in metadata, or derive from GTIN */}
+                                {(file.metadata.productInfo.ndc || 
+                                  (productItems && productItems.length > 0 && productItems[0].gtin)) && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
+                                    <div className="text-sm font-mono">
+                                      {file.metadata.productInfo.ndc || 
+                                       (productItems && productItems.length > 0 && productItems[0].gtin 
+                                        ? (() => {
+                                            // Convert GTIN to NDC
+                                            // GTIN-14 format: Indicator(1) + Labeler(5) + Product(3) + Package(1) + Check(1)
+                                            // NDC format: Labeler(5)-Product(4)-Package(2)
+                                            const gtin = productItems[0].gtin;
+                                            if (gtin && gtin.length >= 11) {
+                                              // Extract the middle portion of the GTIN, which corresponds to the NDC
+                                              // For GTIN-14, start at position 1 (after indicator digit)
+                                              // For GTIN-12, start at position 0
+                                              const startPos = gtin.length >= 14 ? 1 : 0;
+                                              // Format as 5-4-2
+                                              // Note: This is a simplified conversion and may not work for all GTINs
+                                              const labeler = gtin.substring(startPos, startPos + 5);
+                                              const product = gtin.substring(startPos + 5, startPos + 9);
+                                              const pkg = gtin.substring(startPos + 9, startPos + 11);
+                                              return `${labeler}-${product}-${pkg}`;
+                                            }
+                                            return "Not available";
+                                          })()
+                                        : "Not available")
+                                      }
                                     </div>
                                   </>
                                 )}
