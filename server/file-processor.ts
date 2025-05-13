@@ -166,14 +166,20 @@ export async function sendFile(
     const transmissionRecord = await storage.createTransmission(transmission);
     
     // Get the file data
-    const fileData = await storage.retrieveFileData(fileId);
+    // For PRESIGNED transport type, we don't actually need the file data for sending
+    // Only check file data for other transport types
+    let fileData: Buffer | undefined = undefined;
     
-    if (!fileData) {
-      await storage.updateTransmission(transmissionRecord.id, {
-        status: 'failed',
-        errorMessage: 'File content could not be retrieved'
-      });
-      return { success: false, errorMessage: 'File content could not be retrieved' };
+    if (transportType !== 'PRESIGNED') {
+      fileData = await storage.retrieveFileData(fileId);
+      
+      if (!fileData) {
+        await storage.updateTransmission(transmissionRecord.id, {
+          status: 'failed',
+          errorMessage: 'File content could not be retrieved'
+        });
+        return { success: false, errorMessage: 'File content could not be retrieved' };
+      }
     }
     
     // Send via appropriate transport method
