@@ -291,8 +291,8 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
           </div>
         )}
         
-        <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={handleCancel}>
+        <DialogFooter className="mt-6 pt-4 border-t">
+          <Button variant="outline" onClick={handleCancel} className="mr-2">
             Cancel
           </Button>
           <Button
