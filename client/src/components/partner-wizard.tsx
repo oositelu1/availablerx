@@ -51,8 +51,8 @@ const step1Schema = z.object({
 });
 
 const step2Schema = z.object({
-  endpointUrl: z.string().url({ message: "Please enter a valid URL" }),
-  transportType: z.enum(["AS2", "HTTPS"], { 
+  endpointUrl: z.string().url({ message: "Please enter a valid URL" }).optional(),
+  transportType: z.enum(["AS2", "HTTPS", "PRESIGNED"], { 
     required_error: "Please select a transport method" 
   }),
   as2Id: z.string().optional(),
@@ -89,7 +89,7 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
       contactEmail: "",
       notes: "",
       endpointUrl: "",
-      transportType: "AS2",
+      transportType: "PRESIGNED",
       as2Id: "",
       certificate: "",
       authToken: "",
@@ -331,6 +331,10 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
                         <RadioGroupItem value="HTTPS" id="https" />
                         <FormLabel htmlFor="https" className="cursor-pointer">HTTPS</FormLabel>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="PRESIGNED" id="presigned" />
+                        <FormLabel htmlFor="presigned" className="cursor-pointer">Pre-Signed URLs</FormLabel>
+                      </div>
                     </RadioGroup>
                   </FormControl>
                   <FormMessage />
@@ -338,25 +342,36 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="endpointUrl"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel>Endpoint URL</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="https://partner-endpoint.example.com" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    The URL where files will be sent to this partner
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {form.watch("transportType") !== "PRESIGNED" && (
+              <FormField
+                control={form.control}
+                name="endpointUrl"
+                render={({ field }) => (
+                  <FormItem className="mb-4">
+                    <FormLabel>Endpoint URL</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="https://partner-endpoint.example.com" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      The URL where files will be sent to this partner
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {form.watch("transportType") === "PRESIGNED" && (
+              <div className="mb-4 p-4 bg-primary/5 rounded-md">
+                <p className="text-sm">
+                  <span className="font-medium">Pre-Signed URLs Selected:</span> Files will be shared with this partner 
+                  via secure, expiring download links instead of direct transmission.
+                </p>
+              </div>
+            )}
             
             {form.watch("transportType") === "AS2" && (
               <FormField
