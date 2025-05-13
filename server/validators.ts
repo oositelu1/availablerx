@@ -386,9 +386,16 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
         };
         
         // Check if it's an EPCClass vocabulary
-        const isEpcClass = safeIncludes(typeValue, 'EPCClass');
+        // Check if this is an EPCClass vocabulary (contains product information)
+        if (typeof typeValue === 'object') {
+          // Some XML parsers might return an object with a 'value' property
+          typeValue = typeValue.value || '';
+        }
         
-        if (isEpcClass) {
+        // Direct string matching for EPCClass vocabulary
+        if (String(typeValue).includes('EPCClass')) {
+          console.log('Found EPCClass vocabulary, extracting product info');
+          
           if (!vocab.VocabularyElementList) {
             console.log('EPCClass vocabulary has no VocabularyElementList');
             continue;
@@ -403,38 +410,61 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
             ? vocab.VocabularyElementList.VocabularyElement
             : [vocab.VocabularyElementList.VocabularyElement];
           
+          console.log(`Found ${elements.length} VocabularyElement(s)`);
+          
           for (const element of elements) {
             if (!element.attribute) {
               console.log('VocabularyElement has no attributes');
               continue;
             }
             
+            // Handle both array and single attribute formats
             const attributes = Array.isArray(element.attribute) 
               ? element.attribute 
               : [element.attribute];
             
-            // Extract product attributes
+            console.log(`Processing ${attributes.length} attributes`);
+            
+            // Simple mapping from attribute ID to product info fields
+            const attributeMap = new Map();
+            
+            // Process all attributes first
             for (const attr of attributes) {
-              if (attr.ATTRS && attr.ATTRS.id) {
-                const attrId = attr.ATTRS.id;
-                const value = attr._;
-                
-                // Map to product info fields
-                if (safeIncludes(attrId, 'regulatedProductName')) {
-                  metadata.productInfo.name = value;
-                } else if (safeIncludes(attrId, 'dosageFormType')) {
-                  metadata.productInfo.dosageForm = value;
-                } else if (safeIncludes(attrId, 'strengthDescription')) {
-                  metadata.productInfo.strength = value;
-                } else if (safeIncludes(attrId, 'additionalTradeItemIdentification') && 
-                          (safeEquals(attr.ATTRS.typeCode, 'FDA_NDC_11') || safeIncludes(attrId, 'NDC'))) {
-                  metadata.productInfo.ndc = value;
-                } else if (safeIncludes(attrId, 'netContentDescription')) {
-                  metadata.productInfo.netContent = value;
-                } else if (safeIncludes(attrId, 'manufacturerOfTradeItemPartyName')) {
-                  metadata.productInfo.manufacturer = value;
-                }
+              if (!attr.ATTRS || !attr.ATTRS.id) {
+                console.log('Attribute missing ID:', JSON.stringify(attr));
+                continue;
               }
+              
+              const attrId = attr.ATTRS.id;
+              const value = attr._ || '';
+              
+              console.log(`Attribute ${attrId} = ${value}`);
+              attributeMap.set(attrId, value);
+            }
+            
+            // More direct approach using exact attribute IDs from the sample file
+            if (attributeMap.has('urn:epcglobal:cbv:mda#regulatedProductName')) {
+              metadata.productInfo.name = attributeMap.get('urn:epcglobal:cbv:mda#regulatedProductName');
+            }
+            
+            if (attributeMap.has('urn:epcglobal:cbv:mda#dosageFormType')) {
+              metadata.productInfo.dosageForm = attributeMap.get('urn:epcglobal:cbv:mda#dosageFormType');
+            }
+            
+            if (attributeMap.has('urn:epcglobal:cbv:mda#strengthDescription')) {
+              metadata.productInfo.strength = attributeMap.get('urn:epcglobal:cbv:mda#strengthDescription');
+            }
+            
+            if (attributeMap.has('urn:epcglobal:cbv:mda#additionalTradeItemIdentification')) {
+              metadata.productInfo.ndc = attributeMap.get('urn:epcglobal:cbv:mda#additionalTradeItemIdentification');
+            }
+            
+            if (attributeMap.has('urn:epcglobal:cbv:mda#netContentDescription')) {
+              metadata.productInfo.netContent = attributeMap.get('urn:epcglobal:cbv:mda#netContentDescription');
+            }
+            
+            if (attributeMap.has('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName')) {
+              metadata.productInfo.manufacturer = attributeMap.get('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName');
             }
           }
         }
@@ -451,25 +481,69 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
         const objectEvents = epcisBody.ObjectEvent || epcisBody['epcis:ObjectEvent'];
         if (objectEvents) {
           const events = Array.isArray(objectEvents) ? objectEvents : [objectEvents];
+          console.log(`Found ${events.length} object events for lot/expiry extraction`);
           
           // Just use the first event for now
           if (events.length > 0) {
             const event = events[0];
+            console.log('Object event keys:', Object.keys(event));
             
-            // Extract ilmd (instance lot master data)
-            const ilmd = event.ilmd || event['epcis:ilmd'];
-            if (ilmd) {
-              // Look for lot number
-              const lot = ilmd.lot || ilmd['epcis:lot'] || ilmd['cbvmda:lotNumber'];
-              if (lot) {
-                metadata.productInfo.lotNumber = lot;
+            // Check if there's an extension field with ilmd
+            if (event.extension && event.extension.ilmd) {
+              console.log('Found ilmd in event.extension.ilmd');
+              const ilmd = event.extension.ilmd;
+              console.log('ILMD keys:', Object.keys(ilmd));
+              
+              // Look for lot number with various namespaces
+              if (ilmd['cbvmda:lotNumber']) {
+                console.log(`Found lot number: ${ilmd['cbvmda:lotNumber']}`);
+                metadata.productInfo.lotNumber = ilmd['cbvmda:lotNumber'];
               }
               
-              // Look for expiration date
-              const expiry = ilmd.itemExpirationDate || ilmd['epcis:itemExpirationDate'] || 
-                           ilmd['cbvmda:itemExpirationDate'];
-              if (expiry) {
-                metadata.productInfo.expirationDate = expiry;
+              // Look for expiration date with various namespaces
+              if (ilmd['cbvmda:itemExpirationDate']) {
+                console.log(`Found expiration date: ${ilmd['cbvmda:itemExpirationDate']}`);
+                metadata.productInfo.expirationDate = ilmd['cbvmda:itemExpirationDate'];
+              }
+            } else {
+              console.log('No extension.ilmd found, checking direct ilmd');
+              
+              // Try direct ilmd property
+              const ilmd = event.ilmd || event['epcis:ilmd'];
+              if (ilmd) {
+                console.log('Found direct ilmd, keys:', Object.keys(ilmd));
+                
+                // Look for lot number with various namespaces
+                const lotCandidates = [
+                  ilmd.lot, 
+                  ilmd['epcis:lot'], 
+                  ilmd['cbvmda:lotNumber']
+                ];
+                
+                for (const lotValue of lotCandidates) {
+                  if (lotValue) {
+                    console.log(`Found lot number: ${lotValue}`);
+                    metadata.productInfo.lotNumber = lotValue;
+                    break;
+                  }
+                }
+                
+                // Look for expiration date with various namespaces
+                const expiryCandidates = [
+                  ilmd.itemExpirationDate,
+                  ilmd['epcis:itemExpirationDate'],
+                  ilmd['cbvmda:itemExpirationDate']
+                ];
+                
+                for (const expiryValue of expiryCandidates) {
+                  if (expiryValue) {
+                    console.log(`Found expiration date: ${expiryValue}`);
+                    metadata.productInfo.expirationDate = expiryValue;
+                    break;
+                  }
+                }
+              } else {
+                console.log('No ilmd found in the object event');
               }
             }
           }

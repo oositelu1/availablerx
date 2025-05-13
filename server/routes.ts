@@ -414,6 +414,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Log the extracted metadata for debugging
+      console.log('Extracted metadata:', JSON.stringify(xmlValidation.metadata, null, 2));
+      console.log('Product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
+      
       // Update the file with new metadata
       const updatedFile = await storage.updateFile(fileId, {
         metadata: xmlValidation.metadata
