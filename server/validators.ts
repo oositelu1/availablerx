@@ -368,7 +368,7 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
           continue;
         }
         
-        const typeValue = vocab.ATTRS.type;
+        let typeValue = vocab.ATTRS.type;
         console.log(`Vocabulary type: ${typeof typeValue === 'object' ? JSON.stringify(typeValue) : typeValue}`);
         
         const safeIncludes = (str: any, searchValue: string) => {
@@ -385,7 +385,6 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
           return String(a) === b;
         };
         
-        // Check if it's an EPCClass vocabulary
         // Check if this is an EPCClass vocabulary (contains product information)
         if (typeof typeValue === 'object') {
           // Some XML parsers might return an object with a 'value' property
