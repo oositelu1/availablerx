@@ -29,7 +29,7 @@ interface SendFileModalProps {
 
 export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps) {
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
-  const [transportType, setTransportType] = useState<"AS2" | "HTTPS">("AS2");
+  const [transportType, setTransportType] = useState<"AS2" | "HTTPS" | "PRESIGNED">("AS2");
   const [priority, setPriority] = useState<string>("normal");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -185,7 +185,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
               </Label>
               <RadioGroup
                 value={transportType}
-                onValueChange={(value) => setTransportType(value as "AS2" | "HTTPS")}
+                onValueChange={(value) => setTransportType(value as "AS2" | "HTTPS" | "PRESIGNED")}
                 className="flex items-center space-x-4"
               >
                 <div className="flex items-center space-x-2">
@@ -195,6 +195,10 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="HTTPS" id="https" />
                   <Label htmlFor="https">HTTPS</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="PRESIGNED" id="presigned" />
+                  <Label htmlFor="presigned">Pre-Signed URL</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -223,12 +227,16 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
               <div className="p-3 bg-neutral-100 rounded-md text-sm">
                 <p className="font-medium">Connection Details</p>
                 <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
-                  <div>
-                    <p className="text-neutral-600">Endpoint URL:</p>
-                  </div>
-                  <div>
-                    <p>{selectedPartner.endpointUrl || "Not configured"}</p>
-                  </div>
+                  {transportType !== "PRESIGNED" && (
+                    <>
+                      <div>
+                        <p className="text-neutral-600">Endpoint URL:</p>
+                      </div>
+                      <div>
+                        <p>{selectedPartner.endpointUrl || "Not configured"}</p>
+                      </div>
+                    </>
+                  )}
                   {transportType === "AS2" && (
                     <>
                       <div>
@@ -254,6 +262,22 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
                       </div>
                       <div>
                         <p>Configured</p>
+                      </div>
+                    </>
+                  )}
+                  {transportType === "PRESIGNED" && (
+                    <>
+                      <div>
+                        <p className="text-neutral-600">Transport Method:</p>
+                      </div>
+                      <div>
+                        <p>Pre-Signed URL</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-600">Link Expiration:</p>
+                      </div>
+                      <div>
+                        <p>48 hours from creation</p>
                       </div>
                     </>
                   )}
