@@ -497,9 +497,27 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
             console.log('Object event keys:', Object.keys(event));
             
             // Extract serial numbers from EPCs
-            const epcList = event.epcList || event['epcis:epcList'];
+            // Try different formats for epcList
+            let epcList;
+            if (event.epcList) {
+              epcList = event.epcList;
+            } else if (event['epcis:epcList']) {
+              epcList = event['epcis:epcList'];
+            } else if (event.extension && event.extension.epcList) {
+              epcList = event.extension.epcList;
+            } else if (event.extension && event.extension['epcis:epcList']) {
+              epcList = event.extension['epcis:epcList'];
+            }
+            
             if (epcList) {
-              const epcs = epcList.epc || epcList['epcis:epc'];
+              // Try different formats for epc elements
+              let epcs;
+              if (epcList.epc) {
+                epcs = epcList.epc;
+              } else if (epcList['epcis:epc']) {
+                epcs = epcList['epcis:epc'];
+              }
+              
               if (epcs) {
                 const epcArray = Array.isArray(epcs) ? epcs : [epcs];
                 console.log(`Found ${epcArray.length} EPCs/serial numbers`);
@@ -508,14 +526,27 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                   // Extract SGTIN components: company prefix, item reference, and serial number
                   // Format: urn:epc:id:sgtin:CompanyPrefix.ItemReference.SerialNumber
                   try {
-                    const epcValue = typeof epc === 'string' ? epc : (epc._ || epc.toString());
+                    let epcValue;
+                    if (typeof epc === 'string') {
+                      epcValue = epc;
+                    } else if (epc._ !== undefined) {
+                      epcValue = epc._;
+                    } else if (epc.value) {
+                      epcValue = epc.value;
+                    } else {
+                      epcValue = epc.toString();
+                    }
+                    
                     console.log(`Processing EPC: ${epcValue}`);
                     
                     if (epcValue.includes('sgtin')) {
                       // Example: urn:epc:id:sgtin:0614141.107346.2017
                       const parts = epcValue.split(':');
-                      if (parts.length >= 6) {
-                        const sgtinParts = parts[parts.length-1].split('.');
+                      if (parts.length >= 5) { // At least "urn:epc:id:sgtin:prefix.item.serial"
+                        // Get the last part which should be "prefix.item.serial" or just the whole identifier
+                        const sgtinPart = parts[parts.length-1];
+                        const sgtinParts = sgtinPart.split('.');
+                        
                         if (sgtinParts.length >= 3) {
                           const companyPrefix = sgtinParts[0];
                           const itemReference = sgtinParts[1];
@@ -537,18 +568,55 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                             // Get event time
                             const eventTime = event.eventTime || event['epcis:eventTime'] || new Date().toISOString();
                             
+                            // Look for lot number and expiration date in ilmd
+                            let lotNumber = metadata.productInfo.lotNumber || null;
+                            let expirationDate = metadata.productInfo.expirationDate || null;
+                            
+                            // Try to get lot number and expiration date from ilmd if available in this event
+                            if (event.extension && event.extension.ilmd) {
+                              const ilmd = event.extension.ilmd;
+                              if (ilmd['cbvmda:lotNumber']) {
+                                lotNumber = ilmd['cbvmda:lotNumber'];
+                              } else if (ilmd.lotNumber) {
+                                lotNumber = ilmd.lotNumber;
+                              }
+                              
+                              if (ilmd['cbvmda:itemExpirationDate']) {
+                                expirationDate = ilmd['cbvmda:itemExpirationDate'];
+                              } else if (ilmd.itemExpirationDate) {
+                                expirationDate = ilmd.itemExpirationDate;
+                              }
+                            }
+                            
                             // Create new product item
                             const productItem = {
                               gtin,
                               serialNumber,
                               eventTime,
-                              lotNumber: metadata.productInfo.lotNumber || 'unknown',
-                              expirationDate: metadata.productInfo.expirationDate || 'unknown',
+                              lotNumber: lotNumber || 'unknown',
+                              expirationDate: expirationDate || 'unknown',
                               sourceGln: null,
                               destinationGln: null,
                               bizTransactionList: null
                             };
+                            
+                            // Add source GLN if available
+                            if (event.bizLocation && event.bizLocation.id) {
+                              productItem.sourceGln = event.bizLocation.id;
+                            }
+                            
+                            // Add destination GLN if available from destination list
+                            if (event.extension && event.extension.destinationList) {
+                              const destinations = event.extension.destinationList.destination;
+                              if (destinations && Array.isArray(destinations) && destinations.length > 0) {
+                                productItem.destinationGln = destinations[0].id || destinations[0];
+                              } else if (destinations) {
+                                productItem.destinationGln = destinations.id || destinations;
+                              }
+                            }
+                            
                             metadata.productItems.push(productItem);
+                            console.log(`Added product item with serial number: ${serialNumber}`);
                           }
                         }
                       }
@@ -557,13 +625,35 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                     console.error('Error processing EPC:', epcError);
                   }
                 }
+              } else {
+                console.log('No epc elements found in epcList');
               }
             }
             
             // Extract PO numbers from business transactions
-            const bizTransactionList = event.bizTransactionList || event['epcis:bizTransactionList'];
+            // Try different formats and structures for bizTransactionList
+            let bizTransactionList;
+            if (event.bizTransactionList) {
+              bizTransactionList = event.bizTransactionList;
+            } else if (event['epcis:bizTransactionList']) {
+              bizTransactionList = event['epcis:bizTransactionList'];
+            } else if (event.extension && event.extension.bizTransactionList) {
+              bizTransactionList = event.extension.bizTransactionList;
+            } else if (event.extension && event.extension['epcis:bizTransactionList']) {
+              bizTransactionList = event.extension['epcis:bizTransactionList'];
+            }
+            
             if (bizTransactionList) {
-              const bizTransactions = bizTransactionList.bizTransaction || bizTransactionList['epcis:bizTransaction'];
+              console.log('Found bizTransactionList:', Object.keys(bizTransactionList));
+              
+              // Try different formats for bizTransaction element
+              let bizTransactions;
+              if (bizTransactionList.bizTransaction) {
+                bizTransactions = bizTransactionList.bizTransaction;
+              } else if (bizTransactionList['epcis:bizTransaction']) {
+                bizTransactions = bizTransactionList['epcis:bizTransaction'];
+              }
+              
               if (bizTransactions) {
                 const transactions = Array.isArray(bizTransactions) ? bizTransactions : [bizTransactions];
                 console.log(`Found ${transactions.length} business transactions`);
@@ -571,27 +661,51 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                 for (const transaction of transactions) {
                   try {
                     // Extract the transaction ID and type
-                    const transactionValue = typeof transaction === 'string' ? 
-                      transaction : (transaction._ || transaction.toString());
+                    // Different EPCIS implementations may use different formats
+                    let transactionValue;
+                    let type = 'unknown';
                     
-                    const attributes = transaction.$ || {};
-                    const type = attributes.type || 'unknown';
+                    if (typeof transaction === 'string') {
+                      // Simple string value
+                      transactionValue = transaction;
+                    } else if (transaction._ !== undefined) {
+                      // Object with text value in _ property
+                      transactionValue = transaction._;
+                      if (transaction.$ && transaction.$.type) {
+                        type = transaction.$.type;
+                      }
+                    } else if (transaction.type && transaction.value) {
+                      // Object with explicit type and value properties
+                      type = transaction.type;
+                      transactionValue = transaction.value;
+                    } else {
+                      // Try to convert to string
+                      transactionValue = transaction.toString();
+                    }
+                    
+                    // If the transaction is an object with $ (attributes)
+                    if (transaction.$ && !type) {
+                      type = transaction.$.type || 'unknown';
+                    }
                     
                     console.log(`Business Transaction: type=${type}, value=${transactionValue}`);
                     
-                    // Check if this is a PO reference
-                    if (type.includes('po') || type.includes('purchase-order')) {
+                    // Check if this is a PO reference by looking for 'po' or 'purchase-order' in the type
+                    if (type.toLowerCase().includes('po') || 
+                        type.toLowerCase().includes('purchase-order') || 
+                        type.toLowerCase().includes('purchase_order')) {
                       console.log(`Found Purchase Order reference: ${transactionValue}`);
                       
                       // Extract just the PO number from the reference
+                      // Format could be urn:epcglobal:cbv:bt:companyPrefix:poNumber
                       let poNumber = transactionValue;
-                      if (poNumber.includes(':')) {
+                      if (poNumber && poNumber.includes(':')) {
                         // Extract last part after colon
                         poNumber = poNumber.split(':').pop() || poNumber;
                       }
                       
                       // Add to PO numbers list if not already present
-                      if (!metadata.poNumbers.includes(poNumber)) {
+                      if (poNumber && !metadata.poNumbers.includes(poNumber)) {
                         metadata.poNumbers.push(poNumber);
                         console.log(`Added PO number: ${poNumber}`);
                       }
@@ -612,6 +726,8 @@ export async function validateXml(xmlBuffer: Buffer): Promise<{
                     console.error('Error processing business transaction:', transactionError);
                   }
                 }
+              } else {
+                console.log('No bizTransaction elements found in bizTransactionList');
               }
             }
             
