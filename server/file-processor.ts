@@ -9,6 +9,7 @@ import { validateZipContents, validateXml, computeSHA256, ERROR_CODES } from './
 import { InsertFile, InsertTransmission, File } from '@shared/schema';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { sendFileShareNotification } from './email-service';
 
 const exec = promisify(execCb);
 
@@ -238,10 +239,30 @@ export async function sendFile(
           ipRestriction: null
         });
         
-        // Get the download URL
-        const downloadUrl = await storage.generatePresignedUrl(fileId);
+        // Generate the full download URL with the base URL and the UUID
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+        const downloadUrl = `${baseUrl}/api/download/${uuid}`;
         
-        deliveryConfirmation = `Pre-Signed URL created: ${uuid}, expires: ${expiresAt.toISOString()}`;
+        // Send email notification to the partner
+        try {
+          const emailSent = await sendFileShareNotification(
+            partner,
+            file.originalName,
+            downloadUrl,
+            expiresAt
+          );
+          
+          if (emailSent) {
+            console.log(`Email notification sent to ${partner.name} <${partner.contactEmail}>`);
+            deliveryConfirmation = `Pre-Signed URL created: ${uuid}, email sent to ${partner.contactEmail}, link expires: ${expiresAt.toISOString()}`;
+          } else {
+            console.warn(`Failed to send email notification to ${partner.name} <${partner.contactEmail}>`);
+            deliveryConfirmation = `Pre-Signed URL created: ${uuid}, expires: ${expiresAt.toISOString()} (email delivery failed)`;
+          }
+        } catch (emailError) {
+          console.error('Error sending email notification:', emailError);
+          deliveryConfirmation = `Pre-Signed URL created: ${uuid}, expires: ${expiresAt.toISOString()} (email delivery error)`;
+        }
       }
       
       // Update transmission record with success
