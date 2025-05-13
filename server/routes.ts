@@ -435,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // === Pre-Signed URL Portal ===
   
   // Generate a pre-signed URL for sharing a file with a partner
-  app.post('/api/files/:id/share', async (req, res) => {
+  app.post('/api/files/:id/presigned-links', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     
     try {
@@ -512,7 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // List all pre-signed links for a file
-  app.get('/api/files/:id/shared-links', async (req, res) => {
+  app.get('/api/files/:id/presigned-links', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     
     try {
