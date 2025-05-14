@@ -316,21 +316,25 @@ export default function FileDetailPage() {
                     <div className="bg-muted/50 p-2 rounded text-xs mt-3 mb-2">
                       <pre className="whitespace-pre-wrap overflow-auto max-h-[150px]">
                         File metadata keys: {JSON.stringify(Object.keys(file.metadata || {}), null, 2)}
+                        {file.metadata.productInfo && (
+                          <>
+                            <br />
+                            <br />
+                            Product Info: {JSON.stringify(file.metadata.productInfo, null, 2)}
+                          </>
+                        )}
                       </pre>
                     </div>
                     
                     {/* Display product information if available */}
-                    {file.metadata.products && file.metadata.products.length > 0 ? (
+                    {file.metadata.productInfo ? (
                       <div className="space-y-2">
                         <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
                         
-                        {file.metadata.products.map((product: any, idx: number) => (
-                          <ProductInfoDisplay 
-                            key={idx} 
-                            productInfo={product} 
-                            gtin={product.gtin}
-                          />
-                        ))}
+                        <ProductInfoDisplay 
+                          productInfo={file.metadata.productInfo} 
+                          gtin={file.metadata.productInfo.gtin}
+                        />
                       </div>
                     ) : (
                       <div className="bg-muted/30 p-3 rounded text-sm mt-3">
