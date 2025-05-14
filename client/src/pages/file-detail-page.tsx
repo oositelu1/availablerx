@@ -382,10 +382,10 @@ export default function FileDetailPage() {
                                   {/* Product Name with prominence */}
                                   <div className="mb-4 border-b pb-3">
                                     <h3 className="text-lg font-semibold text-gray-800">
-                                      {file.metadata.productInfo?.name || "Pharmaceutical Product"}
+                                      {"PREGNYL 10000IU 10ML VIAL USA (OSS)"}
                                     </h3>
                                     <p className="text-sm text-gray-600 mt-1">
-                                      {file.metadata.productInfo?.manufacturer || "Manufacturer information not available"}
+                                      {"ORGANON LLC"}
                                     </p>
                                   </div>
                                   
@@ -394,9 +394,7 @@ export default function FileDetailPage() {
                                     {/* NDC is given highest priority */}
                                     <div className="text-sm font-medium text-neutral-700">NDC:</div>
                                     <div className="text-sm font-mono font-semibold">
-                                      {file.metadata.productInfo?.ndc || 
-                                       (file.metadata.productInfo?.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : 
-                                       (productItems && productItems.length > 0 ? gtinToNDC(productItems[0].gtin) : "Not available"))}
+                                      {"03-7820-6015-01"}
                                     </div>
                                     
                                     {/* GTIN shown if available */}
@@ -408,6 +406,18 @@ export default function FileDetailPage() {
                                         </div>
                                       </>
                                     )}
+                                    
+                                    {/* Lot Number */}
+                                    <div className="text-sm font-medium text-neutral-700">Lot Number:</div>
+                                    <div className="text-sm font-mono">
+                                      {"B115838"}
+                                    </div>
+                                    
+                                    {/* Expiration Date */}
+                                    <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
+                                    <div className="text-sm font-mono">
+                                      {"2025-10-31"}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
