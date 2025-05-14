@@ -432,25 +432,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Extracted metadata:', JSON.stringify(xmlValidation.metadata, null, 2));
       console.log('Product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
       
-      // ENSURE PRODUCT NAME AND MANUFACTURER ARE PRESENT
+      // Log the current state of the product info
       if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
-        // Make sure we have product name
-        if (!xmlValidation.metadata.productInfo.name) {
-          console.log('Adding missing product name during reprocess');
-          xmlValidation.metadata.productInfo.name = "PREGNYL 10000IU 10ML VIAL USA (OSS)";
-        }
-        
-        // Make sure we have manufacturer
-        if (!xmlValidation.metadata.productInfo.manufacturer) {
-          console.log('Adding missing manufacturer during reprocess');
-          xmlValidation.metadata.productInfo.manufacturer = "ORGANON LLC";
-        }
+        console.log('Product information extracted during reprocess:', 
+          JSON.stringify(xmlValidation.metadata.productInfo, null, 2));
       } else if (xmlValidation.metadata) {
-        // Create productInfo object if it doesn't exist
-        xmlValidation.metadata.productInfo = {
-          name: "PREGNYL 10000IU 10ML VIAL USA (OSS)",
-          manufacturer: "ORGANON LLC"
-        };
+        // Create empty productInfo object if it doesn't exist
+        xmlValidation.metadata.productInfo = {};
+        console.log('No product information found during reprocess');
       }
       
       console.log('Updated metadata product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
