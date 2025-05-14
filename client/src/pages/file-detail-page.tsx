@@ -426,6 +426,14 @@ export default function FileDetailPage() {
                                         : (file.metadata.productInfo?.expirationDate || 
                                           (productItems && productItems.length > 0 ? productItems[0].expirationDate : "Not available"))}
                                     </div>
+                                    
+                                    {/* PO Number */}
+                                    <div className="text-sm font-medium text-neutral-700">PO Number:</div>
+                                    <div className="text-sm font-mono">
+                                      {file.metadata.poNumbers && file.metadata.poNumbers.length > 0 
+                                        ? file.metadata.poNumbers.join(', ') 
+                                        : "Not available"}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
