@@ -382,10 +382,10 @@ export default function FileDetailPage() {
                                   {/* Product Name with prominence */}
                                   <div className="mb-4 border-b pb-3">
                                     <h3 className="text-lg font-semibold text-gray-800">
-                                      {"PREGNYL 10000IU 10ML VIAL USA (OSS)"}
+                                      {file.metadata.productInfo?.name || "Product name not available"}
                                     </h3>
                                     <p className="text-sm text-gray-600 mt-1">
-                                      {"ORGANON LLC"}
+                                      {file.metadata.productInfo?.manufacturer || "Manufacturer information not available"}
                                     </p>
                                   </div>
                                   
@@ -394,7 +394,9 @@ export default function FileDetailPage() {
                                     {/* NDC is given highest priority */}
                                     <div className="text-sm font-medium text-neutral-700">NDC:</div>
                                     <div className="text-sm font-mono font-semibold">
-                                      {"03-7820-6015-01"}
+                                      {file.metadata.productInfo?.ndc || 
+                                       (file.metadata.productInfo?.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : 
+                                       (productItems && productItems.length > 0 ? gtinToNDC(productItems[0].gtin) : "Not available"))}
                                     </div>
                                     
                                     {/* GTIN shown if available */}
@@ -410,13 +412,19 @@ export default function FileDetailPage() {
                                     {/* Lot Number */}
                                     <div className="text-sm font-medium text-neutral-700">Lot Number:</div>
                                     <div className="text-sm font-mono">
-                                      {"B115838"}
+                                      {typeof file.metadata.productInfo?.lotNumber === 'object' 
+                                        ? (file.metadata.productInfo?.lotNumber._ || "Not available")
+                                        : (file.metadata.productInfo?.lotNumber || 
+                                          (productItems && productItems.length > 0 ? productItems[0].lotNumber : "Not available"))}
                                     </div>
                                     
                                     {/* Expiration Date */}
                                     <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
                                     <div className="text-sm font-mono">
-                                      {"2025-10-31"}
+                                      {typeof file.metadata.productInfo?.expirationDate === 'object' 
+                                        ? (file.metadata.productInfo?.expirationDate._ || "Not available")
+                                        : (file.metadata.productInfo?.expirationDate || 
+                                          (productItems && productItems.length > 0 ? productItems[0].expirationDate : "Not available"))}
                                     </div>
                                   </div>
                                 </div>
