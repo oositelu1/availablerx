@@ -27,7 +27,6 @@ import { SendFileModal } from "@/components/send-file-modal";
 import { PresignedLinks } from "@/components/presigned-links";
 import { AssociatePODialog } from "@/components/associate-po-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProductInfoDisplay } from "@/components/product-info-display";
 import {
   ArrowLeft,
   File,
@@ -50,16 +49,8 @@ import {
   ScanLine,
 } from "lucide-react";
 import { useState } from "react";
-import { format } from "date-fns";
 import { formatDate, gtinToNDC } from "@/lib/utils";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 
-// Component to refresh metadata
 function RefreshMetadataButton({ fileId }: { fileId: number }) {
   const { toast } = useToast();
   
@@ -74,7 +65,6 @@ function RefreshMetadataButton({ fileId }: { fileId: number }) {
         description: "File metadata has been refreshed successfully.",
         variant: "default",
       });
-      // Invalidate cache to reload file details
       queryClient.invalidateQueries({ queryKey: [`/api/files/${fileId}`] });
     },
     onError: (error: Error) => {
@@ -106,9 +96,10 @@ function RefreshMetadataButton({ fileId }: { fileId: number }) {
 export default function FileDetailPage() {
   const { id: fileId } = useParams();
   const { toast } = useToast();
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [showValidationDialog, setShowValidationDialog] = useState(false);
-  const [showAssociatePODialog, setShowAssociatePODialog] = useState(false);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [associatePODialogOpen, setAssociatePODialogOpen] = useState(false);
+  const [expandedBizTransactions, setExpandedBizTransactions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("details");
 
   // Fetch file details
@@ -195,11 +186,19 @@ export default function FileDetailPage() {
   };
 
   const handleOpenValidationDialog = () => {
-    setShowValidationDialog(true);
+    setValidationDialogOpen(true);
   };
 
   const handleAssociateWithPO = () => {
-    setShowAssociatePODialog(true);
+    setAssociatePODialogOpen(true);
+  };
+
+  const toggleBizTransaction = (id: string) => {
+    if (expandedBizTransactions.includes(id)) {
+      setExpandedBizTransactions(expandedBizTransactions.filter(i => i !== id));
+    } else {
+      setExpandedBizTransactions([...expandedBizTransactions, id]);
+    }
   };
 
   if (isLoadingFile) {
@@ -289,7 +288,7 @@ export default function FileDetailPage() {
           <Button 
             variant="outline" 
             className="flex items-center gap-2"
-            onClick={() => setShowSendModal(true)}
+            onClick={() => setSendModalOpen(true)}
           >
             <Send className="h-4 w-4" />
             Send
@@ -370,46 +369,41 @@ export default function FileDetailPage() {
                           </div>
                           
                           {/* Product Information Section */}
-                          {(file.metadata.productInfo || (productItems && productItems.length > 0)) && (
-                            <div className="col-span-2 pt-4 pb-2">
-                              <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
-                              
-                              {/* Use the ProductInfoDisplay component */}
-                              {file.metadata.productInfo && (
-                                <ProductInfoDisplay 
-                                  productInfo={file.metadata.productInfo} 
-                                  gtin={file.metadata.productInfo.gtin || (productItems && productItems.length > 0 ? productItems[0].gtin : undefined)} 
-                                />
-                              )}
-                              
-                              {/* If we don't have productInfo in metadata but have productItems, show a simplified version */}
-                              {!file.metadata.productInfo && productItems && productItems.length > 0 && (
-                                <div className="space-y-4">
-                                  <div className="bg-white p-4 rounded-lg border border-primary/10">
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                                      <div className="text-sm font-medium text-neutral-700">GTIN:</div>
-                                      <div className="text-sm font-mono">{productItems[0].gtin}</div>
-                                      
-                                      <div className="text-sm font-medium text-neutral-700">NDC:</div>
-                                      <div className="text-sm font-mono">{gtinToNDC(productItems[0].gtin)}</div>
-                                      
-                                      <div className="text-sm font-medium text-neutral-700">Lot Number:</div>
-                                      <div className="text-sm font-mono">{productItems[0].lotNumber}</div>
-                                      
-                                      <div className="text-sm font-medium text-neutral-700">Serial Number:</div>
-                                      <div className="text-sm font-mono">{productItems[0].serialNumber}</div>
-                                      
-                                      {productItems[0].expirationDate && (
-                                        <>
-                                          <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
-                                          <div className="text-sm">{formatDate(productItems[0].expirationDate)}</div>
-                                        </>
-                                      )}
+                          {file.metadata.productInfo && (
+                            <>
+                              <div className="col-span-2 pt-4 pb-2">
+                                <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
+                                
+                                <div className="bg-white p-4 rounded-lg border border-primary/10 mb-4">
+                                  <div className="mb-4 border-b pb-3">
+                                    <h3 className="text-lg font-semibold text-gray-800">
+                                      {file.metadata.productInfo.name || "Pharmaceutical Product"}
+                                    </h3>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                      {file.metadata.productInfo.manufacturer || "Manufacturer information not available"}
+                                    </p>
+                                    {file.metadata.productInfo.dosageForm && file.metadata.productInfo.strength && (
+                                      <p className="text-sm text-gray-600 mt-1">
+                                        {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                    {file.metadata.productInfo.gtin && (
+                                      <>
+                                        <div className="text-sm font-medium text-neutral-700">GTIN:</div>
+                                        <div className="text-sm font-mono">{file.metadata.productInfo.gtin}</div>
+                                      </>
+                                    )}
+                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
+                                    <div className="text-sm font-mono">
+                                      {file.metadata.productInfo.ndc || 
+                                       (file.metadata.productInfo.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : "Not available")}
                                     </div>
                                   </div>
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            </>
                           )}
                           
                           {file.metadata.senderGln && (
@@ -467,6 +461,7 @@ export default function FileDetailPage() {
                         <TableRow>
                           <TableHead className="w-[200px]">Type</TableHead>
                           <TableHead>Value</TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -477,6 +472,15 @@ export default function FileDetailPage() {
                             </TableCell>
                             <TableCell className="font-mono text-sm">
                               {bizTransaction.value}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => toggleBizTransaction(bizTransaction.id)}
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -528,7 +532,7 @@ export default function FileDetailPage() {
                           <TableCell className="font-mono text-sm">{item.gtin}</TableCell>
                           <TableCell className="font-mono text-sm">{item.serialNumber}</TableCell>
                           <TableCell className="font-mono text-sm">{item.lotNumber}</TableCell>
-                          <TableCell>{formatDate(item.expirationDate)}</TableCell>
+                          <TableCell>{item.expirationDate ? formatDate(item.expirationDate) : ""}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -649,7 +653,6 @@ export default function FileDetailPage() {
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
-                  <Skeleton className="h-8 w-full" />
                 </div>
               ) : transmissions && transmissions.length > 0 ? (
                 <div className="border rounded-md overflow-hidden">
@@ -669,19 +672,12 @@ export default function FileDetailPage() {
                             {transmission.partner.name}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={
-                              transmission.status === "COMPLETED" ? "success" : 
-                              transmission.status === "FAILED" ? "destructive" : "outline"
-                            }>
+                            <Badge variant={transmission.status === "COMPLETED" ? "success" : "destructive"}>
                               {transmission.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            {transmission.method}
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(transmission.transmittedAt || transmission.createdAt)}
-                          </TableCell>
+                          <TableCell>{transmission.method}</TableCell>
+                          <TableCell>{formatDate(transmission.transmittedAt || transmission.createdAt)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -693,7 +689,7 @@ export default function FileDetailPage() {
                   <Button 
                     variant="outline"
                     className="flex items-center gap-2"
-                    onClick={() => setShowSendModal(true)}
+                    onClick={() => setSendModalOpen(true)}
                   >
                     <Send className="h-4 w-4" />
                     Send This File
@@ -706,25 +702,25 @@ export default function FileDetailPage() {
       </Tabs>
 
       {/* Modals and dialogs */}
-      {showSendModal && (
+      {sendModalOpen && (
         <SendFileModal 
           fileId={Number(fileId)}
-          onClose={() => setShowSendModal(false)}
+          onClose={() => setSendModalOpen(false)}
         />
       )}
       
-      {showValidationDialog && (
+      {validationDialogOpen && (
         <ProductValidationDialog
-          isOpen={showValidationDialog}
-          onClose={() => setShowValidationDialog(false)}
+          isOpen={validationDialogOpen}
+          onClose={() => setValidationDialogOpen(false)}
           productItems={productItems || []}
         />
       )}
       
-      {showAssociatePODialog && (
+      {associatePODialogOpen && (
         <AssociatePODialog
           fileId={Number(fileId)}
-          onClose={() => setShowAssociatePODialog(false)}
+          onClose={() => setAssociatePODialogOpen(false)}
         />
       )}
       
