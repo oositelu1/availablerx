@@ -244,11 +244,53 @@ export default function ProductValidationDialog({
                     )}
                   </div>
                   
-                  <div className="text-sm">
-                    <p><strong>GTIN:</strong> {bestMatch.productItem.gtin}</p>
-                    <p><strong>Lot:</strong> {bestMatch.productItem.lotNumber}</p>
-                    <p><strong>Serial:</strong> {bestMatch.productItem.serialNumber}</p>
-                    <p><strong>Expiration:</strong> {formatDate(bestMatch.productItem.expirationDate)}</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {/* Product identity card */}
+                    <div className="bg-white border p-3 rounded-md shadow-sm">
+                      <h4 className="font-medium text-primary/80 mb-2">Product Information</h4>
+                      {/* Try to get product name and manufacturer from metadata */}
+                      {productItems && productItems.length > 0 && productItems[0].metadata && (
+                        <>
+                          <p className="text-base font-semibold mb-1">
+                            {productItems[0].metadata.productInfo?.name || "Pharmaceutical Product"}
+                          </p>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {productItems[0].metadata.productInfo?.manufacturer || "Manufacturer information not available"}
+                          </p>
+                        </>
+                      )}
+                      
+                      {/* Product identifiers in a cleaner grid */}
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <p className="text-xs text-gray-500">GTIN</p>
+                          <p className="font-mono text-sm">{bestMatch.productItem.gtin}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">NDC</p>
+                          <p className="font-mono text-sm">{gtinToNDC(bestMatch.productItem.gtin) || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Lot and serial information */}
+                    <div className="bg-white border p-3 rounded-md shadow-sm">
+                      <h4 className="font-medium text-primary/80 mb-2">Serialization Details</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-xs text-gray-500">Lot Number</p>
+                          <p className="font-mono text-sm">{bestMatch.productItem.lotNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Serial Number</p>
+                          <p className="font-mono text-sm">{bestMatch.productItem.serialNumber}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-500">Expiration Date</p>
+                          <p className="font-mono text-sm">{formatDate(bestMatch.productItem.expirationDate)}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
