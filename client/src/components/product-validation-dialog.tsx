@@ -390,12 +390,54 @@ export default function ProductValidationDialog({
               onClick={() => {
                 // Use data from the first product item for testing
                 if (productItems && productItems.length > 0) {
-                  const firstItem = productItems[0];
+                  // Create an enhanced version of the first item with product info
+                  const index = 0;
+                  const firstItem = productItems[index];
+                  
                   // Create a GS1 DataMatrix code format from actual product data
                   const sampleCode = `(01)${firstItem.gtin}(10)${firstItem.lotNumber}(17)${
                     new Date(firstItem.expirationDate).toISOString().split('T')[0].replace(/-/g, '').substring(2)
                   }(21)${firstItem.serialNumber}`;
-                  handleScanSuccess(sampleCode);
+                  
+                  // Create a temporary enhanced copy of the product items array
+                  // that includes the product name and manufacturer
+                  const enhancedItems = [...productItems];
+                  enhancedItems[index] = {
+                    ...firstItem,
+                    metadata: {
+                      productInfo: {
+                        name: fileMetadata?.productInfo?.name || "Acetaminophen",
+                        manufacturer: fileMetadata?.productInfo?.manufacturer || "MedTech Pharmaceuticals",
+                        dosageForm: fileMetadata?.productInfo?.dosageForm || "Tablet",
+                        strength: fileMetadata?.productInfo?.strength || "500mg"
+                      }
+                    }
+                  };
+                  
+                  // Parse the QR code data
+                  const parsedData = parseQRCode(sampleCode);
+                  
+                  // Find matching products using the enhanced array
+                  const matches = enhancedItems.map(productItem => {
+                    const matchResult = compareWithEPCISData(parsedData, {
+                      gtin: productItem.gtin,
+                      lotNumber: productItem.lotNumber,
+                      expirationDate: productItem.expirationDate,
+                      serialNumber: productItem.serialNumber
+                    });
+                    
+                    return {
+                      productItem,
+                      matchResult
+                    };
+                  });
+              
+                  // Set the scan result with the enhanced product items
+                  setScanResult({
+                    timestamp: new Date(),
+                    scannedData: parsedData,
+                    matches
+                  });
                 } else {
                   // Fallback sample if no product items are available
                   const sampleCode = "(01)03090123456789(10)ABC123(17)240530(21)XYZ987654321";
