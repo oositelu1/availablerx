@@ -301,9 +301,15 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                     }
                   }
                   
+                  // Debug log to see all attributes
+                  console.log('All attribute map keys:', Array.from(attributeMap.keys()));
+                  
                   // Extract product information from attributes
                   if (attributeMap.has('urn:epcglobal:cbv:mda#regulatedProductName')) {
                     metadata.productInfo.name = attributeMap.get('urn:epcglobal:cbv:mda#regulatedProductName');
+                    console.log('Found product name:', metadata.productInfo.name);
+                  } else {
+                    console.log('No regulatedProductName found in attributes');
                   }
                   
                   if (attributeMap.has('urn:epcglobal:cbv:mda#dosageFormType')) {
@@ -324,6 +330,9 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                   
                   if (attributeMap.has('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName')) {
                     metadata.productInfo.manufacturer = attributeMap.get('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName');
+                    console.log('Found manufacturer:', metadata.productInfo.manufacturer);
+                  } else {
+                    console.log('No manufacturerOfTradeItemPartyName found in attributes');
                   }
                 }
               }
