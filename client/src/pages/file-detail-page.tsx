@@ -312,7 +312,15 @@ export default function FileDetailPage() {
                       </div>
                     </div>
                     
-                    {file.metadata.products && file.metadata.products.length > 0 && (
+                    {/* Debug output to understand file metadata structure */}
+                    <div className="bg-muted/50 p-2 rounded text-xs mt-3 mb-2">
+                      <pre className="whitespace-pre-wrap overflow-auto max-h-[150px]">
+                        File metadata keys: {JSON.stringify(Object.keys(file.metadata || {}), null, 2)}
+                      </pre>
+                    </div>
+                    
+                    {/* Display product information if available */}
+                    {file.metadata.products && file.metadata.products.length > 0 ? (
                       <div className="space-y-2">
                         <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
                         
@@ -323,6 +331,11 @@ export default function FileDetailPage() {
                             gtin={product.gtin}
                           />
                         ))}
+                      </div>
+                    ) : (
+                      <div className="bg-muted/30 p-3 rounded text-sm mt-3">
+                        <div className="font-medium mb-1 text-primary">Product Information</div>
+                        <p className="text-muted-foreground text-sm">No product information available in this file</p>
                       </div>
                     )}
                     
