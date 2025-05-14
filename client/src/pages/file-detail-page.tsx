@@ -320,35 +320,33 @@ export default function FileDetailPage() {
                           </Badge>
                         </div>
                         
-                        {/* Product Information - New section */}
+                        {/* Product Information - Enhanced with clearer sections */}
                         {file.metadata.productInfo && (
                           <div className="col-span-2 pt-4 pb-2">
+                            {/* Main header for product section */}
                             <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
-                            <div className="bg-white p-4 rounded-lg border border-primary/10">
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                                {file.metadata.productInfo.name && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">Product Name:</div>
-                                    <div className="text-sm font-semibold">{file.metadata.productInfo.name}</div>
-                                  </>
-                                )}
+                            
+                            {/* Product Identity Card */}
+                            <div className="bg-white p-4 rounded-lg border border-primary/10 mb-4">
+                              {/* Product Name and Manufacturer with prominence */}
+                              <div className="mb-4 border-b pb-3">
+                                <h3 className="text-lg font-semibold text-gray-800">
+                                  {file.metadata.productInfo.name || "Pharmaceutical Product"}
+                                </h3>
                                 
-                                {file.metadata.productInfo.manufacturer && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">Manufacturer:</div>
-                                    <div className="text-sm">{file.metadata.productInfo.manufacturer}</div>
-                                  </>
-                                )}
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {file.metadata.productInfo.manufacturer || "Manufacturer information not available"}
+                                </p>
                                 
                                 {file.metadata.productInfo.dosageForm && file.metadata.productInfo.strength && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">Dosage Form:</div>
-                                    <div className="text-sm">
-                                      {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
-                                    </div>
-                                  </>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
+                                  </p>
                                 )}
-                                
+                              </div>
+                              
+                              {/* Product Identifiers */}
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                                 {/* Show GTIN if available */}
                                 {productItems && productItems.length > 0 && productItems[0].gtin && (
                                   <>
@@ -366,32 +364,46 @@ export default function FileDetailPage() {
                                     <div className="text-sm font-medium text-neutral-700">NDC:</div>
                                     <div className="text-sm font-mono">
                                       {file.metadata.productInfo.ndc || 
-                                       (productItems && productItems.length > 0 && productItems[0].gtin 
-                                        ? (() => {
-                                            // Convert GTIN to NDC
-                                            // GTIN-14 format: Indicator(1) + Labeler(5) + Product(3) + Package(1) + Check(1)
-                                            // NDC format: Labeler(5)-Product(4)-Package(2)
-                                            const gtin = productItems[0].gtin;
-                                            if (gtin && gtin.length >= 11) {
-                                              // Extract the middle portion of the GTIN, which corresponds to the NDC
-                                              // For GTIN-14, start at position 1 (after indicator digit)
-                                              // For GTIN-12, start at position 0
-                                              const startPos = gtin.length >= 14 ? 1 : 0;
-                                              // Format as 5-4-2
-                                              // Note: This is a simplified conversion and may not work for all GTINs
-                                              const labeler = gtin.substring(startPos, startPos + 5);
-                                              const product = gtin.substring(startPos + 5, startPos + 9);
-                                              const pkg = gtin.substring(startPos + 9, startPos + 11);
-                                              return `${labeler}-${product}-${pkg}`;
-                                            }
-                                            return "Not available";
-                                          })()
-                                        : "Not available")
+                                        (productItems && productItems.length > 0 && productItems[0].gtin 
+                                          ? (() => {
+                                              // Convert GTIN to NDC
+                                              // GTIN-14 format: Indicator(1) + Labeler(5) + Product(3) + Package(1) + Check(1)
+                                              // NDC format: Labeler(5)-Product(4)-Package(2)
+                                              const gtin = productItems[0].gtin;
+                                              if (gtin && gtin.length >= 11) {
+                                                // Extract the middle portion of the GTIN, which corresponds to the NDC
+                                                // For GTIN-14, start at position 1 (after indicator digit)
+                                                // For GTIN-12, start at position 0
+                                                const startPos = gtin.length >= 14 ? 1 : 0;
+                                                // Format as 5-4-2
+                                                // Note: This is a simplified conversion and may not work for all GTINs
+                                                const labeler = gtin.substring(startPos, startPos + 5);
+                                                const product = gtin.substring(startPos + 5, startPos + 9);
+                                                const pkg = gtin.substring(startPos + 9, startPos + 11);
+                                                return `${labeler}-${product}-${pkg}`;
+                                              }
+                                              return "Not available";
+                                            })()
+                                          : "Not available")
                                       }
                                     </div>
                                   </>
                                 )}
                                 
+                                {/* Pack information if available */}
+                                {file.metadata.productInfo.netContent && (
+                                  <>
+                                    <div className="text-sm font-medium text-neutral-700">Quantity/Pack Size:</div>
+                                    <div className="text-sm">{file.metadata.productInfo.netContent}</div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Serialization Details - Separate Card */}
+                            <div className="bg-white p-4 rounded-lg border border-primary/10 mb-4">
+                              <h4 className="text-sm font-semibold text-primary/80 mb-3">Serialization Details</h4>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                                 {file.metadata.productInfo.lotNumber && (
                                   <>
                                     <div className="text-sm font-medium text-neutral-700">Lot/Batch:</div>
@@ -413,51 +425,46 @@ export default function FileDetailPage() {
                                     </div>
                                   </>
                                 )}
-                                
-                                {file.metadata.productInfo.netContent && (
-                                  <>
-                                    <div className="text-sm font-medium text-neutral-700">Quantity/Pack Size:</div>
-                                    <div className="text-sm">{file.metadata.productInfo.netContent}</div>
-                                  </>
-                                )}
-                                
-                                {/* Purchase Order Association Section */}
-                                <div className="border-t pt-3 mt-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="text-sm font-medium text-neutral-700">Purchase Order Association</div>
-                                    <AssociatePODialog fileId={fileId}>
-                                      <Button variant="outline" size="sm" className="text-xs">
-                                        <ShoppingCart className="mr-2 h-3 w-3" />
-                                        Associate with PO
-                                      </Button>
-                                    </AssociatePODialog>
+                              </div>
+                            </div>
+                          
+                            {/* Purchase Order Association Section */}
+                            <div className="bg-white p-4 rounded-lg border border-primary/10">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-sm font-medium text-neutral-700">Purchase Order Association</div>
+                                <AssociatePODialog fileId={fileId}>
+                                  <Button variant="outline" size="sm" className="text-xs">
+                                    <ShoppingCart className="mr-2 h-3 w-3" />
+                                    Associate with PO
+                                  </Button>
+                                </AssociatePODialog>
+                              </div>
+                              
+                              {/* Display PO numbers extracted directly from EPCIS */}
+                              {file.metadata.poNumbers && file.metadata.poNumbers.length > 0 && (
+                                <div className="mb-2">
+                                  <div className="text-xs text-neutral-500 mb-1">Referenced in EPCIS file:</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {file.metadata.poNumbers.map((poNumber, index) => (
+                                      <Badge key={index} variant="outline" className="bg-primary/5">
+                                        {poNumber}
+                                      </Badge>
+                                    ))}
                                   </div>
-                                  
-                                  {/* Display PO numbers extracted directly from EPCIS */}
-                                  {file.metadata.poNumbers && file.metadata.poNumbers.length > 0 && (
-                                    <div className="mb-2">
-                                      <div className="text-xs text-neutral-500 mb-1">Referenced in EPCIS file:</div>
-                                      <div className="flex flex-wrap gap-1">
-                                        {file.metadata.poNumbers.map((poNumber, index) => (
-                                          <Badge key={index} variant="outline" className="bg-primary/5">
-                                            {poNumber}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Show linked purchase orders */}
-                                  {associations && associations.length > 0 ? (
-                                    <div>
-                                      <div className="text-xs text-neutral-500 mb-1">Linked Purchase Orders:</div>
-                                      <div className="space-y-2">
-                                        {associations.map((association) => (
-                                          <div key={association.id} className="flex items-center justify-between bg-white rounded p-2 border">
-                                            <div className="flex items-center">
-                                              <ShoppingCart className="h-4 w-4 text-primary mr-2" />
-                                              <div>
-                                                <WouterLink 
+                                </div>
+                              )}
+                              
+                              {/* Show linked purchase orders */}
+                              {associations && associations.length > 0 ? (
+                                <div>
+                                  <div className="text-xs text-neutral-500 mb-1">Linked Purchase Orders:</div>
+                                  <div className="space-y-2">
+                                    {associations.map((association) => (
+                                      <div key={association.id} className="flex items-center justify-between bg-white rounded p-2 border">
+                                        <div className="flex items-center">
+                                          <ShoppingCart className="h-4 w-4 text-primary mr-2" />
+                                          <div>
+                                            <WouterLink 
                                                   href={`/purchase-orders/${association.po.id}`} 
                                                   className="text-sm font-medium hover:underline"
                                                 >
