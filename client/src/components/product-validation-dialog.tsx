@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera } from "lucide-react";
+import QRScanner from "@/components/qr-scanner";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 
 interface ProductValidationDialogProps {
@@ -25,6 +26,7 @@ export default function ProductValidationDialog({
   productItems,
   poId
 }: ProductValidationDialogProps) {
+  const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -44,6 +46,7 @@ export default function ProductValidationDialog({
   useEffect(() => {
     if (!isOpen) {
       setScanResult(null);
+      setShowScanner(false);
     }
   }, [isOpen]);
 
@@ -74,6 +77,9 @@ export default function ProductValidationDialog({
         scannedData: parsedData,
         matches
       });
+      
+      // Hide scanner once we have a result
+      setShowScanner(false);
     } catch (error) {
       console.error("Error processing scan:", error);
       // Could display an error message to the user here
@@ -110,6 +116,7 @@ export default function ProductValidationDialog({
   // Reset scanning
   const handleReset = () => {
     setScanResult(null);
+    setShowScanner(false);
   };
 
   // Format a date for display
@@ -138,6 +145,15 @@ export default function ProductValidationDialog({
 
   // Content to display
   const renderContent = () => {
+    if (showScanner) {
+      return (
+        <QRScanner 
+          onScanSuccess={handleScanSuccess}
+          onClose={() => setShowScanner(false)}
+        />
+      );
+    }
+    
     if (scanResult) {
       const { scannedData, matches } = scanResult;
       const foundMatches = matches.filter(m => m.matchResult.matches);
@@ -301,13 +317,17 @@ export default function ProductValidationDialog({
             </Button>
           </div>
           
-          <div className="rounded-md bg-gray-50 border border-gray-200 w-full max-w-xs p-3 text-sm">
-            <div className="font-medium text-gray-600 flex items-center mb-1">
-              <AlertTriangle className="h-4 w-4 mr-1 text-gray-500" />
-              Camera Scanning Not Available
-            </div>
-            <p className="text-gray-500 text-xs">
-              Camera scanning is disabled in this environment due to browser security constraints.
+          <div className="w-full max-w-xs">
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center gap-2"
+              onClick={() => setShowScanner(true)}
+            >
+              <Camera className="h-4 w-4" />
+              Start Camera Scanning
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Note: Camera may not work in some environments due to security restrictions.
             </p>
           </div>
         </div>
