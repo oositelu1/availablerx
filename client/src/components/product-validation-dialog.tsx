@@ -19,7 +19,7 @@ interface ProductValidationDialogProps {
     lotNumber: string;
     expirationDate: string;
     fileId?: number;
-    bizTransactionList?: any;
+    bizTransactionList?: string[];
     metadata?: {
       productInfo?: {
         name?: string;
@@ -440,8 +440,8 @@ export default function ProductValidationDialog({
               </div>
             )}
             
-            {/* Enhanced Purchase Order Information */}
-            {(poId || (bestMatch && bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0)) && (
+            {/* Purchase Order Information */}
+            {(scanResult && poId) && (
               <div className="mt-4 pt-2 border-t">
                 <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
                   <div className="flex items-center gap-2 mb-2">
@@ -452,31 +452,43 @@ export default function ProductValidationDialog({
                   </div>
                   
                   <div className="pl-6">
-                    {poId && (
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="bg-blue-100 border-blue-200 text-blue-800">
-                          Associated PO #{poId}
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    {bestMatch && bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0 && (
-                      <div className="mt-1">
-                        <div className="text-xs text-blue-700 mb-1">From EPCIS File:</div>
-                        {bestMatch.productItem.bizTransactionList.map((poRef, idx) => (
-                          <div key={idx} className="flex items-center gap-1 mb-1">
-                            <Badge variant="outline" className="bg-white text-blue-800 border-blue-200">
-                              PO Reference: {poRef}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="bg-blue-100 border-blue-200 text-blue-800">
+                        Associated PO #{poId}
+                      </Badge>
+                    </div>
                     
                     <p className="text-xs text-blue-600 mt-2">
                       <Info className="h-3 w-3 inline mr-1" />
                       This product is part of the purchase order shown above
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Transaction List from EPCIS */}
+            {(scanResult && bestMatch && bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0) && (
+              <div className="mt-4 pt-2 border-t">
+                <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShoppingCart className="h-4 w-4 text-blue-700" />
+                    <span className="text-sm font-medium text-blue-700">
+                      EPCIS Business Transaction References
+                    </span>
+                  </div>
+                  
+                  <div className="pl-6">
+                    <div className="mt-1">
+                      <div className="text-xs text-blue-700 mb-1">From EPCIS File:</div>
+                      {bestMatch.productItem.bizTransactionList.map((poRef: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1 mb-1">
+                          <Badge variant="outline" className="bg-white text-blue-800 border-blue-200">
+                            PO Reference: {poRef}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
