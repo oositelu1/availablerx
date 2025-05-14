@@ -850,6 +850,7 @@ export default function FileDetailPage() {
           onClose={() => setValidationDialogOpen(false)}
           productItems={productItems || []}
           poId={associations && associations.length > 0 ? associations[0].poId : null}
+          fileMetadata={file?.metadata}
         />
       )}
     </Layout>
