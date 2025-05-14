@@ -1,0 +1,58 @@
+"Hello Replit Assistant. I need your help to parse an EPCIS XML file named '[your_file_name.xml]' and extract specific information to display in my UI.
+
+The key data points I need are:
+1.  Product Name
+2.  Manufacturer
+
+Based on GS1 EPCIS standards, this information is often found within the EPCIS master data, typically inside a `VocabularyList` containing multiple `VocabularyElement` entries.
+
+For 'Product Name':
+* Please look for an `attribute` tag with an `id` of `urn:epcglobal:cbv:mda#regulatedProductName`.
+* Alternatively, it might be an `attribute` with `id` `urn:epcglobal:cbv:mda#description` associated with a trade item (identified by a GTIN).
+* The value of this attribute will be the Product Name.
+
+For 'Manufacturer':
+* Please look for an `attribute` tag with an `id` of `urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName`.
+* Alternatively, it could be an `attribute` with `id` `urn:epcglobal:cbv:mda#name` within a `VocabularyElement` that describes an organization, where that organization is identifiable as the manufacturer (perhaps through context or a role attribute if present). Often, the manufacturer is identified by a GLN (Global Location Number) in the `VocabularyElement`'s `id`.
+
+Could you please:
+1.  Provide Python code to parse the XML file '[your_file_name.xml]'.
+2.  Implement logic to find the 'Product Name' using the primary URN `urn:epcglobal:cbv:mda#regulatedProductName`. If not found, try `urn:epcglobal:cbv:mda#description` within the context of a product.
+3.  Implement logic to find the 'Manufacturer' using the primary URN `urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName`. If not found, look for `urn:epcglobal:cbv:mda#name` within a `VocabularyElement` that likely represents the manufacturer.
+4.  Store these extracted values in variables.
+5.  Show me how I might then take these variables and display them in a simple UI. For example, if I have UI elements with IDs like `productNameLabel` and `manufacturerLabel` (this is just an example, I'm using [mention your UI framework if relevant, e.g., HTML, a specific JavaScript library, etc.]), how would I update their content?
+
+Here's a simplified example of what a relevant part of the XML *might* look like (actual structure can vary):
+
+```xml
+<EPCISDocument>
+  ...
+  <EPCISBody>
+    <EventList>...</EventList>
+    <extension>
+      <EPCISMasterData>
+        <VocabularyList>
+          <Vocabulary type="urn:epcglobal:epcis:vtype:EPCClass">
+            <VocabularyElementList>
+              <VocabularyElement id="urn:epc:idpat:sgtin:0614141.107346.1234">
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">SuperDrugX</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#gtin">00614141107346</attribute>
+                ...
+              </VocabularyElement>
+            </VocabularyElementList>
+          </Vocabulary>
+          <Vocabulary type="urn:epcglobal:epcis:vtype:Location">
+            <VocabularyElementList>
+              <VocabularyElement id="urn:epc:id:sgln:0614141.00001.0">
+                <attribute id="urn:epcglobal:cbv:mda#name">PharmaCo Inc.</attribute>
+                </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:party:0614141.PARTYX123">
+                 <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">PharmaCo Inc.</attribute>
+              </VocabularyElement>
+            </VocabularyElementList>
+          </Vocabulary>
+        </VocabularyList>
+      </EPCISMasterData>
+    </extension>
+  </EPCISBody>
+</EPCISDocument>
