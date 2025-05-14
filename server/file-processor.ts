@@ -10,6 +10,7 @@ import { InsertFile, InsertTransmission, File } from '@shared/schema';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { sendFileShareNotification } from './email-service';
+import { parseStringPromise } from 'xml2js';
 
 const exec = promisify(execCb);
 
@@ -106,19 +107,29 @@ export async function processFile(
     const uniqueFileName = generateUniqueFileName();
     const storagePath = `${uniqueFileName}${isZip ? '.zip' : '.xml'}`;
     
-    // Make sure we have product name and manufacturer for EPCIS files
-    if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
-      // If we don't have the name from the validator, set it from the sample file
-      if (!xmlValidation.metadata.productInfo.name) {
-        console.log('Adding missing product name manually');
-        xmlValidation.metadata.productInfo.name = "PREGNYL 10000IU 10ML VIAL USA (OSS)";
-      }
+    // Extract product name and manufacturer directly from the XML
+    try {
+      const extractResult = await extractProductDetails(xmlBuffer);
+      console.log('Direct extraction result:', extractResult);
       
-      // If we don't have the manufacturer from the validator, set it from the sample file
-      if (!xmlValidation.metadata.productInfo.manufacturer) {
-        console.log('Adding missing manufacturer manually');
-        xmlValidation.metadata.productInfo.manufacturer = "ORGANON LLC";
+      if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
+        if (extractResult.name) {
+          console.log('Setting product name from direct extraction:', extractResult.name);
+          xmlValidation.metadata.productInfo.name = extractResult.name;
+        }
+        
+        if (extractResult.manufacturer) {
+          console.log('Setting manufacturer from direct extraction:', extractResult.manufacturer);
+          xmlValidation.metadata.productInfo.manufacturer = extractResult.manufacturer;
+        }
+      } else if (xmlValidation.metadata) {
+        xmlValidation.metadata.productInfo = {
+          name: extractResult.name || undefined, 
+          manufacturer: extractResult.manufacturer || undefined
+        };
       }
+    } catch (error) {
+      console.error('Error during direct product extraction:', error);
     }
     
     // Save file data
