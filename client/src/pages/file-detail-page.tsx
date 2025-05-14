@@ -323,6 +323,15 @@ export default function FileDetailPage() {
                             Product Info: {JSON.stringify(file.metadata.productInfo, null, 2)}
                           </>
                         )}
+                        {file.metadata.productItems && (
+                          <>
+                            <br />
+                            <br />
+                            First Product Item: {file.metadata.productItems.length > 0 ? 
+                              JSON.stringify(file.metadata.productItems[0], null, 2) : 
+                              "No items"}
+                          </>
+                        )}
                       </pre>
                     </div>
                     
