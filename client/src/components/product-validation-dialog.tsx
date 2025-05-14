@@ -16,15 +16,36 @@ interface ProductValidationDialogProps {
     serialNumber: string;
     lotNumber: string;
     expirationDate: string;
+    fileId?: number;
+    bizTransactionList?: any;
+    metadata?: {
+      productInfo?: {
+        name?: string;
+        manufacturer?: string;
+        dosageForm?: string;
+        strength?: string;
+        ndc?: string;
+      }
+    };
   }>;
   poId?: number | null;
+  fileMetadata?: {
+    productInfo?: {
+      name?: string;
+      manufacturer?: string;
+      dosageForm?: string;
+      strength?: string;
+      ndc?: string;
+    }
+  };
 }
 
 export default function ProductValidationDialog({
   isOpen,
   onClose,
   productItems,
-  poId
+  poId,
+  fileMetadata
 }: ProductValidationDialogProps) {
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<{
@@ -249,16 +270,43 @@ export default function ProductValidationDialog({
                     <div className="bg-white border p-3 rounded-md shadow-sm">
                       <h4 className="font-medium text-primary/80 mb-2">Product Information</h4>
                       {/* Try to get product name and manufacturer from metadata */}
-                      {productItems && productItems.length > 0 && productItems[0].metadata && (
-                        <>
-                          <p className="text-base font-semibold mb-1">
-                            {productItems[0].metadata.productInfo?.name || "Pharmaceutical Product"}
-                          </p>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {productItems[0].metadata.productInfo?.manufacturer || "Manufacturer information not available"}
-                          </p>
-                        </>
-                      )}
+                      {(() => {
+                        // First try to get from product item metadata
+                        if (bestMatch.productItem.metadata?.productInfo?.name) {
+                          return (
+                            <>
+                              <p className="text-base font-semibold mb-1">
+                                {bestMatch.productItem.metadata.productInfo.name}
+                              </p>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {bestMatch.productItem.metadata.productInfo.manufacturer || "Manufacturer information not available"}
+                              </p>
+                            </>
+                          );
+                        } 
+                        // Then try to get from file metadata
+                        else if (fileMetadata?.productInfo?.name) {
+                          return (
+                            <>
+                              <p className="text-base font-semibold mb-1">
+                                {fileMetadata.productInfo.name}
+                              </p>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {fileMetadata.productInfo.manufacturer || "Manufacturer information not available"}
+                              </p>
+                            </>
+                          );
+                        }
+                        // Finally fallback to generic
+                        else {
+                          return (
+                            <>
+                              <p className="text-base font-semibold mb-1">Pharmaceutical Product</p>
+                              <p className="text-sm text-gray-600 mb-2">Product information not available</p>
+                            </>
+                          );
+                        }
+                      })()}
                       
                       {/* Product identifiers in a cleaner grid */}
                       <div className="grid grid-cols-2 gap-2 mt-2">
