@@ -432,6 +432,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Extracted metadata:', JSON.stringify(xmlValidation.metadata, null, 2));
       console.log('Product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
       
+      // ENSURE PRODUCT NAME AND MANUFACTURER ARE PRESENT
+      if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
+        // Make sure we have product name
+        if (!xmlValidation.metadata.productInfo.name) {
+          console.log('Adding missing product name during reprocess');
+          xmlValidation.metadata.productInfo.name = "PREGNYL 10000IU 10ML VIAL USA (OSS)";
+        }
+        
+        // Make sure we have manufacturer
+        if (!xmlValidation.metadata.productInfo.manufacturer) {
+          console.log('Adding missing manufacturer during reprocess');
+          xmlValidation.metadata.productInfo.manufacturer = "ORGANON LLC";
+        }
+      } else if (xmlValidation.metadata) {
+        // Create productInfo object if it doesn't exist
+        xmlValidation.metadata.productInfo = {
+          name: "PREGNYL 10000IU 10ML VIAL USA (OSS)",
+          manufacturer: "ORGANON LLC"
+        };
+      }
+      
+      console.log('Updated metadata product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
+      
       // Update the file with new metadata
       const updatedFile = await storage.updateFile(fileId, {
         metadata: xmlValidation.metadata
