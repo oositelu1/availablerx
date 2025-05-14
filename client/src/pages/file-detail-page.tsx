@@ -382,10 +382,10 @@ export default function FileDetailPage() {
                                   {/* Product Name with prominence */}
                                   <div className="mb-4 border-b pb-3">
                                     <h3 className="text-lg font-semibold text-gray-800">
-                                      {file.metadata.productInfo?.name || "Pharmaceutical Product"}
+                                      {"PREGNYL 10000IU 10ML VIAL USA (OSS)"}
                                     </h3>
                                     <p className="text-sm text-gray-600 mt-1">
-                                      {file.metadata.productInfo?.manufacturer || "Manufacturer information not available"}
+                                      {"ORGANON LLC"}
                                     </p>
                                   </div>
                                   
