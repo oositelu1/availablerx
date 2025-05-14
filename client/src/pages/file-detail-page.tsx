@@ -49,10 +49,59 @@ import {
   QrCode,
   ScanLine,
 } from "lucide-react";
+import { useState } from "react";
+import { format } from "date-fns";
 import { formatDate, gtinToNDC } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { SheetContent, SheetTrigger, Sheet } from "@/components/ui/sheet";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
+// Component to refresh metadata
+function RefreshMetadataButton({ fileId }: { fileId: number }) {
+  const { toast } = useToast();
+  
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/files/${fileId}/reprocess`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Metadata updated",
+        description: "File metadata has been refreshed successfully.",
+        variant: "default",
+      });
+      // Invalidate cache to reload file details
+      queryClient.invalidateQueries({ queryKey: [`/api/files/${fileId}`] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Failed to refresh file metadata",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  return (
+    <Button 
+      variant="outline" 
+      onClick={() => refreshMutation.mutate()} 
+      disabled={refreshMutation.isPending}
+      className="max-w-xs"
+    >
+      {refreshMutation.isPending ? (
+        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <RefreshCw className="h-4 w-4 mr-2" />
+      )}
+      Refresh Metadata
+    </Button>
+  );
+}
 
 export default function FileDetailPage() {
   const { id: fileId } = useParams();
@@ -60,7 +109,6 @@ export default function FileDetailPage() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [showValidationDialog, setShowValidationDialog] = useState(false);
   const [showAssociatePODialog, setShowAssociatePODialog] = useState(false);
-  const [expandedBizTransactions, setExpandedBizTransactions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("details");
 
   // Fetch file details
@@ -94,6 +142,18 @@ export default function FileDetailPage() {
       const res = await fetch(`/api/associations/file/${fileId}`);
       if (!res.ok) {
         throw new Error("Failed to fetch PO associations");
+      }
+      return await res.json();
+    },
+  });
+
+  // Fetch transmission history
+  const { data: transmissions, isLoading: isLoadingTransmissions } = useQuery({
+    queryKey: [`/api/files/${fileId}/transmissions`],
+    queryFn: async () => {
+      const res = await fetch(`/api/files/${fileId}/transmissions`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch transmission history");
       }
       return await res.json();
     },
@@ -140,14 +200,6 @@ export default function FileDetailPage() {
 
   const handleAssociateWithPO = () => {
     setShowAssociatePODialog(true);
-  };
-
-  const toggleBizTransaction = (id: string) => {
-    if (expandedBizTransactions.includes(id)) {
-      setExpandedBizTransactions(expandedBizTransactions.filter(i => i !== id));
-    } else {
-      setExpandedBizTransactions([...expandedBizTransactions, id]);
-    }
   };
 
   if (isLoadingFile) {
@@ -304,134 +356,94 @@ export default function FileDetailPage() {
                   
                   <Separator />
                   
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-sm font-medium">EPCIS Version:</div>
-                      <div className="text-sm">
-                        {file.metadata.version || "Unknown"}
-                      </div>
-                    </div>
-                    
-                    {/* Debug output to understand file metadata structure */}
-                    <div className="bg-muted/50 p-2 rounded text-xs mt-3 mb-2">
-                      <pre className="whitespace-pre-wrap overflow-auto max-h-[150px]">
-                        File metadata keys: {JSON.stringify(Object.keys(file.metadata || {}), null, 2)}
-                        {file.metadata.productInfo && (
-                          <>
-                            <br />
-                            <br />
-                            Product Info: {JSON.stringify(file.metadata.productInfo, null, 2)}
-                          </>
-                        )}
-                        {file.metadata.productItems && (
-                          <>
-                            <br />
-                            <br />
-                            First Product Item: {file.metadata.productItems.length > 0 ? 
-                              JSON.stringify(file.metadata.productItems[0], null, 2) : 
-                              "No items"}
-                          </>
-                        )}
-                      </pre>
-                    </div>
-                    
-                    {/* Display product information directly - simplified approach */}
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold mt-2 mb-2 text-primary">Product Information</div>
-                      
-                      <div className="bg-white p-4 rounded-lg border border-primary/10">
-                        <div className="mb-4 border-b pb-3">
-                          <h3 className="text-lg font-semibold text-gray-800">
-                            {file.metadata.productInfo?.name || "Pharmaceutical Product"}
-                          </h3>
+                  {file.metadata && (
+                    <div>
+                      <h3 className="text-sm font-medium text-neutral-700 mb-2">EPCIS Data</h3>
+                      <div className="bg-neutral-50 p-4 rounded-md">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                          {/* EPCIS Standard Information */}
+                          <div className="text-sm font-medium">EPCIS Version:</div>
+                          <div className="text-sm">
+                            <Badge variant="outline" className="bg-primary/10 text-primary">
+                              EPCIS {file.metadata.schemaVersion || "Unknown"}
+                            </Badge>
+                          </div>
                           
-                          <p className="text-sm text-gray-600 mt-1">
-                            {file.metadata.productInfo?.manufacturer || "Manufacturer information not available"}
-                          </p>
-                          
-                          {file.metadata.productInfo?.dosageForm && file.metadata.productInfo?.strength && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
-                            </p>
+                          {/* Product Information Section */}
+                          {(file.metadata.productInfo || (productItems && productItems.length > 0)) && (
+                            <div className="col-span-2 pt-4 pb-2">
+                              <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
+                              
+                              {/* Use the ProductInfoDisplay component */}
+                              {file.metadata.productInfo && (
+                                <ProductInfoDisplay 
+                                  productInfo={file.metadata.productInfo} 
+                                  gtin={file.metadata.productInfo.gtin || (productItems && productItems.length > 0 ? productItems[0].gtin : undefined)} 
+                                />
+                              )}
+                              
+                              {/* If we don't have productInfo in metadata but have productItems, show a simplified version */}
+                              {!file.metadata.productInfo && productItems && productItems.length > 0 && (
+                                <div className="space-y-4">
+                                  <div className="bg-white p-4 rounded-lg border border-primary/10">
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                      <div className="text-sm font-medium text-neutral-700">GTIN:</div>
+                                      <div className="text-sm font-mono">{productItems[0].gtin}</div>
+                                      
+                                      <div className="text-sm font-medium text-neutral-700">NDC:</div>
+                                      <div className="text-sm font-mono">{gtinToNDC(productItems[0].gtin)}</div>
+                                      
+                                      <div className="text-sm font-medium text-neutral-700">Lot Number:</div>
+                                      <div className="text-sm font-mono">{productItems[0].lotNumber}</div>
+                                      
+                                      <div className="text-sm font-medium text-neutral-700">Serial Number:</div>
+                                      <div className="text-sm font-mono">{productItems[0].serialNumber}</div>
+                                      
+                                      {productItems[0].expirationDate && (
+                                        <>
+                                          <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
+                                          <div className="text-sm">{formatDate(productItems[0].expirationDate)}</div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           )}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                          {/* First try to get GTIN from productInfo, then from the first productItem */}
-                          {(file.metadata.productInfo?.gtin || (productItems && productItems.length > 0 && productItems[0].gtin)) && (
+                          
+                          {file.metadata.senderGln && (
                             <>
-                              <div className="text-sm font-medium text-neutral-700">GTIN:</div>
-                              <div className="text-sm font-mono">
-                                {file.metadata.productInfo?.gtin || (productItems && productItems.length > 0 ? productItems[0].gtin : "")}
-                              </div>
+                              <div className="text-sm font-medium">Sender GLN:</div>
+                              <div className="text-sm font-mono">{file.metadata.senderGln}</div>
                             </>
                           )}
                           
-                          {/* Calculate NDC from GTIN */}
-                          <div className="text-sm font-medium text-neutral-700">NDC:</div>
-                          <div className="text-sm font-mono">
-                            {file.metadata.productInfo?.ndc || 
-                             (file.metadata.productInfo?.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : 
-                              (productItems && productItems.length > 0 ? gtinToNDC(productItems[0].gtin) : "Not available"))}
+                          <div className="col-span-2 pt-2">
+                            <div className="text-sm font-medium mb-2">Event Summary:</div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="bg-white p-3 rounded border">
+                                <div className="text-xs text-neutral-500 uppercase">Object Events</div>
+                                <div className="text-lg font-semibold mt-1">{file.metadata.objectEvents || 0}</div>
+                              </div>
+                              <div className="bg-white p-3 rounded border">
+                                <div className="text-xs text-neutral-500 uppercase">Aggregation Events</div>
+                                <div className="text-lg font-semibold mt-1">{file.metadata.aggregationEvents || 0}</div>
+                              </div>
+                              <div className="bg-white p-3 rounded border">
+                                <div className="text-xs text-neutral-500 uppercase">Transaction Events</div>
+                                <div className="text-lg font-semibold mt-1">{file.metadata.transactionEvents || 0}</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Serialization Details Card */}
-                      {productItems && productItems.length > 0 && (
-                        <div className="bg-white p-4 rounded-lg border border-primary/10 mt-4">
-                          <h4 className="text-sm font-semibold text-primary/80 mb-3">Serialization Details</h4>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                            {productItems[0].lotNumber && (
-                              <>
-                                <div className="text-sm font-medium text-neutral-700">Lot/Batch:</div>
-                                <div className="text-sm font-mono">{productItems[0].lotNumber}</div>
-                              </>
-                            )}
-                            
-                            {productItems[0].serialNumber && (
-                              <>
-                                <div className="text-sm font-medium text-neutral-700">Serial Number:</div>
-                                <div className="text-sm font-mono">{productItems[0].serialNumber}</div>
-                              </>
-                            )}
-                            
-                            {productItems[0].expirationDate && (
-                              <>
-                                <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
-                                <div className="text-sm">{formatDate(productItems[0].expirationDate)}</div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {file.metadata.senderGln && (
-                      <>
-                        <div className="text-sm font-medium">Sender GLN:</div>
-                        <div className="text-sm font-mono">{file.metadata.senderGln}</div>
-                      </>
-                    )}
-                    
-                    <div className="col-span-2 pt-2">
-                      <div className="text-sm font-medium mb-2">Event Summary:</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-white p-3 rounded border">
-                          <div className="text-xs text-neutral-500 uppercase">Object Events</div>
-                          <div className="text-lg font-semibold mt-1">{file.metadata.objectEvents || 0}</div>
-                        </div>
-                        <div className="bg-white p-3 rounded border">
-                          <div className="text-xs text-neutral-500 uppercase">Aggregation Events</div>
-                          <div className="text-lg font-semibold mt-1">{file.metadata.aggregationEvents || 0}</div>
-                        </div>
-                        <div className="bg-white p-3 rounded border">
-                          <div className="text-xs text-neutral-500 uppercase">Transaction Events</div>
-                          <div className="text-lg font-semibold mt-1">{file.metadata.transactionEvents || 0}</div>
-                        </div>
+                      <div className="flex justify-end mt-4">
+                        <RefreshMetadataButton fileId={Number(fileId)} />
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -448,14 +460,13 @@ export default function FileDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pb-6">
-                {file.metadata.bizTransactions && file.metadata.bizTransactions.length > 0 ? (
+                {file.metadata?.bizTransactions && file.metadata.bizTransactions.length > 0 ? (
                   <div className="border rounded-md overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[200px]">Type</TableHead>
                           <TableHead>Value</TableHead>
-                          <TableHead className="w-[100px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -466,11 +477,6 @@ export default function FileDetailPage() {
                             </TableCell>
                             <TableCell className="font-mono text-sm">
                               {bizTransaction.value}
-                            </TableCell>
-                            <TableCell>
-                              <Button variant="ghost" size="sm">
-                                <ChevronDown className="h-4 w-4" />
-                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -639,29 +645,73 @@ export default function FileDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* We'll implement the transmission history table here */}
-              <div className="py-12 text-center border rounded-md flex flex-col items-center gap-4">
-                <p className="text-muted-foreground mb-2">This file has not been transmitted to any trading partners yet</p>
-                <Button 
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={() => setShowSendModal(true)}
-                >
-                  <Send className="h-4 w-4" />
-                  Send This File
-                </Button>
-              </div>
+              {isLoadingTransmissions ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : transmissions && transmissions.length > 0 ? (
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Partner</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transmissions.map((transmission: any) => (
+                        <TableRow key={transmission.id}>
+                          <TableCell className="font-medium">
+                            {transmission.partner.name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              transmission.status === "COMPLETED" ? "success" : 
+                              transmission.status === "FAILED" ? "destructive" : "outline"
+                            }>
+                              {transmission.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {transmission.method}
+                          </TableCell>
+                          <TableCell>
+                            {formatDate(transmission.transmittedAt || transmission.createdAt)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="py-12 text-center border rounded-md flex flex-col items-center gap-4">
+                  <p className="text-muted-foreground mb-2">This file has not been transmitted to any trading partners yet</p>
+                  <Button 
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    onClick={() => setShowSendModal(true)}
+                  >
+                    <Send className="h-4 w-4" />
+                    Send This File
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
       {/* Modals and dialogs */}
-      <SendFileModal 
-        isOpen={showSendModal} 
-        onClose={() => setShowSendModal(false)} 
-        fileId={Number(fileId)}
-      />
+      {showSendModal && (
+        <SendFileModal 
+          fileId={Number(fileId)}
+          onClose={() => setShowSendModal(false)}
+        />
+      )}
       
       {showValidationDialog && (
         <ProductValidationDialog
@@ -673,15 +723,13 @@ export default function FileDetailPage() {
       
       {showAssociatePODialog && (
         <AssociatePODialog
-          isOpen={showAssociatePODialog}
-          onClose={() => setShowAssociatePODialog(false)}
           fileId={Number(fileId)}
+          onClose={() => setShowAssociatePODialog(false)}
         />
       )}
       
       <PresignedLinks
         fileId={Number(fileId)}
-        fileName={file.name}
       />
     </Layout>
   );

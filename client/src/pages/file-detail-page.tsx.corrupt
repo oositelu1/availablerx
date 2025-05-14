@@ -27,6 +27,7 @@ import { SendFileModal } from "@/components/send-file-modal";
 import { PresignedLinks } from "@/components/presigned-links";
 import { AssociatePODialog } from "@/components/associate-po-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProductInfoDisplay } from "@/components/product-info-display";
 import {
   ArrowLeft,
   File,
