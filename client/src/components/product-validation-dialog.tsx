@@ -3,9 +3,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera, Info } from "lucide-react";
 import QRScanner from "@/components/qr-scanner";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ProductValidationDialogProps {
   isOpen: boolean;
@@ -189,16 +191,25 @@ export default function ProductValidationDialog({
               <Alert variant="default" className="bg-success/10 border-success">
                 <CheckCircle className="h-5 w-5 text-success" />
                 <AlertTitle>Valid Product!</AlertTitle>
-                <AlertDescription>
-                  This product matches an item in the EPCIS data.
+                <AlertDescription className="flex flex-col gap-1">
+                  <span>This product matches an item in the EPCIS data.</span>
+                  
+                  {/* Show PO information more prominently if available */}
+                  {(poId || (bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0)) && (
+                    <Badge variant="outline" className="mt-1 bg-primary/5 text-primary border-primary/20 flex items-center gap-1 w-fit">
+                      <ShoppingCart className="h-3 w-3" />
+                      PO: {poId || bestMatch.productItem.bizTransactionList[0]}
+                    </Badge>
+                  )}
                 </AlertDescription>
               </Alert>
             ) : (
               <Alert variant="destructive">
                 <CircleAlert className="h-5 w-5" />
                 <AlertTitle>No Match Found</AlertTitle>
-                <AlertDescription>
-                  This product does not match any items in the EPCIS data.
+                <AlertDescription className="flex flex-col gap-1">
+                  <span>This product does not match any items in the EPCIS data.</span>
+                  <span className="text-xs mt-1">Check that the scanned product's GTIN and lot number match those in the EPCIS file.</span>
                 </AlertDescription>
               </Alert>
             )}
@@ -268,7 +279,36 @@ export default function ProductValidationDialog({
                   <div className="grid grid-cols-1 gap-3">
                     {/* Product identity card */}
                     <div className="bg-white border p-3 rounded-md shadow-sm">
-                      <h4 className="font-medium text-primary/80 mb-2">Product Information</h4>
+                      <h4 className="font-medium text-primary/80 mb-2 flex items-center justify-between">
+                        <span>Product Information</span>
+                        
+                        {/* Display match quality indicator */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>
+                                {bestMatch.matchResult.gtinMatch && bestMatch.matchResult.lotMatch && bestMatch.matchResult.serialMatch ? (
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                    Perfect Match
+                                  </Badge>
+                                ) : (bestMatch.matchResult.gtinMatch && bestMatch.matchResult.lotMatch) ? (
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    Good Match
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                    Partial Match
+                                  </Badge>
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Quality of match between scanned code and EPCIS data</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </h4>
+                      
                       {/* Try to get product name and manufacturer from metadata */}
                       {(() => {
                         // First try to get from product item metadata
@@ -310,8 +350,22 @@ export default function ProductValidationDialog({
                       
                       {/* Product identifiers in a cleaner grid */}
                       <div className="grid grid-cols-2 gap-2 mt-2">
-                        <div>
-                          <p className="text-xs text-gray-500">GTIN</p>
+                        <div className={`p-1 rounded ${bestMatch.matchResult.gtinMatch ? 'bg-green-50' : 'bg-amber-50'}`}>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            GTIN
+                            {!bestMatch.matchResult.gtinMatch && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-3 w-3 ml-1 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">GTIN mismatch detected</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </p>
                           <p className="font-mono text-sm">{bestMatch.productItem.gtin}</p>
                         </div>
                         <div>
@@ -325,16 +379,58 @@ export default function ProductValidationDialog({
                     <div className="bg-white border p-3 rounded-md shadow-sm">
                       <h4 className="font-medium text-primary/80 mb-2">Serialization Details</h4>
                       <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-xs text-gray-500">Lot Number</p>
+                        <div className={`p-1 rounded ${bestMatch.matchResult.lotMatch ? 'bg-green-50' : 'bg-amber-50'}`}>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            Lot Number
+                            {!bestMatch.matchResult.lotMatch && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-3 w-3 ml-1 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Lot number mismatch detected</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </p>
                           <p className="font-mono text-sm">{bestMatch.productItem.lotNumber}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Serial Number</p>
+                        <div className={`p-1 rounded ${bestMatch.matchResult.serialMatch ? 'bg-green-50' : 'bg-amber-50'}`}>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            Serial Number
+                            {!bestMatch.matchResult.serialMatch && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-3 w-3 ml-1 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Serial number mismatch detected</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </p>
                           <p className="font-mono text-sm">{bestMatch.productItem.serialNumber}</p>
                         </div>
-                        <div className="col-span-2">
-                          <p className="text-xs text-gray-500">Expiration Date</p>
+                        <div className={`col-span-2 p-1 rounded ${bestMatch.matchResult.expirationMatch ? 'bg-green-50' : 'bg-amber-50'}`}>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            Expiration Date
+                            {!bestMatch.matchResult.expirationMatch && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className="h-3 w-3 ml-1 text-amber-500" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Expiration date mismatch detected</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </p>
                           <p className="font-mono text-sm">{formatDate(bestMatch.productItem.expirationDate)}</p>
                         </div>
                       </div>
@@ -344,13 +440,44 @@ export default function ProductValidationDialog({
               </div>
             )}
             
-            {poId && (
+            {/* Enhanced Purchase Order Information */}
+            {(poId || (bestMatch && bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0)) && (
               <div className="mt-4 pt-2 border-t">
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Associated with Purchase Order #{poId}
-                  </span>
+                <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShoppingCart className="h-4 w-4 text-blue-700" />
+                    <span className="text-sm font-medium text-blue-700">
+                      Purchase Order Information
+                    </span>
+                  </div>
+                  
+                  <div className="pl-6">
+                    {poId && (
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="bg-blue-100 border-blue-200 text-blue-800">
+                          Associated PO #{poId}
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {bestMatch && bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0 && (
+                      <div className="mt-1">
+                        <div className="text-xs text-blue-700 mb-1">From EPCIS File:</div>
+                        {bestMatch.productItem.bizTransactionList.map((poRef, idx) => (
+                          <div key={idx} className="flex items-center gap-1 mb-1">
+                            <Badge variant="outline" className="bg-white text-blue-800 border-blue-200">
+                              PO Reference: {poRef}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-blue-600 mt-2">
+                      <Info className="h-3 w-3 inline mr-1" />
+                      This product is part of the purchase order shown above
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
