@@ -236,6 +236,10 @@ export default function FileDetailPage() {
     );
   }
 
+  // Debug logging
+  console.log("File metadata:", file.metadata);
+  console.log("Product info:", file.metadata.productInfo);
+
   return (
     <Layout>
       {/* Header area */}
