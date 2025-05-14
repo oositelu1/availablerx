@@ -39,8 +39,8 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
   try {
     // Parse the XML with specific options to preserve namespaces
     const parsedXml = await parseStringPromise(xmlBuffer, {
-      explicitArray: true,      // Changed to true to handle arrays consistently
-      explicitCharkey: true,    // Changed to true to ensure text content is consistent
+      explicitArray: true,      // Set to true to handle arrays consistently
+      explicitCharkey: true,    // Set to true to ensure text content is consistent
       mergeAttrs: false,        // Keep attributes separate
       normalizeTags: false,     // Preserve case and namespaces
       xmlns: true,              // Track namespaces
@@ -52,7 +52,6 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
     // Initialize result
     const result: { name?: string; manufacturer?: string; ndc?: string } = {};
     
-    // Extract from EPCISHeader/extension/EPCISMasterData
     try {
       // Handle both namespace and non-namespace versions
       const epcisDocument = parsedXml['epcis:EPCISDocument'] || parsedXml['EPCISDocument'];
@@ -75,7 +74,7 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
                 // Process each vocabulary
                 for (const vocabulary of vocabularies) {
                   // Look for EPCClass vocabulary which contains product info
-                  if (vocabulary.$ && vocabulary.$.type === 'urn:epcglobal:epcis:vtype:EPCClass') {
+                  if (vocabulary.$ && vocabulary.$.type && vocabulary.$.type.value === 'urn:epcglobal:epcis:vtype:EPCClass') {
                     console.log('Found EPCClass vocabulary in master data');
                     const elemList = vocabulary['VocabularyElementList'];
                     if (elemList && elemList[0]) {
@@ -88,17 +87,10 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
                             // Check each attribute for product info
                             for (const attr of attributes) {
                               if (attr.$ && attr.$.id) {
-                                const attrId = attr.$.id;
-                                let attrValue = '';
-                                
-                                // Extract the value (might be in different forms)
-                                if (attr._) {
-                                  attrValue = attr._;
-                                } else if (attr.$ && attr.$._) {
-                                  attrValue = attr.$._; 
-                                } else if (attr.$ && attr.$.value) {
-                                  attrValue = attr.$.value;
-                                }
+                                // Get attribute ID
+                                const attrId = attr.$.id.value;
+                                // Extract value - handle different ways it might be stored
+                                let attrValue = attr._ ? (attr._._ || attr._) : '';
                                 
                                 // Match product name
                                 if (attrId === 'urn:epcglobal:cbv:mda#regulatedProductName') {
@@ -131,92 +123,29 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
         }
       }
       
-      // If we haven't found the data yet, try to extract from events in EPCISBody
+      // If we haven't found the data yet, try other methods
       if (!result.name || !result.manufacturer) {
-        console.log('Looking for product data in EPCISBody events');
         const epcisBody = epcisDocument['EPCISBody'] || epcisDocument['epcis:EPCISBody'];
         if (epcisBody && epcisBody[0]) {
-          // Look in extension/EPCISMasterData in body
-          if (epcisBody[0]['extension'] && epcisBody[0]['extension'][0]['EPCISMasterData']) {
-            const masterData = epcisBody[0]['extension'][0]['EPCISMasterData'];
-            const vocabList = masterData[0]['VocabularyList'];
-            if (vocabList && vocabList[0]) {
-              const vocabularies = vocabList[0]['Vocabulary'];
-              for (const vocab of vocabularies) {
-                if (vocab.$ && vocab.$.type === 'urn:epcglobal:epcis:vtype:EPCClass') {
-                  console.log('Found EPCClass vocabulary in Body extension');
-                  const elemList = vocab['VocabularyElementList'];
-                  if (elemList && elemList[0]) {
-                    const elements = elemList[0]['VocabularyElement'];
-                    if (elements) {
-                      for (const elem of elements) {
-                        const attributes = elem['attribute'];
-                        if (attributes) {
-                          // Check each attribute for product info
-                          for (const attr of attributes) {
-                            if (attr.$ && attr.$.id) {
-                              const attrId = attr.$.id;
-                              let attrValue = '';
-                              
-                              // Extract value from different possible locations
-                              if (attr._ !== undefined) {
-                                attrValue = attr._;
-                              } else if (attr['$'] && attr['$']['_']) {
-                                attrValue = attr['$']['_'];
-                              } else if (attr['$'] && attr['$']['value']) {
-                                attrValue = attr['$']['value'];
-                              } else if (Array.isArray(attr) && attr.length > 0 && attr[0]._) {
-                                attrValue = attr[0]._;
-                              }
-                              
-                              // Product name
-                              if (attrId === 'urn:epcglobal:cbv:mda#regulatedProductName') {
-                                console.log('Found product name in body extension:', attrValue);
-                                result.name = attrValue;
-                              }
-                              
-                              // Manufacturer
-                              if (attrId === 'urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName') {
-                                console.log('Found manufacturer in body extension:', attrValue);
-                                result.manufacturer = attrValue;
-                              }
-                              
-                              // NDC
-                              if (attrId === 'urn:epcglobal:cbv:mda#additionalTradeItemIdentification') {
-                                console.log('Found NDC in body extension:', attrValue);
-                                result.ndc = attrValue;
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          
-          // Also check for ilmd extension in object events
+          // Look for object events with ilmd extension which might contain product info
           const eventList = epcisBody[0]['EventList'];
           if (eventList && eventList[0]) {
-            // Check all types of events for ilmd extension
             const objectEvents = eventList[0]['ObjectEvent'] || [];
             for (const event of objectEvents) {
               if (event['ilmd'] && event['ilmd'][0]) {
+                // Check ilmd attributes
                 const ilmd = event['ilmd'][0];
-                // Look for lot and expiry data attributes that might contain product info
                 Object.keys(ilmd).forEach(key => {
-                  // These sometimes contain product info
-                  if (key.includes('cbvmda:regulatedProductName')) {
-                    const value = ilmd[key][0]._;
+                  // Look for attributes with namespaces (might be different formats)
+                  if (key.includes('regulatedProductName') || key === 'cbvmda:regulatedProductName') {
+                    const value = ilmd[key][0]._ || (ilmd[key][0].$ && ilmd[key][0].$.value);
                     if (value) {
                       console.log('Found product name in ilmd:', value);
                       result.name = value;
                     }
                   }
-                  if (key.includes('cbvmda:manufacturerOfTradeItemPartyName')) {
-                    const value = ilmd[key][0]._;
+                  if (key.includes('manufacturerOfTradeItemPartyName') || key === 'cbvmda:manufacturerOfTradeItemPartyName') {
+                    const value = ilmd[key][0]._ || (ilmd[key][0].$ && ilmd[key][0].$.value);
                     if (value) {
                       console.log('Found manufacturer in ilmd:', value);
                       result.manufacturer = value;
