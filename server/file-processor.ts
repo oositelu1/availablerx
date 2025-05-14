@@ -53,8 +53,10 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
     const result: { name?: string; manufacturer?: string; ndc?: string } = {};
     
     try {
-      // Handle both namespace and non-namespace versions
-      const epcisDocument = parsedXml['epcis:EPCISDocument'] || parsedXml['EPCISDocument'];
+      // Handle all possible namespace versions
+      const epcisDocument = parsedXml['epcis:EPCISDocument'] || 
+                           parsedXml['EPCISDocument'] || 
+                           parsedXml['ns3:EPCISDocument'];
       if (!epcisDocument) {
         console.log('No EPCISDocument found at root');
         return result;
@@ -87,8 +89,14 @@ async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string
                             // Check each attribute for product info
                             for (const attr of attributes) {
                               if (attr.$ && attr.$.id) {
-                                // Get attribute ID
-                                const attrId = attr.$.id.value;
+                                // Get attribute ID - handle both object and string types
+                                let attrId = '';
+                                if (typeof attr.$.id === 'object' && attr.$.id.value) {
+                                  attrId = attr.$.id.value;
+                                } else if (typeof attr.$.id === 'string') {
+                                  attrId = attr.$.id;
+                                }
+                                
                                 // Extract value - handle different ways it might be stored
                                 let attrValue = attr._ ? (attr._._ || attr._) : '';
                                 
