@@ -369,37 +369,41 @@ export default function FileDetailPage() {
                           </div>
                           
                           {/* Product Information Section */}
-                          {file.metadata.productInfo && (
+                          {(file.metadata.productInfo || (productItems && productItems.length > 0)) && (
                             <>
                               <div className="col-span-2 pt-4 pb-2">
                                 <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
                                 
                                 <div className="bg-white p-4 rounded-lg border border-primary/10 mb-4">
+                                  {/* Product Name with prominence */}
                                   <div className="mb-4 border-b pb-3">
                                     <h3 className="text-lg font-semibold text-gray-800">
-                                      {file.metadata.productInfo.name || "Pharmaceutical Product"}
+                                      {file.metadata.productInfo?.name || "Pharmaceutical Product"}
                                     </h3>
                                     <p className="text-sm text-gray-600 mt-1">
-                                      {file.metadata.productInfo.manufacturer || "Manufacturer information not available"}
+                                      {file.metadata.productInfo?.manufacturer || "Manufacturer information not available"}
                                     </p>
-                                    {file.metadata.productInfo.dosageForm && file.metadata.productInfo.strength && (
-                                      <p className="text-sm text-gray-600 mt-1">
-                                        {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
-                                      </p>
-                                    )}
                                   </div>
+                                  
+                                  {/* Product Identifiers - Focus on NDC */}
                                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                                    {file.metadata.productInfo.gtin && (
+                                    {/* NDC is given highest priority */}
+                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
+                                    <div className="text-sm font-mono font-semibold">
+                                      {file.metadata.productInfo?.ndc || 
+                                       (file.metadata.productInfo?.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : 
+                                       (productItems && productItems.length > 0 ? gtinToNDC(productItems[0].gtin) : "Not available"))}
+                                    </div>
+                                    
+                                    {/* GTIN shown if available */}
+                                    {(file.metadata.productInfo?.gtin || (productItems && productItems.length > 0)) && (
                                       <>
                                         <div className="text-sm font-medium text-neutral-700">GTIN:</div>
-                                        <div className="text-sm font-mono">{file.metadata.productInfo.gtin}</div>
+                                        <div className="text-sm font-mono">
+                                          {file.metadata.productInfo?.gtin || (productItems && productItems.length > 0 ? productItems[0].gtin : "")}
+                                        </div>
                                       </>
                                     )}
-                                    <div className="text-sm font-medium text-neutral-700">NDC:</div>
-                                    <div className="text-sm font-mono">
-                                      {file.metadata.productInfo.ndc || 
-                                       (file.metadata.productInfo.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : "Not available")}
-                                    </div>
                                   </div>
                                 </div>
                               </div>
