@@ -335,22 +335,77 @@ export default function FileDetailPage() {
                       </pre>
                     </div>
                     
-                    {/* Display product information if available */}
-                    {file.metadata.productInfo ? (
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold mb-3 text-primary">Product Information</div>
+                    {/* Display product information directly - simplified approach */}
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold mt-2 mb-2 text-primary">Product Information</div>
+                      
+                      <div className="bg-white p-4 rounded-lg border border-primary/10">
+                        <div className="mb-4 border-b pb-3">
+                          <h3 className="text-lg font-semibold text-gray-800">
+                            {file.metadata.productInfo?.name || "Pharmaceutical Product"}
+                          </h3>
+                          
+                          <p className="text-sm text-gray-600 mt-1">
+                            {file.metadata.productInfo?.manufacturer || "Manufacturer information not available"}
+                          </p>
+                          
+                          {file.metadata.productInfo?.dosageForm && file.metadata.productInfo?.strength && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              {file.metadata.productInfo.dosageForm} - {file.metadata.productInfo.strength}
+                            </p>
+                          )}
+                        </div>
                         
-                        <ProductInfoDisplay 
-                          productInfo={file.metadata.productInfo} 
-                          gtin={file.metadata.productInfo.gtin}
-                        />
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                          {/* First try to get GTIN from productInfo, then from the first productItem */}
+                          {(file.metadata.productInfo?.gtin || (productItems && productItems.length > 0 && productItems[0].gtin)) && (
+                            <>
+                              <div className="text-sm font-medium text-neutral-700">GTIN:</div>
+                              <div className="text-sm font-mono">
+                                {file.metadata.productInfo?.gtin || (productItems && productItems.length > 0 ? productItems[0].gtin : "")}
+                              </div>
+                            </>
+                          )}
+                          
+                          {/* Calculate NDC from GTIN */}
+                          <div className="text-sm font-medium text-neutral-700">NDC:</div>
+                          <div className="text-sm font-mono">
+                            {file.metadata.productInfo?.ndc || 
+                             (file.metadata.productInfo?.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : 
+                              (productItems && productItems.length > 0 ? gtinToNDC(productItems[0].gtin) : "Not available"))}
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="bg-muted/30 p-3 rounded text-sm mt-3">
-                        <div className="font-medium mb-1 text-primary">Product Information</div>
-                        <p className="text-muted-foreground text-sm">No product information available in this file</p>
-                      </div>
-                    )}
+                      
+                      {/* Serialization Details Card */}
+                      {productItems && productItems.length > 0 && (
+                        <div className="bg-white p-4 rounded-lg border border-primary/10 mt-4">
+                          <h4 className="text-sm font-semibold text-primary/80 mb-3">Serialization Details</h4>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                            {productItems[0].lotNumber && (
+                              <>
+                                <div className="text-sm font-medium text-neutral-700">Lot/Batch:</div>
+                                <div className="text-sm font-mono">{productItems[0].lotNumber}</div>
+                              </>
+                            )}
+                            
+                            {productItems[0].serialNumber && (
+                              <>
+                                <div className="text-sm font-medium text-neutral-700">Serial Number:</div>
+                                <div className="text-sm font-mono">{productItems[0].serialNumber}</div>
+                              </>
+                            )}
+                            
+                            {productItems[0].expirationDate && (
+                              <>
+                                <div className="text-sm font-medium text-neutral-700">Expiration Date:</div>
+                                <div className="text-sm">{formatDate(productItems[0].expirationDate)}</div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     
                     {file.metadata.senderGln && (
                       <>
