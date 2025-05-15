@@ -40,13 +40,18 @@ export default function InventoryPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // Fetch inventory items
-  const { data: inventoryItems, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['/api/inventory'],
     enabled: !!user,
   });
 
+  // Extract items from response data and add debugging
+  console.log("Raw inventory data:", data);
+  const inventoryItems = data?.items || [];
+  console.log("Extracted inventory items:", inventoryItems);
+
   // Filter inventory items based on search query and filters
-  const filteredItems = inventoryItems?.filter(item => {
+  const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = searchQuery === "" || 
       item.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.gtin.toLowerCase().includes(searchQuery.toLowerCase()) ||
