@@ -1,0 +1,192 @@
+﻿Product Requirements Document (PRD)
+Title:
+EPCIS-Enabled Order Lifecycle & Inventory Management System
+________________
+
+
+1. Objective
+To build a DSCSA-compliant system that:
+* Links EPCIS files with POs/SOs
+
+* Manages serialized inventory in real time
+
+* Enables partner management with GLNs and license tracking
+
+* Supports both ERP-integrated and standalone workflows
+
+* Provides scanning-based reconciliation of physical drugs vs EPCIS
+
+* Creates a defensible audit trail for compliance
+
+________________
+
+
+2. Stakeholders
+   * Pharmaceutical Distributors
+
+   * Warehouse Staff
+
+   * Regulatory & Compliance Officers
+
+   * IT/ERP Integration Teams
+
+________________
+
+
+3. Core Functional Modules
+3.1 Purchase Order (PO) Management
+      * Create and manage purchase orders manually or via ERP integration
+
+      * Store PO metadata: PO Number, Supplier, Order Date, Expected Ship Date, Product List
+
+      * Associate inbound EPCIS files with an existing PO
+
+      * Fallback logic for matching EPCIS to PO if PO # is missing:
+
+         * GTIN/product match + supplier + delivery window
+
+         * Manual override to link PO
+
+3.2 Sales Order (SO) Management
+            * Create and manage outbound sales orders
+
+            * Store SO metadata: SO Number, Customer, Product List, Serial Quantities, Ship Date
+
+            * Link SO to EPCIS generation and outbound shipments
+
+            * Verify serials being picked match inventory before EPCIS generation
+
+3.3 Serialized Inventory Engine
+               * Inbound: When EPCIS file is received and verified, ingest GTIN + Serial + Lot + Exp Date and update inventory
+
+               * Outbound: When SO is created and items scanned, subtract serials from inventory
+
+               * Track inventory at unit level using serials
+
+               * Support filtering and inventory queries by product, serial, lot, supplier, or customer
+
+3.4 EPCIS File Handling (Inbound/Outbound)
+                  * Accept and parse EPCIS 1.2 XML files
+
+                  * Extract: GTIN, Serial, Lot, Exp Date, Event Time, bizStep, Disposition, bizTransactionList (PO), source/destination GLNs
+
+                  * Link inbound files to PO, outbound files to SO
+
+                  * Display full parsed EPCIS data for user validation
+
+                  * Flag mismatches between EPCIS and system records
+
+3.5 QR Code Scanning & Reconciliation
+                     * Mobile or desktop scanner interface
+
+                     * Parse GS1 2D DataMatrix codes to extract:
+
+                        * GTIN (01), Serial (21), Lot (10), Exp Date (17)
+
+                           * Compare scan result to EPCIS + inventory records
+
+                           * Show PASS/FAIL validation result and mismatch reasons
+
+                           * Write result to compliance log
+
+3.6 Trading Partner Management
+                              * Create and manage trading partners (customers and suppliers)
+
+                              * Support multiple ship-from and ship-to addresses per partner
+
+                              * Track GLN, license expiration dates, state licensing, and compliance flags
+
+                              * Associate EPCIS source/destination GLNs with partner records
+
+3.7 ERP/Integration Hooks (Optional)
+                                 * Allow integration with SAP or other ERP systems to import/export:
+
+                                    * POs and SOs
+
+                                    * Inventory updates
+
+                                    * Trading partner data
+
+                                       * REST API endpoints and flat file support
+
+3.8 Audit Trail & Compliance Logging
+                                          * Log every:
+
+                                             * EPCIS file received/sent
+
+                                             * Scan operation (with scan data and result)
+
+                                             * PO/SO creation and linkage
+
+                                             * Inventory adjustments
+
+                                                * Searchable and exportable audit logs (CSV, PDF)
+
+                                                * Retain logs for minimum 6 years
+
+________________
+
+
+4. User Roles & Permissions
+Role
+	Permissions
+	Admin
+	Full access to all modules, create/update/delete POs, SOs, partners
+	Warehouse Staff
+	Scan products, receive/ship inventory, view inventory, link EPCIS
+	Compliance User
+	View logs, validate EPCIS, run reports
+	Read-Only User
+	Can view inventory and PO/SO/EPCIS status, but cannot edit
+	________________
+
+
+5. Key Interfaces
+Page/Module
+	Function
+	PO Management Console
+	Create, view, edit purchase orders
+	SO Management Console
+	Create, view, edit sales orders
+	EPCIS Inbox / History
+	Upload EPCIS files, view parsed metadata, link to PO/SO
+	Inventory Dashboard
+	Search/filter inventory by GTIN, serial, supplier, customer
+	QR Code Scan Interface
+	Scan barcode → real-time validation against EPCIS/inventory
+	Trading Partner Directory
+	View/add/edit suppliers/customers with GLN & multi-address support
+	Compliance Logs & Exports
+	View scan history, EPCIS logs, mismatch reports
+	________________
+
+
+6. System Requirements
+                                                   * Web-based frontend (React or similar)
+
+                                                   * Backend (Node.js, Python, or preferred stack)
+
+                                                   * DB (PostgreSQL or MongoDB for relational + document support)
+
+                                                   * File storage (AWS S3 or secure blob storage)
+
+                                                   * QR Code Scanner: Webcam, mobile browser, or handheld integration
+
+                                                   * Optional: Mobile companion app
+
+________________
+
+
+7. Success Metrics
+Metric
+	Target
+	EPCIS–PO Match Rate
+	≥ 90% via auto or manual linking
+	Serialized Product Match Accuracy
+	≥ 99.5% in QR code scan validations
+	PO/SO–Inventory Reconciliation Latency
+	< 5 seconds
+	Inventory Accuracy After Shipments
+	≥ 99.9%
+	Regulatory Audit Pass Rate
+	100% if logs properly retained
