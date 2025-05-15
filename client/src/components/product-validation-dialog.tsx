@@ -212,7 +212,16 @@ export default function ProductValidationDialog({
                   <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
                 </div>
                 
-                {/* NDC is only shown if available in the file metadata - not derived from GTIN */}
+                {/* Add NDC display if available in file metadata */}
+                {(fileMetadata?.productInfo?.ndc || bestMatch?.productItem?.metadata?.productInfo?.ndc) && (
+                  <div className="bg-muted p-2 rounded">
+                    <span className="text-xs text-muted-foreground block">NDC:</span>
+                    <span className="font-mono">
+                      {bestMatch?.productItem?.metadata?.productInfo?.ndc || 
+                      fileMetadata?.productInfo?.ndc || 'N/A'}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="bg-muted p-2 rounded">
                   <span className="text-xs text-muted-foreground block">Lot Number:</span>

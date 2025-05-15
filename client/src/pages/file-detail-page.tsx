@@ -372,6 +372,13 @@ export default function FileDetailPage() {
                             </Badge>
                           </div>
                           
+                          <div className="text-sm font-medium">Sender GLN:</div>
+                          <div className="text-sm font-mono">
+                            {file.metadata.senderGln && file.metadata.senderGln !== 'unknown' 
+                              ? file.metadata.senderGln 
+                              : "Not available"}
+                          </div>
+                          
                           {/* Product Information Section */}
                           {(file.metadata.productInfo || (productItems && productItems.length > 0)) && (
                             <>
