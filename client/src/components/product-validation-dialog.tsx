@@ -152,19 +152,7 @@ export default function ProductValidationDialog({
     }
   };
 
-  // Helper to convert GTIN to NDC format if possible
-  const gtinToNDC = (gtin: string | undefined) => {
-    if (!gtin || gtin.length !== 14) return null;
-    
-    // Standard conversion: remove first 3 digits (usually '003') and checksum digit
-    // Format as 5-4-2
-    const ndc = gtin.substring(3, 12);
-    if (ndc.length === 9) {
-      return `${ndc.substring(0, 5)}-${ndc.substring(5, 9)}-${ndc.substring(9)}`;
-    }
-    
-    return null;
-  };
+  // We don't derive NDC from GTIN anymore - only use what's in the file metadata
 
   // Content to display
   const renderContent = () => {

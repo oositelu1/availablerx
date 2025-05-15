@@ -394,9 +394,7 @@ export default function FileDetailPage() {
                                     {/* NDC is given highest priority */}
                                     <div className="text-sm font-medium text-neutral-700">NDC:</div>
                                     <div className="text-sm font-mono font-semibold">
-                                      {file.metadata.productInfo?.ndc || 
-                                       (file.metadata.productInfo?.gtin ? gtinToNDC(file.metadata.productInfo.gtin) : 
-                                       (productItems && productItems.length > 0 ? gtinToNDC(productItems[0].gtin) : "Not available"))}
+                                      {file.metadata.productInfo?.ndc || "Not available"}
                                     </div>
                                     
                                     {/* GTIN shown if available */}

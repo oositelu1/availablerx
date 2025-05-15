@@ -23,7 +23,8 @@ export function ProductInfoDisplay({ productInfo, gtin }: ProductInfoDisplayProp
     ? new Date(expirationDate).toLocaleDateString() 
     : "Not available";
     
-  const ndc = productInfo?.ndc || (gtin ? gtinToNDC(gtin) : "Not available");
+  // Only use NDC if directly extracted from XML
+  const ndc = productInfo?.ndc || "";
   
   return (
     <div className="space-y-4">
