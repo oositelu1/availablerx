@@ -33,6 +33,7 @@ const purchaseOrderSchema = insertPurchaseOrderSchema.extend({
   supplierGln: z.string().min(5, "Supplier GLN must be at least 5 characters"),
   supplier: z.string().min(2, "Supplier name must be at least 2 characters"),
   customer: z.string().min(2, "Customer name must be at least 2 characters"),
+  partnerId: z.number().optional(), // Add partnerId field to match backend schema
 });
 
 type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>;
@@ -51,6 +52,12 @@ export default function PurchaseOrdersPage() {
     enabled: !!user,
   });
 
+  // Fetch all partners for dropdown selection
+  const { data: partners } = useQuery({
+    queryKey: ['/api/partners'],
+    enabled: !!user,
+  });
+
   // Set up form for creating purchase orders
   const form = useForm<PurchaseOrderFormValues>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -62,6 +69,7 @@ export default function PurchaseOrdersPage() {
       orderDate: new Date(),
       expectedDeliveryDate: null,
       status: "open",
+      partnerId: undefined,
     },
   });
 
