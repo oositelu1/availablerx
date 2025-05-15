@@ -17,6 +17,8 @@ import { associationRouter } from './epcis-po-association-routes';
 import { productItemRouter } from './product-item-routes';
 import { validationRouter } from './validation-routes';
 import { auditLogRouter } from './audit-log-routes';
+import { partnerLocationRouter } from './partner-location-routes';
+import { poItemRouter } from './po-item-routes';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -49,6 +51,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/product-items', productItemRouter);
   app.use('/api/validation', validationRouter);
   app.use('/api/audit-logs', auditLogRouter);
+  app.use('/api/partner-locations', partnerLocationRouter);
+  app.use('/api/purchase-order-items', poItemRouter);
   
   // === File Upload & Processing ===
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {

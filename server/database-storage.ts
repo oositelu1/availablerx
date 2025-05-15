@@ -597,6 +597,62 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // Purchase Order Items management
+  
+  async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const [newItem] = await db
+      .insert(purchaseOrderItems)
+      .values({
+        poId: item.poId,
+        lineNumber: item.lineNumber,
+        gtin: item.gtin,
+        ndc: item.ndc || null,
+        productCode: item.productCode || null,
+        productName: item.productName,
+        packageType: item.packageType || null,
+        quantity: item.quantity,
+        quantityReceived: item.quantityReceived || 0,
+        quantityRejected: item.quantityRejected || 0,
+        lotNumber: item.lotNumber || null,
+        expirationDate: item.expirationDate || null,
+        unitPrice: item.unitPrice || null,
+        notes: item.notes || null,
+        productType: item.productType || "finished_good"
+      })
+      .returning();
+    return newItem;
+  }
+  
+  async getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined> {
+    const [item] = await db.select().from(purchaseOrderItems).where(eq(purchaseOrderItems.id, id));
+    return item;
+  }
+  
+  async updatePurchaseOrderItem(id: number, updates: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined> {
+    const [updatedItem] = await db
+      .update(purchaseOrderItems)
+      .set(updates)
+      .where(eq(purchaseOrderItems.id, id))
+      .returning();
+    return updatedItem;
+  }
+  
+  async listPurchaseOrderItems(poId: number): Promise<PurchaseOrderItem[]> {
+    return db
+      .select()
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.poId, poId))
+      .orderBy(purchaseOrderItems.lineNumber);
+  }
+  
+  async deletePurchaseOrderItem(id: number): Promise<boolean> {
+    const result = await db
+      .delete(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
   // EPCIS-PO Association management
 
   async createEpcisPoAssociation(association: InsertEpcisPoAssociation): Promise<EpcisPoAssociation> {

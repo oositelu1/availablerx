@@ -187,32 +187,44 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private partners: Map<number, Partner>;
+  private partnerLocations: Map<number, PartnerLocation>;
   private files: Map<number, File>;
   private transmissions: Map<number, Transmission>;
   private presignedLinks: Map<number, PresignedLink>;
   private fileDataStorage: Map<number, Buffer>;
+  private purchaseOrders: Map<number, PurchaseOrder>;
+  private purchaseOrderItems: Map<number, PurchaseOrderItem>;
   sessionStore: session.Store;
   private baseDownloadUrl: string;
   
   private userIdCounter: number;
   private partnerIdCounter: number;
+  private partnerLocationIdCounter: number;
   private fileIdCounter: number;
   private transmissionIdCounter: number;
   private presignedLinkIdCounter: number;
+  private purchaseOrderIdCounter: number;
+  private purchaseOrderItemIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.partners = new Map();
+    this.partnerLocations = new Map();
     this.files = new Map();
     this.transmissions = new Map();
     this.presignedLinks = new Map();
     this.fileDataStorage = new Map();
+    this.purchaseOrders = new Map();
+    this.purchaseOrderItems = new Map();
     
     // Set the base URL for downloads
     this.baseDownloadUrl = process.env.BASE_DOWNLOAD_URL || 'http://localhost:5000';
     
     this.userIdCounter = 1;
     this.partnerIdCounter = 1;
+    this.partnerLocationIdCounter = 1;
+    this.purchaseOrderIdCounter = 1;
+    this.purchaseOrderItemIdCounter = 1;
     this.fileIdCounter = 1;
     this.transmissionIdCounter = 1;
     this.presignedLinkIdCounter = 1;
@@ -310,6 +322,99 @@ export class MemStorage implements IStorage {
   
   async deletePartner(id: number): Promise<boolean> {
     return this.partners.delete(id);
+  }
+  
+  // Partner Location methods
+  async createPartnerLocation(location: InsertPartnerLocation): Promise<PartnerLocation> {
+    const id = this.partnerLocationIdCounter++;
+    
+    // If this is set as default, clear default flag from other locations of same type
+    if (location.isDefault) {
+      for (const [existingId, existingLocation] of this.partnerLocations.entries()) {
+        if (existingLocation.partnerId === location.partnerId &&
+            existingLocation.locationType === location.locationType &&
+            existingLocation.isDefault) {
+          existingLocation.isDefault = false;
+          this.partnerLocations.set(existingId, existingLocation);
+        }
+      }
+    }
+    
+    const newLocation: PartnerLocation = {
+      id,
+      createdAt: new Date(),
+      partnerId: location.partnerId,
+      name: location.name,
+      locationType: location.locationType,
+      streetAddress: location.streetAddress,
+      city: location.city,
+      state: location.state,
+      postalCode: location.postalCode,
+      country: location.country || 'US',
+      gln: location.gln || null,
+      isActive: location.isActive ?? true,
+      isDefault: location.isDefault ?? false,
+      contactName: location.contactName || null,
+      contactEmail: location.contactEmail || null,
+      contactPhone: location.contactPhone || null,
+      notes: location.notes || null,
+      createdBy: location.createdBy
+    };
+    
+    this.partnerLocations.set(id, newLocation);
+    return newLocation;
+  }
+  
+  async getPartnerLocation(id: number): Promise<PartnerLocation | undefined> {
+    return this.partnerLocations.get(id);
+  }
+  
+  async updatePartnerLocation(id: number, updates: Partial<PartnerLocation>): Promise<PartnerLocation | undefined> {
+    const location = this.partnerLocations.get(id);
+    if (!location) {
+      return undefined;
+    }
+    
+    // Handle default location logic if isDefault is being updated to true
+    if (updates.isDefault === true && !location.isDefault) {
+      for (const [existingId, existingLocation] of this.partnerLocations.entries()) {
+        if (existingId !== id &&
+            existingLocation.partnerId === location.partnerId &&
+            existingLocation.locationType === location.locationType &&
+            existingLocation.isDefault) {
+          existingLocation.isDefault = false;
+          this.partnerLocations.set(existingId, existingLocation);
+        }
+      }
+    }
+    
+    const updatedLocation = { ...location, ...updates };
+    this.partnerLocations.set(id, updatedLocation);
+    
+    return updatedLocation;
+  }
+  
+  async listPartnerLocations(partnerId: number, locationType?: string): Promise<PartnerLocation[]> {
+    const locations: PartnerLocation[] = [];
+    
+    for (const location of this.partnerLocations.values()) {
+      if (location.partnerId === partnerId) {
+        if (!locationType || location.locationType === locationType) {
+          locations.push(location);
+        }
+      }
+    }
+    
+    // Order by isDefault (true first) and then by name
+    return locations.sort((a, b) => {
+      if (a.isDefault && !b.isDefault) return -1;
+      if (!a.isDefault && b.isDefault) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  
+  async deletePartnerLocation(id: number): Promise<boolean> {
+    return this.partnerLocations.delete(id);
   }
   
   // File management
