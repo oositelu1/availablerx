@@ -7,6 +7,13 @@ export const salesOrderItemRouter = Router();
 
 // Authentication check is done in each route handler
 
+// Root handler for the base path
+salesOrderItemRouter.get('/', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
+  return res.status(400).json({ message: 'Missing sales order ID. Use /order/:soId to get items for a specific sales order.' });
+});
+
 // Get items for a specific sales order
 salesOrderItemRouter.get('/order/:soId', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
