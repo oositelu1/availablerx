@@ -132,6 +132,7 @@ export default function ProductItemsPage() {
                   <TableRow>
                     <TableHead>Serial Number</TableHead>
                     <TableHead>GTIN</TableHead>
+                    <TableHead>Packaging Level</TableHead>
                     <TableHead>Lot Number</TableHead>
                     <TableHead>Expiration</TableHead>
                   </TableRow>
@@ -142,7 +143,19 @@ export default function ProductItemsPage() {
                       <TableCell className="font-mono text-xs">
                         {item.serialNumber}
                       </TableCell>
-                      <TableCell>{item.gtin}</TableCell>
+                      <TableCell className="font-mono text-xs">{item.gtin}</TableCell>
+                      <TableCell>
+                        {/* Indicator digit 0 is for unit level, 5 is for case level */}
+                        {item.gtin.charAt(8) === '5' ? (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            Case
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            Item/Each
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{item.lotNumber}</TableCell>
                       <TableCell>
                         {item.expirationDate ? formatDate(item.expirationDate) : 'N/A'}
