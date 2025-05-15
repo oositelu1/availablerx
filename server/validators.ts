@@ -162,17 +162,77 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
     // Extract sender information from header
     if (epcisHeader) {
       try {
+        console.log('Attempting to extract sender GLN from header...');
+        console.log('EPCISHeader keys:', Object.keys(epcisHeader));
+        
         // Try to extract sender GLN and other sender identifiers
         if (epcisHeader.sender) {
           metadata.senderGln = epcisHeader.sender;
+          console.log('Found sender in header:', metadata.senderGln);
         } else if (epcisHeader.senderIdentification) {
           metadata.senderGln = epcisHeader.senderIdentification;
-        } else if (epcisHeader.sbdh && epcisHeader.sbdh.Sender) {
-          // Try to extract from standard business document header
-          if (epcisHeader.sbdh.Sender.Identifier) {
-            metadata.senderGln = epcisHeader.sbdh.Sender.Identifier;
+          console.log('Found senderIdentification in header:', metadata.senderGln);
+        } else if (epcisHeader['sbdh:StandardBusinessDocumentHeader']) {
+          // Try to extract from standard business document header with namespace
+          const sbdh = epcisHeader['sbdh:StandardBusinessDocumentHeader'];
+          
+          if (sbdh && sbdh['sbdh:Sender']) {
+            const sender = sbdh['sbdh:Sender'];
+            if (sender['sbdh:Identifier']) {
+              const identifier = sender['sbdh:Identifier'];
+              
+              // Get the actual value which may be in different formats
+              if (typeof identifier === 'string') {
+                metadata.senderGln = identifier;
+              } else if (identifier._ && typeof identifier._ === 'string') {
+                metadata.senderGln = identifier._;
+              } else if (identifier['#text'] && typeof identifier['#text'] === 'string') {
+                metadata.senderGln = identifier['#text'];
+              }
+              
+              console.log('Found sender GLN in SBDH with namespace:', metadata.senderGln);
+            }
+          }
+        } else if (epcisHeader.StandardBusinessDocumentHeader) {
+          // Try to extract from standard business document header without namespace
+          const sbdh = epcisHeader.StandardBusinessDocumentHeader;
+          
+          if (sbdh && sbdh.Sender) {
+            const sender = sbdh.Sender;
+            if (sender.Identifier) {
+              const identifier = sender.Identifier;
+              
+              // Get the actual value which may be in different formats
+              if (typeof identifier === 'string') {
+                metadata.senderGln = identifier;
+              } else if (identifier._ && typeof identifier._ === 'string') {
+                metadata.senderGln = identifier._;
+              } else if (identifier['#text'] && typeof identifier['#text'] === 'string') {
+                metadata.senderGln = identifier['#text'];
+              }
+              
+              console.log('Found sender GLN in SBDH without namespace:', metadata.senderGln);
+            }
           }
         }
+        
+        // Additional check - if we have a GLN value, clean it up
+        if (metadata.senderGln && metadata.senderGln !== 'unknown') {
+          // If it's an EPC URI, extract just the GLN part
+          if (metadata.senderGln.startsWith('urn:epc:id:sgln:')) {
+            const glnParts = metadata.senderGln.replace('urn:epc:id:sgln:', '').split('.');
+            if (glnParts.length >= 2) {
+              // Combine company prefix and location reference
+              const companyPrefix = glnParts[0];
+              const locationReference = glnParts[1];
+              
+              // Format properly as standard GLN
+              metadata.senderGln = `${companyPrefix}${locationReference.padStart(5, '0')}`;
+              console.log('Extracted clean GLN from SGLN:', metadata.senderGln);
+            }
+          }
+        }
+        
       } catch (error) {
         console.error('Error extracting sender info:', error);
       }
