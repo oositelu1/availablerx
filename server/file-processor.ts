@@ -33,9 +33,9 @@ function generateUniqueFileName(): string {
 
 /**
  * Extract product details directly from EPCIS XML buffer
- * Focuses on extracting product name and manufacturer information
+ * Focuses on extracting product name, manufacturer, and NDC information
  */
-async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string; manufacturer?: string; ndc?: string }> {
+export async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string; manufacturer?: string; ndc?: string }> {
   try {
     // Parse the XML with specific options to preserve namespaces
     const parsedXml = await parseStringPromise(xmlBuffer, {

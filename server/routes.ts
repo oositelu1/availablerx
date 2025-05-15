@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { setupAuth, isAdmin } from "./auth";
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, validateZipContents, validateXml } from "./validators";
 import { processFile, sendFile, retryTransmission } from "./file-processor";
+import { extractProductDetails } from "./file-processor";
 import { z } from "zod";
 import { insertPartnerSchema } from "@shared/schema";
 import * as fs from 'fs/promises';
@@ -432,14 +433,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Extracted metadata:', JSON.stringify(xmlValidation.metadata, null, 2));
       console.log('Product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
       
-      // Log the current state of the product info
-      if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
-        console.log('Product information extracted during reprocess:', 
-          JSON.stringify(xmlValidation.metadata.productInfo, null, 2));
-      } else if (xmlValidation.metadata) {
-        // Create empty productInfo object if it doesn't exist
-        xmlValidation.metadata.productInfo = {};
-        console.log('No product information found during reprocess');
+      // Extract product details directly from the XML file for more accurate information
+      try {
+        const extractResult = await extractProductDetails(xmlBuffer);
+        console.log('Direct extraction result during reprocess:', extractResult);
+        
+        if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
+          if (extractResult.name) {
+            console.log('Setting product name from direct extraction:', extractResult.name);
+            xmlValidation.metadata.productInfo.name = extractResult.name;
+          }
+          
+          if (extractResult.manufacturer) {
+            console.log('Setting manufacturer from direct extraction:', extractResult.manufacturer);
+            xmlValidation.metadata.productInfo.manufacturer = extractResult.manufacturer;
+          }
+          
+          if (extractResult.ndc) {
+            console.log('Setting NDC from direct extraction:', extractResult.ndc);
+            xmlValidation.metadata.productInfo.ndc = extractResult.ndc;
+          }
+          
+          console.log('Product information extracted during reprocess:', 
+            JSON.stringify(xmlValidation.metadata.productInfo, null, 2));
+        } else if (xmlValidation.metadata) {
+          // Create productInfo object with extracted data
+          xmlValidation.metadata.productInfo = {
+            name: extractResult.name || undefined,
+            manufacturer: extractResult.manufacturer || undefined,
+            ndc: extractResult.ndc || undefined
+          };
+          console.log('Created new product info during reprocess');
+        }
+      } catch (error) {
+        console.error('Error extracting product details during reprocess:', error);
       }
       
       console.log('Updated metadata product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
