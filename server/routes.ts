@@ -21,6 +21,8 @@ import { partnerLocationRouter } from './partner-location-routes';
 import { poItemRouter } from './po-item-routes';
 import { inventoryRouter } from './inventory-routes';
 import { inventoryTransactionRouter } from './inventory-transaction-routes';
+import { salesOrderRouter } from './sales-order-routes';
+import { salesOrderItemRouter } from './sales-order-item-routes';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -57,6 +59,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/purchase-order-items', poItemRouter);
   app.use('/api/inventory', inventoryRouter);
   app.use('/api/inventory-transactions', inventoryTransactionRouter);
+  app.use('/api/sales-orders', salesOrderRouter);
+  app.use('/api/sales-order-items', salesOrderItemRouter);
   
   // === File Upload & Processing ===
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {
