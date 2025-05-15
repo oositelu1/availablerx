@@ -210,6 +210,19 @@ export default function ProductValidationDialog({
                 <div className="bg-muted p-2 rounded">
                   <span className="text-xs text-muted-foreground block">GTIN:</span>
                   <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
+                  {scannedData.gtin && (
+                    <span className="text-xs mt-1 inline-block">
+                      {scannedData.gtin.charAt(8) === '5' ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          Case
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          Item/Each
+                        </Badge>
+                      )}
+                    </span>
+                  )}
                 </div>
                 
                 {/* Add NDC display if available in file metadata */}
