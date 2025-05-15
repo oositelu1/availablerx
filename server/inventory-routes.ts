@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { isAuthenticated } from './auth';
 import { storage } from './storage';
 import { insertInventorySchema } from '@shared/schema';
 
 export const inventoryRouter = Router();
 
-// Apply authentication middleware to all inventory routes
-inventoryRouter.use(isAuthenticated);
+// Authentication check is done in each route handler
 
 // Get inventory list with pagination and filters
 inventoryRouter.get('/', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const {
       status,
