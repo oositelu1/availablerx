@@ -1,13 +1,18 @@
 import { 
-  users, partners, files, transmissions, presignedLinks,
-  purchaseOrders, epcisPoAssociations, productItems, scannedItems,
+  users, partners, partnerLocations, files, transmissions, presignedLinks,
+  purchaseOrders, purchaseOrderItems, salesOrders, salesOrderItems, 
+  epcisPoAssociations, productItems, scannedItems,
+  inventory, inventoryTransactions,
   validationSessions, auditLogs 
 } from "@shared/schema";
 import type { 
-  User, InsertUser, Partner, InsertPartner, File, InsertFile, 
-  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink,
-  PurchaseOrder, InsertPurchaseOrder, EpcisPoAssociation, InsertEpcisPoAssociation,
+  User, InsertUser, Partner, InsertPartner, PartnerLocation, InsertPartnerLocation,
+  File, InsertFile, Transmission, InsertTransmission, PresignedLink, InsertPresignedLink,
+  PurchaseOrder, InsertPurchaseOrder, PurchaseOrderItem, InsertPurchaseOrderItem,
+  SalesOrder, InsertSalesOrder, SalesOrderItem, InsertSalesOrderItem,
+  EpcisPoAssociation, InsertEpcisPoAssociation,
   ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
+  Inventory, InsertInventory, InventoryTransaction, InsertInventoryTransaction,
   ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
@@ -35,6 +40,13 @@ export interface IStorage {
   updatePartner(id: number, partner: Partial<Partner>): Promise<Partner | undefined>;
   listPartners(activeOnly?: boolean): Promise<Partner[]>;
   deletePartner(id: number): Promise<boolean>;
+  
+  // Partner Location management
+  createPartnerLocation(location: InsertPartnerLocation): Promise<PartnerLocation>;
+  getPartnerLocation(id: number): Promise<PartnerLocation | undefined>;
+  updatePartnerLocation(id: number, updates: Partial<PartnerLocation>): Promise<PartnerLocation | undefined>;
+  listPartnerLocations(partnerId: number, locationType?: string): Promise<PartnerLocation[]>;
+  deletePartnerLocation(id: number): Promise<boolean>;
   
   // File management
   createFile(file: InsertFile): Promise<File>;
@@ -78,6 +90,13 @@ export interface IStorage {
     offset?: number;
   }): Promise<{ orders: PurchaseOrder[], total: number }>;
   
+  // Purchase Order Items management
+  createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
+  getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined>;
+  updatePurchaseOrderItem(id: number, updates: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined>;
+  listPurchaseOrderItems(poId: number): Promise<PurchaseOrderItem[]>;
+  deletePurchaseOrderItem(id: number): Promise<boolean>;
+  
   // EPCIS-PO Association management
   createEpcisPoAssociation(association: InsertEpcisPoAssociation): Promise<EpcisPoAssociation>;
   getEpcisPoAssociation(id: number): Promise<EpcisPoAssociation | undefined>;
@@ -104,6 +123,52 @@ export interface IStorage {
   getValidationSession(id: number): Promise<ValidationSession | undefined>;
   updateValidationSession(id: number, updates: Partial<ValidationSession>): Promise<ValidationSession | undefined>;
   listValidationSessionsForPO(poId: number): Promise<ValidationSession[]>;
+  
+  // Sales Order management
+  createSalesOrder(order: InsertSalesOrder): Promise<SalesOrder>;
+  getSalesOrder(id: number): Promise<SalesOrder | undefined>;
+  getSalesOrderBySoNumber(soNumber: string): Promise<SalesOrder | undefined>;
+  updateSalesOrder(id: number, updates: Partial<SalesOrder>): Promise<SalesOrder | undefined>;
+  listSalesOrders(filters?: {
+    status?: string;
+    customerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ orders: SalesOrder[], total: number }>;
+  
+  // Sales Order Items management
+  createSalesOrderItem(item: InsertSalesOrderItem): Promise<SalesOrderItem>;
+  getSalesOrderItem(id: number): Promise<SalesOrderItem | undefined>;
+  updateSalesOrderItem(id: number, updates: Partial<SalesOrderItem>): Promise<SalesOrderItem | undefined>;
+  listSalesOrderItems(soId: number): Promise<SalesOrderItem[]>;
+  deleteSalesOrderItem(id: number): Promise<boolean>;
+  
+  // Inventory management
+  createInventoryItem(item: InsertInventory): Promise<Inventory>;
+  getInventoryItem(id: number): Promise<Inventory | undefined>;
+  getInventoryBySGTIN(gtin: string, serialNumber: string): Promise<Inventory | undefined>;
+  updateInventoryItem(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined>;
+  listInventory(filters?: {
+    status?: string;
+    gtin?: string;
+    lotNumber?: string;
+    productName?: string;
+    packageType?: string;
+    warehouse?: string;
+    poId?: number;
+    soId?: number;
+    expirationStart?: Date;
+    expirationEnd?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: Inventory[], total: number }>;
+  
+  // Inventory Transaction management
+  createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction>;
+  getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined>;
+  listInventoryTransactions(inventoryId: number): Promise<InventoryTransaction[]>;
   
   // Audit Log management
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
