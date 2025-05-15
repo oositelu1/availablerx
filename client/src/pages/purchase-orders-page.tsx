@@ -92,20 +92,25 @@ export default function PurchaseOrdersPage() {
         partnerId: Number(values.partnerId)
       };
       
-      const response = await fetch('/api/purchase-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create purchase order");
+      try {
+        const response = await fetch('/api/purchase-orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create purchase order");
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error("Error during fetch:", error);
+        throw error;
       }
-      
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
@@ -116,19 +121,21 @@ export default function PurchaseOrdersPage() {
         description: "The purchase order has been successfully created.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error creating purchase order:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "An error occurred while creating the purchase order",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (values: PurchaseOrderFormValues) => {
+  // This function is called when the form is submitted
+  function onSubmit(values: PurchaseOrderFormValues) {
+    console.log("Form submitted with values:", values);
     createMutation.mutate(values);
-  };
+  }
 
   // Filter purchase orders based on search query and status
   const purchaseOrdersArray = Array.isArray(purchaseOrders) ? purchaseOrders : 
@@ -436,8 +443,14 @@ export default function PurchaseOrdersPage() {
                   Cancel
                 </Button>
                 <Button 
-                  type="submit" 
+                  type="button" 
                   disabled={createMutation.isPending}
+                  onClick={() => {
+                    console.log("Manual submit clicked");
+                    const formValues = form.getValues();
+                    console.log("Form values:", formValues);
+                    onSubmit(formValues);
+                  }}
                 >
                   {createMutation.isPending ? "Creating..." : "Create Purchase Order"}
                 </Button>
