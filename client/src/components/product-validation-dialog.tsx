@@ -212,10 +212,7 @@ export default function ProductValidationDialog({
                   <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
                 </div>
                 
-                <div className="bg-muted p-2 rounded">
-                  <span className="text-xs text-muted-foreground block">NDC:</span>
-                  <span className="font-mono">{gtinToNDC(scannedData.gtin) || 'N/A'}</span>
-                </div>
+                {/* NDC is only shown if available in the file metadata - not derived from GTIN */}
                 
                 <div className="bg-muted p-2 rounded">
                   <span className="text-xs text-muted-foreground block">Lot Number:</span>
@@ -358,7 +355,7 @@ export default function ProductValidationDialog({
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">NDC</p>
-                          <p className="font-mono text-sm">{gtinToNDC(bestMatch.productItem.gtin) || 'N/A'}</p>
+                          <p className="font-mono text-sm">{bestMatch.productItem.metadata?.productInfo?.ndc || ''}</p>
                         </div>
                       </div>
                     </div>
