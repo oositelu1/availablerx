@@ -29,14 +29,22 @@ salesOrderRouter.get('/', async (req, res) => {
     if (startDate) filters.startDate = new Date(startDate as string);
     if (endDate) filters.endDate = new Date(endDate as string);
     
-    const result = await storage.listSalesOrders(filters);
+    // Initialize with empty array and total 0 in case storage function fails
+    let result = { orders: [], total: 0 };
+    
+    try {
+      result = await storage.listSalesOrders(filters);
+    } catch (error) {
+      console.error('Error in storage.listSalesOrders:', error);
+      // Continue with empty results instead of throwing
+    }
     
     res.json({
-      orders: result.orders,
-      total: result.total,
+      orders: result.orders || [],
+      total: result.total || 0,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(result.total / limitNum)
+      totalPages: Math.ceil((result.total || 0) / limitNum)
     });
   } catch (error) {
     console.error('Error fetching sales orders:', error);

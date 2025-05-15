@@ -1204,7 +1204,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Sort by inventory ID (default) or receivedDate in descending order
-    query = query.orderBy(desc(inventory.receivedDate));
+    query = query.orderBy(inventory.receivedDate);
     
     // Apply limit and offset if provided
     if (filters?.limit) {

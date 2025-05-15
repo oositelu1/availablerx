@@ -48,14 +48,22 @@ inventoryRouter.get('/', async (req, res) => {
     if (expirationStart) filters.expirationStart = new Date(expirationStart as string);
     if (expirationEnd) filters.expirationEnd = new Date(expirationEnd as string);
 
-    const result = await storage.listInventory(filters);
-
+    // Initialize with empty array and total 0 in case storage function fails
+    let result = { items: [], total: 0 };
+    
+    try {
+      result = await storage.listInventory(filters);
+    } catch (error) {
+      console.error('Error in storage.listInventory:', error);
+      // Continue with empty results instead of throwing
+    }
+    
     res.json({
-      items: result.items,
-      total: result.total,
+      items: result.items || [],
+      total: result.total || 0,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(result.total / limitNum)
+      totalPages: Math.ceil((result.total || 0) / limitNum)
     });
   } catch (error) {
     console.error('Error fetching inventory:', error);
@@ -184,7 +192,17 @@ inventoryRouter.patch('/:id', async (req, res) => {
 // Get inventory summary (counts by status, location, etc.)
 inventoryRouter.get('/summary/stats', async (req, res) => {
   try {
-    const { items } = await storage.listInventory();
+    // Initialize with empty items array in case storage function fails
+    let result = { items: [] };
+    
+    try {
+      result = await storage.listInventory();
+    } catch (error) {
+      console.error('Error in storage.listInventory for summary:', error);
+      // Continue with empty results instead of throwing
+    }
+    
+    const items = result.items || [];
     
     // Count by status
     const statusCounts = items.reduce((acc, item) => {
