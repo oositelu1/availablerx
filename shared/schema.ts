@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, jsonb, date, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb, date, varchar, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -30,6 +30,11 @@ export const partners = pgTable("partners", {
   authToken: text("auth_token"),
   transportType: text("transport_type").default("AS2"), // AS2 or HTTPS
   isActive: boolean("is_active").default(true),
+  gln: varchar("gln", { length: 50 }), // Global Location Number
+  licenseNumber: varchar("license_number", { length: 100 }),
+  licenseExpirationDate: date("license_expiration_date"),
+  stateOfLicense: varchar("state_of_license", { length: 2 }),
+  complianceStatus: varchar("compliance_status", { length: 20 }).default("active"), // active, suspended, expired, pending
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: integer("created_by").notNull(), // references users.id
 });
@@ -51,6 +56,29 @@ export const insertPartnerSchema = z.object({
     }
     return val;
   }),
+  gln: z.string().nullable().optional(),
+  licenseNumber: z.string().nullable().optional(),
+  licenseExpirationDate: z.date().nullable().optional(),
+  stateOfLicense: z.string().nullable().optional(),
+  complianceStatus: z.enum(["active", "suspended", "expired", "pending"]).optional(),
+});
+
+// Partner locations schema (addresses)
+export const partnerLocations = pgTable("partner_locations", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  locationType: varchar("location_type", { length: 20 }).notNull(), // ship_from, ship_to, billing, headquarters
+  name: varchar("name", { length: 200 }).notNull(),
+  addressLine1: varchar("address_line1", { length: 200 }).notNull(),
+  addressLine2: varchar("address_line2", { length: 200 }),
+  city: varchar("city", { length: 100 }).notNull(),
+  state: varchar("state", { length: 50 }).notNull(),
+  postalCode: varchar("postal_code", { length: 20 }).notNull(),
+  country: varchar("country", { length: 50 }).notNull().default("US"),
+  gln: varchar("gln", { length: 50 }), // Location-specific GLN
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: integer("created_by").notNull().references(() => users.id),
 });
 
 // EPCIS files schema
@@ -100,8 +128,16 @@ export const insertTransmissionSchema = createInsertSchema(transmissions).omit({
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+export const insertPartnerLocationSchema = createInsertSchema(partnerLocations).omit({
+  id: true,
+  createdAt: true
+});
+
 export type Partner = typeof partners.$inferSelect;
 export type InsertPartner = z.infer<typeof insertPartnerSchema>;
+
+export type PartnerLocation = typeof partnerLocations.$inferSelect;
+export type InsertPartnerLocation = z.infer<typeof insertPartnerLocationSchema>;
 
 export type File = typeof files.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;
@@ -134,18 +170,52 @@ export type InsertPresignedLink = z.infer<typeof insertPresignedLinkSchema>;
 export const purchaseOrders = pgTable("purchase_orders", {
   id: serial("id").primaryKey(),
   poNumber: varchar("po_number", { length: 50 }).notNull().unique(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id), // Link to supplier partner
   supplierGln: varchar("supplier_gln", { length: 50 }).notNull(),
+  shipToLocationId: integer("ship_to_location_id").references(() => partnerLocations.id), // Optional specific ship-to location
   orderDate: date("order_date").notNull(),
+  expectedShipDate: date("expected_ship_date"),
   expectedDeliveryDate: date("expected_delivery_date"),
-  status: varchar("status", { length: 20 }).notNull().default("open"), // open, received, closed, cancelled
+  status: varchar("status", { length: 20 }).notNull().default("open"), // open, shipped, received, closed, cancelled
+  totalItems: integer("total_items").default(0), // Total number of individual items on the PO
+  receivedItems: integer("received_items").default(0), // Number of items received
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: integer("created_by").notNull().references(() => users.id),
+  lastUpdatedAt: timestamp("last_updated_at"),
+  lastUpdatedBy: integer("last_updated_by").references(() => users.id),
+  notes: text("notes"),
   metadata: jsonb("metadata"), // Additional PO data like line items, etc.
+  erpReference: varchar("erp_reference", { length: 100 }), // Reference number in external ERP system
 });
 
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
   id: true,
-  createdAt: true
+  createdAt: true,
+  lastUpdatedAt: true,
+  lastUpdatedBy: true,
+  totalItems: true,
+  receivedItems: true
+});
+
+// Purchase Order Line Items
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: serial("id").primaryKey(),
+  poId: integer("po_id").notNull().references(() => purchaseOrders.id),
+  lineNumber: integer("line_number").notNull(),
+  gtin: varchar("gtin", { length: 50 }).notNull(),
+  ndc: varchar("ndc", { length: 50 }),
+  productName: varchar("product_name", { length: 200 }).notNull(),
+  manufacturer: varchar("manufacturer", { length: 200 }),
+  quantity: integer("quantity").notNull(),
+  quantityReceived: integer("quantity_received").default(0),
+  packageSize: varchar("package_size", { length: 50 }),
+  packageType: varchar("package_type", { length: 50 }), // e.g., "case", "each", "box"
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, partial, received, backordered, cancelled
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
+  notes: text("notes"),
+  erpLineReference: varchar("erp_line_reference", { length: 100 }),
 });
 
 // EPCIS-to-PO associations
@@ -163,6 +233,13 @@ export const epcisPoAssociations = pgTable("epcis_po_associations", {
 export const insertEpcisPoAssociationSchema = createInsertSchema(epcisPoAssociations).omit({
   id: true,
   createdAt: true
+});
+
+export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  quantityReceived: true
 });
 
 // Product items from EPCIS files
@@ -267,3 +344,139 @@ export type InsertValidationSession = z.infer<typeof insertValidationSessionSche
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+// Sales Orders Schema
+export const salesOrders = pgTable("sales_orders", {
+  id: serial("id").primaryKey(),
+  soNumber: varchar("so_number", { length: 50 }).notNull().unique(),
+  customerId: integer("customer_id").notNull().references(() => partners.id), // Link to customer partner
+  customerGln: varchar("customer_gln", { length: 50 }),
+  shipFromLocationId: integer("ship_from_location_id").references(() => partnerLocations.id), // Optional specific ship-from location
+  shipToLocationId: integer("ship_to_location_id").references(() => partnerLocations.id), // Optional specific ship-to location
+  orderDate: date("order_date").notNull(),
+  requestedShipDate: date("requested_ship_date"),
+  actualShipDate: date("actual_ship_date"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"), // draft, approved, picking, shipped, delivered, cancelled
+  totalItems: integer("total_items").default(0),
+  totalShipped: integer("total_shipped").default(0),
+  outboundEpcisId: integer("outbound_epcis_id").references(() => files.id), // Link to generated EPCIS file
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  lastUpdatedAt: timestamp("last_updated_at"),
+  lastUpdatedBy: integer("last_updated_by").references(() => users.id),
+  notes: text("notes"),
+  erpReference: varchar("erp_reference", { length: 100 }), // Reference number in external ERP system
+});
+
+export const insertSalesOrderSchema = createInsertSchema(salesOrders).omit({
+  id: true,
+  createdAt: true,
+  lastUpdatedAt: true,
+  lastUpdatedBy: true,
+  totalItems: true,
+  totalShipped: true,
+  outboundEpcisId: true
+});
+
+// Sales Order Line Items
+export const salesOrderItems = pgTable("sales_order_items", {
+  id: serial("id").primaryKey(),
+  soId: integer("so_id").notNull().references(() => salesOrders.id),
+  lineNumber: integer("line_number").notNull(),
+  gtin: varchar("gtin", { length: 50 }).notNull(),
+  ndc: varchar("ndc", { length: 50 }),
+  productName: varchar("product_name", { length: 200 }).notNull(),
+  manufacturer: varchar("manufacturer", { length: 200 }),
+  quantity: integer("quantity").notNull(),
+  quantityShipped: integer("quantity_shipped").default(0),
+  packageSize: varchar("package_size", { length: 50 }),
+  packageType: varchar("package_type", { length: 50 }), // e.g., "case", "each", "box"
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, partial, shipped, backordered, cancelled
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
+  notes: text("notes"),
+  erpLineReference: varchar("erp_line_reference", { length: 100 }),
+});
+
+export const insertSalesOrderItemSchema = createInsertSchema(salesOrderItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  quantityShipped: true
+});
+
+// Serialized Inventory Schema
+export const inventory = pgTable("inventory", {
+  id: serial("id").primaryKey(),
+  gtin: varchar("gtin", { length: 50 }).notNull(),
+  serialNumber: varchar("serial_number", { length: 100 }).notNull(),
+  lotNumber: varchar("lot_number", { length: 50 }).notNull(),
+  expirationDate: date("expiration_date").notNull(),
+  ndc: varchar("ndc", { length: 50 }),
+  productName: varchar("product_name", { length: 200 }),
+  manufacturer: varchar("manufacturer", { length: 200 }),
+  status: varchar("status", { length: 20 }).notNull().default("available"), // available, allocated, shipped, damaged, expired, quarantined
+  packageType: varchar("package_type", { length: 20 }).notNull().default("each"), // each, case
+  receivedVia: varchar("received_via", { length: 20 }).notNull(), // epcis, manual, transfer
+  receivedAt: timestamp("received_at").notNull(),
+  sourceFileId: integer("source_file_id").references(() => files.id),
+  sourcePoId: integer("source_po_id").references(() => purchaseOrders.id),
+  shippedVia: varchar("shipped_via", { length: 20 }), // epcis, manual, transfer
+  shippedAt: timestamp("shipped_at"),
+  destinationSoId: integer("destination_so_id").references(() => salesOrders.id),
+  warehouse: varchar("warehouse", { length: 100 }).notNull().default("default"),
+  location: varchar("location", { length: 100 }), // Physical location in warehouse
+  lastScannedAt: timestamp("last_scanned_at"),
+  lastScannedBy: integer("last_scanned_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+});
+
+export const insertInventorySchema = createInsertSchema(inventory).omit({
+  id: true,
+  createdAt: true,
+  lastScannedAt: true,
+  lastScannedBy: true,
+  shippedAt: true,
+});
+
+// Inventory Transaction History
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  inventoryId: integer("inventory_id").notNull().references(() => inventory.id),
+  transactionType: varchar("transaction_type", { length: 20 }).notNull(), // receive, ship, transfer, return, status_change
+  fromStatus: varchar("from_status", { length: 20 }),
+  toStatus: varchar("to_status", { length: 20 }),
+  fromLocation: varchar("from_location", { length: 100 }),
+  toLocation: varchar("to_location", { length: 100 }),
+  transactionDate: timestamp("transaction_date").defaultNow().notNull(),
+  reference: varchar("reference", { length: 100 }), // PO number, SO number, etc.
+  referenceId: integer("reference_id"), // ID of related PO, SO, etc.
+  referenceType: varchar("reference_type", { length: 20 }), // po, so, transfer, etc.
+  performedBy: integer("performed_by").notNull().references(() => users.id),
+  notes: text("notes"),
+});
+
+export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({
+  id: true,
+  transactionDate: true
+});
+
+// Export Sales Order types
+export type SalesOrder = typeof salesOrders.$inferSelect;
+export type InsertSalesOrder = z.infer<typeof insertSalesOrderSchema>;
+
+export type SalesOrderItem = typeof salesOrderItems.$inferSelect;
+export type InsertSalesOrderItem = z.infer<typeof insertSalesOrderItemSchema>;
+
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
+export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
+
+// Export Inventory types
+export type Inventory = typeof inventory.$inferSelect;
+export type InsertInventory = z.infer<typeof insertInventorySchema>;
+
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
