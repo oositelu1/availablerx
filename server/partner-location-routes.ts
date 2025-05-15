@@ -55,7 +55,7 @@ partnerLocationRouter.post(
 );
 
 // Get a specific partner location by ID
-partnerLocationRouter.get("/:id", isAuthenticated, async (req: Request, res: Response) => {
+partnerLocationRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -98,7 +98,7 @@ partnerLocationRouter.patch("/:id", isAuthenticated, async (req: Request, res: R
 });
 
 // List all locations for a partner
-partnerLocationRouter.get("/partner/:partnerId", isAuthenticated, async (req: Request, res: Response) => {
+partnerLocationRouter.get("/partner/:partnerId", async (req: Request, res: Response) => {
   try {
     const partnerId = parseInt(req.params.partnerId);
     if (isNaN(partnerId)) {

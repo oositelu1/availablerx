@@ -1,0 +1,62 @@
+  // Purchase Order Item methods
+  async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const id = this.purchaseOrderItemIdCounter++;
+    
+    const newItem: PurchaseOrderItem = {
+      id,
+      createdAt: new Date(),
+      purchaseOrderId: item.purchaseOrderId,
+      lineNumber: item.lineNumber,
+      ndc: item.ndc,
+      gtin: item.gtin,
+      productName: item.productName,
+      manufacturer: item.manufacturer,
+      quantity: item.quantity,
+      quantityUnit: item.quantityUnit || "EA",
+      quantityReceived: item.quantityReceived || 0,
+      serialNumbersExpected: item.serialNumbersExpected || (item.packageLevelId === '0' ? item.quantity : 0),
+      serialNumbersReceived: item.serialNumbersReceived || 0,
+      status: item.status || "pending",
+      packageLevelId: item.packageLevelId || "0",
+      price: item.price || null,
+      notes: item.notes || null
+    };
+    
+    this.purchaseOrderItems.set(id, newItem);
+    return newItem;
+  }
+  
+  async getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined> {
+    return this.purchaseOrderItems.get(id);
+  }
+  
+  async updatePurchaseOrderItem(id: number, updates: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined> {
+    const item = this.purchaseOrderItems.get(id);
+    if (!item) {
+      return undefined;
+    }
+    
+    const updatedItem = { ...item, ...updates };
+    this.purchaseOrderItems.set(id, updatedItem);
+    
+    return updatedItem;
+  }
+  
+  async listPurchaseOrderItems(poId: number): Promise<PurchaseOrderItem[]> {
+    const items: PurchaseOrderItem[] = [];
+    
+    for (const item of this.purchaseOrderItems.values()) {
+      if (item.purchaseOrderId === poId) {
+        items.push(item);
+      }
+    }
+    
+    // Order by line number
+    return items.sort((a, b) => {
+      return a.lineNumber - b.lineNumber;
+    });
+  }
+  
+  async deletePurchaseOrderItem(id: number): Promise<boolean> {
+    return this.purchaseOrderItems.delete(id);
+  }

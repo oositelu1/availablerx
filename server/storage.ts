@@ -640,6 +640,67 @@ export class MemStorage implements IStorage {
     // Generate a download URL with the UUID
     return `${this.baseDownloadUrl}/api/download/${uuid}`;
   }
+  
+  // Purchase Order Item methods
+  async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const id = this.purchaseOrderItemIdCounter++;
+    
+    const newItem: PurchaseOrderItem = {
+      id,
+      poId: item.poId,
+      lineNumber: item.lineNumber,
+      gtin: item.gtin,
+      ndc: item.ndc || null,
+      productName: item.productName,
+      packageType: item.packageType || 'Unit',
+      lotNumber: item.lotNumber || null,
+      quantity: item.quantity,
+      expirationDate: item.expirationDate || null,
+      unitPrice: item.unitPrice || null,
+      extendedPrice: item.extendedPrice || null,
+      receivedQuantity: item.receivedQuantity || 0,
+      receivingStatus: item.receivingStatus || 'pending',
+      requiresScan: item.requiresScan ?? true,
+      notes: item.notes || null,
+      createdAt: new Date()
+    };
+    
+    this.purchaseOrderItems.set(id, newItem);
+    return newItem;
+  }
+  
+  async getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined> {
+    return this.purchaseOrderItems.get(id);
+  }
+  
+  async updatePurchaseOrderItem(id: number, updates: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined> {
+    const item = this.purchaseOrderItems.get(id);
+    if (!item) {
+      return undefined;
+    }
+    
+    const updatedItem = { ...item, ...updates };
+    this.purchaseOrderItems.set(id, updatedItem);
+    
+    return updatedItem;
+  }
+  
+  async listPurchaseOrderItems(poId: number): Promise<PurchaseOrderItem[]> {
+    const items: PurchaseOrderItem[] = [];
+    
+    for (const item of this.purchaseOrderItems.values()) {
+      if (item.poId === poId) {
+        items.push(item);
+      }
+    }
+    
+    // Order by line number
+    return items.sort((a, b) => a.lineNumber - b.lineNumber);
+  }
+  
+  async deletePurchaseOrderItem(id: number): Promise<boolean> {
+    return this.purchaseOrderItems.delete(id);
+  }
 }
 
 // We're now using the DatabaseStorage implementation
