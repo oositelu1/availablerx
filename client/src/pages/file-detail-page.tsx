@@ -246,7 +246,7 @@ export default function FileDetailPage() {
     console.log("GTIN examples:", productItems.map(item => item.gtin).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5));
     productItems.forEach((item, idx) => {
       if (idx < 5) {
-        console.log(`GTIN ${idx}: ${item.gtin}, CharAt 8: ${item.gtin.charAt(8)}, Is Case: ${item.gtin.charAt(8) === '5'}`);
+        console.log(`GTIN ${idx}: ${item.gtin}, CharAt 7: ${item.gtin.charAt(7)}, Is Case: ${item.gtin.charAt(7) === '5'}`);
       }
     });
   }
@@ -579,13 +579,13 @@ export default function FileDetailPage() {
                     </TableHeader>
                     <TableBody>
                       {productItems.slice(0, 10).map((item: any) => {
-                        console.log(`GTIN: ${item.gtin}, CharAt 8: ${item.gtin.charAt(8)}, Is Case: ${item.gtin.charAt(8) === '5'}`);
+                        console.log(`GTIN: ${item.gtin}, CharAt 7: ${item.gtin.charAt(7)}, Is Case: ${item.gtin.charAt(7) === '5'}`);
                         return (
                           <TableRow key={item.id}>
                             <TableCell className="font-mono text-sm">{item.gtin}</TableCell>
                             <TableCell>
-                              {/* Indicator digit 0 is for unit level, 5 is for case level */}
-                              {item.gtin.charAt(8) === '5' ? (
+                              {/* Indicator digit at position 7 (0-indexed): 0 = Item/Each, 5 = Case */}
+                              {item.gtin.charAt(7) === '5' ? (
                                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                                   Case
                                 </Badge>

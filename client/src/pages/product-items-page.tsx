@@ -80,7 +80,7 @@ export default function ProductItemsPage() {
     console.log("Product Items Page - GTIN examples:", productItems.map(item => item.gtin).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5));
     productItems.forEach((item, idx) => {
       if (idx < 5) {
-        console.log(`Product Items Page - GTIN ${idx}: ${item.gtin}, CharAt 8: ${item.gtin.charAt(8)}, Is Case: ${item.gtin.charAt(8) === '5'}`);
+        console.log(`Product Items Page - GTIN ${idx}: ${item.gtin}, CharAt 7: ${item.gtin.charAt(7)}, Is Case: ${item.gtin.charAt(7) === '5'}`);
       }
     });
   }
@@ -155,8 +155,8 @@ export default function ProductItemsPage() {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{item.gtin}</TableCell>
                       <TableCell>
-                        {/* Indicator digit 0 is for unit level, 5 is for case level */}
-                        {item.gtin.charAt(8) === '5' ? (
+                        {/* Indicator digit at position 7 (0-indexed): 0 = Item/Each, 5 = Case */}
+                        {item.gtin.charAt(7) === '5' ? (
                           <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                             Case
                           </Badge>
