@@ -31,9 +31,12 @@ const purchaseOrderSchema = insertPurchaseOrderSchema.extend({
   expectedDeliveryDate: z.date().nullable().optional(),
   poNumber: z.string().min(3, "PO number must be at least 3 characters"),
   supplierGln: z.string().min(5, "Supplier GLN must be at least 5 characters"),
+  partnerId: z.number({
+    required_error: "Please select a partner",
+    invalid_type_error: "Partner ID must be a number"
+  }),
   supplier: z.string().min(2, "Supplier name must be at least 2 characters"),
   customer: z.string().min(2, "Customer name must be at least 2 characters"),
-  partnerId: z.number().optional(), // Add partnerId field to match backend schema
 });
 
 type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>;
@@ -76,12 +79,25 @@ export default function PurchaseOrdersPage() {
   // Mutation for creating a new purchase order
   const createMutation = useMutation({
     mutationFn: async (values: PurchaseOrderFormValues) => {
+      console.log("Submitting PO with values:", values);
+      
+      if (!values.partnerId) {
+        throw new Error("Please select a partner");
+      }
+      
+      // Prepare data for submission
+      const payload = {
+        ...values,
+        // Ensure partnerId is a number
+        partnerId: Number(values.partnerId)
+      };
+      
       const response = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       
       if (!response.ok) {
@@ -101,6 +117,7 @@ export default function PurchaseOrdersPage() {
       });
     },
     onError: (error) => {
+      console.error("Error creating purchase order:", error);
       toast({
         title: "Error",
         description: error.message,
@@ -327,6 +344,37 @@ export default function PurchaseOrdersPage() {
                       <FormControl>
                         <Input placeholder="0123456789012" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="partnerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Partner</FormLabel>
+                      <Select 
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select partner" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {partners?.map(partner => (
+                            <SelectItem key={partner.id} value={partner.id.toString()}>
+                              {partner.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select the supplier partner for this purchase order
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
