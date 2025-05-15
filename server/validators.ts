@@ -519,9 +519,11 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                           const serialNumber = sgtinParts[2];
                           
                           // Construct GTIN from company prefix and item reference
-                          // This is a simplified approach - real GTIN construction may require
-                          // additional formatting and check digit calculation
+                          // Include the indicator digit for packaging level identification
+                          // Format: companyPrefix + itemReference where itemReference starts with the indicator digit
+                          // (0 for item/each, 5 for case)
                           const gtin = `${companyPrefix}${itemReference}`;
+                          console.log(`GTIN Construction: companyPrefix=${companyPrefix}, itemReference=${itemReference}, indicator digit=${itemReference.charAt(0)}`);
                           
                           console.log(`Extracted SGTIN: GTIN=${gtin}, Serial=${serialNumber}`);
                           

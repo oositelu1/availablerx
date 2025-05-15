@@ -75,6 +75,16 @@ export default function ProductItemsPage() {
     }
   }, [fileId]);
   
+  // Add debugging for GTIN packaging
+  if (productItems && productItems.length > 0) {
+    console.log("Product Items Page - GTIN examples:", productItems.map(item => item.gtin).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5));
+    productItems.forEach((item, idx) => {
+      if (idx < 5) {
+        console.log(`Product Items Page - GTIN ${idx}: ${item.gtin}, CharAt 8: ${item.gtin.charAt(8)}, Is Case: ${item.gtin.charAt(8) === '5'}`);
+      }
+    });
+  }
+
   return (
     <Layout title="Serial Numbers">
       <div className="container px-4 py-6 lg:px-8">

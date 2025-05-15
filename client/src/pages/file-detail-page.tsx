@@ -239,6 +239,17 @@ export default function FileDetailPage() {
   // Debug logging
   console.log("File metadata:", file.metadata);
   console.log("Product info:", file.metadata.productInfo);
+  
+  // Log GTIN and packaging info for debugging
+  if (productItems && productItems.length > 0) {
+    console.log("Product Items Sample:", productItems.slice(0, 5));
+    console.log("GTIN examples:", productItems.map(item => item.gtin).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5));
+    productItems.forEach((item, idx) => {
+      if (idx < 5) {
+        console.log(`GTIN ${idx}: ${item.gtin}, CharAt 8: ${item.gtin.charAt(8)}, Is Case: ${item.gtin.charAt(8) === '5'}`);
+      }
+    });
+  }
 
   return (
     <Layout>
