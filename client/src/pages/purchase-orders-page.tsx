@@ -30,13 +30,15 @@ const purchaseOrderSchema = insertPurchaseOrderSchema.extend({
   orderDate: z.date(),
   expectedDeliveryDate: z.date().nullable().optional(),
   poNumber: z.string().min(3, "PO number must be at least 3 characters"),
-  supplierGln: z.string().min(5, "Supplier GLN must be at least 5 characters"),
-  partnerId: z.number({
-    required_error: "Please select a partner",
-    invalid_type_error: "Partner ID must be a number"
-  }),
-  supplier: z.string().min(2, "Supplier name must be at least 2 characters"),
-  customer: z.string().min(2, "Customer name must be at least 2 characters"),
+  supplierGln: z.string().min(5, "Supplier GLN must be at least 5 characters").default("0000000000000"),
+  partnerId: z.union([
+    z.string().min(1).transform(val => parseInt(val)),
+    z.number({
+      required_error: "Please select a partner",
+      invalid_type_error: "Partner ID must be a number"
+    })
+  ]),
+  customer: z.string().min(2, "Customer name must be at least 2 characters").default("Internal Customer"),
 });
 
 type PurchaseOrderFormValues = z.infer<typeof purchaseOrderSchema>;
@@ -89,10 +91,30 @@ export default function PurchaseOrdersPage() {
       const payload = {
         ...values,
         // Ensure partnerId is a number
-        partnerId: Number(values.partnerId)
+        partnerId: Number(values.partnerId),
+        // Convert orderDate to proper format if it's a Date object
+        orderDate: values.orderDate instanceof Date ? values.orderDate : new Date(values.orderDate),
+        // Add default ship-to location if missing
+        shipToLocationId: values.shipToLocationId || null,
+        // Add required supplierGln
+        supplierGln: values.supplierGln || "0000000000000", // Default GLN if missing
+        // Add customer
+        customer: values.customer || "Internal Customer",
+        // Add default status if missing
+        status: values.status || "open",
       };
       
+      console.log("Prepared payload for submission:", payload);
+      
       try {
+        // Log the request information for debugging
+        console.log("Sending request to:", '/api/purchase-orders');
+        console.log("Request method:", 'POST');
+        console.log("Request headers:", {
+          'Content-Type': 'application/json',
+        });
+        console.log("Request body:", JSON.stringify(payload));
+        
         const response = await fetch('/api/purchase-orders', {
           method: 'POST',
           headers: {
@@ -101,12 +123,26 @@ export default function PurchaseOrdersPage() {
           body: JSON.stringify(payload),
         });
         
+        console.log("Response status:", response.status);
+        console.log("Response headers:", [...response.headers.entries()]);
+        
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorText = await response.text();
+          console.error("Error response text:", errorText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch (e) {
+            throw new Error(`Failed with status ${response.status}: ${errorText}`);
+          }
+          
           throw new Error(errorData.error || "Failed to create purchase order");
         }
         
-        return await response.json();
+        const result = await response.json();
+        console.log("Success response:", result);
+        return result;
       } catch (error) {
         console.error("Error during fetch:", error);
         throw error;
