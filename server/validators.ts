@@ -520,10 +520,12 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                           
                           // Construct GTIN from company prefix and item reference
                           // Include the indicator digit for packaging level identification
-                          // Format: companyPrefix + itemReference where itemReference starts with the indicator digit
-                          // (0 for item/each, 5 for case)
-                          const gtin = `${companyPrefix}${itemReference}`;
-                          console.log(`GTIN Construction: companyPrefix=${companyPrefix}, itemReference=${itemReference}, indicator digit=${itemReference.charAt(0)}`);
+                          // Format: prefix digit (0) + companyPrefix + itemReference 
+                          // Where itemReference starts with the indicator digit (0 for item/each, 5 for case)
+                          // For GS1 formatted data, we need to prepend '0' to make it a 14-digit GTIN
+                          const indicatorDigit = itemReference.charAt(0); // '0' for unit, '5' for case
+                          const gtin = `0${companyPrefix}${itemReference}`;
+                          console.log(`GTIN Construction: companyPrefix=${companyPrefix}, itemReference=${itemReference}, indicator digit=${indicatorDigit}`);
                           
                           console.log(`Extracted SGTIN: GTIN=${gtin}, Serial=${serialNumber}`);
                           
