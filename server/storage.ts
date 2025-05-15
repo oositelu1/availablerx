@@ -717,6 +717,337 @@ export class MemStorage implements IStorage {
   async deletePurchaseOrderItem(id: number): Promise<boolean> {
     return this.purchaseOrderItems.delete(id);
   }
+
+  // Sales Order Management
+  async createSalesOrder(order: InsertSalesOrder): Promise<SalesOrder> {
+    const id = this.salesOrderIdCounter++;
+    
+    const newOrder: SalesOrder = {
+      id,
+      customerId: order.customerId,
+      soNumber: order.soNumber,
+      orderDate: order.orderDate || new Date(),
+      requestedDeliveryDate: order.requestedDeliveryDate || null,
+      status: order.status || "pending",
+      totalAmount: order.totalAmount || 0,
+      shippingAddress: order.shippingAddress || null,
+      billingAddress: order.billingAddress || null,
+      customerPurchaseOrderNum: order.customerPurchaseOrderNum || null,
+      notes: order.notes || null,
+      createdAt: new Date(),
+      createdBy: order.createdBy,
+      customerGln: order.customerGln || null,
+      locationId: order.locationId || null,
+      paymentTerms: order.paymentTerms || null,
+      shippingMethod: order.shippingMethod || null,
+      erpReference: order.erpReference || null
+    };
+    
+    this.salesOrders.set(id, newOrder);
+    return newOrder;
+  }
+  
+  async getSalesOrder(id: number): Promise<SalesOrder | undefined> {
+    return this.salesOrders.get(id);
+  }
+  
+  async getSalesOrderBySoNumber(soNumber: string): Promise<SalesOrder | undefined> {
+    for (const order of this.salesOrders.values()) {
+      if (order.soNumber === soNumber) {
+        return order;
+      }
+    }
+    return undefined;
+  }
+  
+  async updateSalesOrder(id: number, updates: Partial<SalesOrder>): Promise<SalesOrder | undefined> {
+    const order = this.salesOrders.get(id);
+    if (!order) {
+      return undefined;
+    }
+    
+    const updatedOrder = { ...order, ...updates };
+    this.salesOrders.set(id, updatedOrder);
+    
+    return updatedOrder;
+  }
+  
+  async listSalesOrders(filters?: {
+    status?: string;
+    customerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ orders: SalesOrder[], total: number }> {
+    let orders = Array.from(this.salesOrders.values());
+    
+    // Apply filters
+    if (filters?.status) {
+      orders = orders.filter(order => order.status === filters.status);
+    }
+    
+    if (filters?.customerId) {
+      orders = orders.filter(order => order.customerId === filters.customerId);
+    }
+    
+    if (filters?.startDate) {
+      orders = orders.filter(order => order.orderDate >= filters.startDate);
+    }
+    
+    if (filters?.endDate) {
+      orders = orders.filter(order => order.orderDate <= filters.endDate);
+    }
+    
+    // Sort by orderDate (newest first)
+    orders.sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
+    
+    const total = orders.length;
+    
+    // Apply pagination
+    if (filters?.offset !== undefined && filters?.limit !== undefined) {
+      orders = orders.slice(filters.offset, filters.offset + filters.limit);
+    } else if (filters?.limit !== undefined) {
+      orders = orders.slice(0, filters.limit);
+    }
+    
+    return { orders, total };
+  }
+  
+  // Sales Order Items Management
+  async createSalesOrderItem(item: InsertSalesOrderItem): Promise<SalesOrderItem> {
+    const id = this.salesOrderItemIdCounter++;
+    
+    const newItem: SalesOrderItem = {
+      id,
+      salesOrderId: item.salesOrderId,
+      lineNumber: item.lineNumber,
+      gtin: item.gtin,
+      productName: item.productName,
+      quantity: item.quantity,
+      quantityUnit: item.quantityUnit || "EA",
+      quantityShipped: item.quantityShipped || 0,
+      ndc: item.ndc || null,
+      manufacturer: item.manufacturer || null,
+      price: item.price || null,
+      packageSize: item.packageSize || null,
+      packageType: item.packageType || null,
+      packageLevelId: item.packageLevelId || "0",
+      serialNumbersAllocated: item.serialNumbersAllocated || 0,
+      serialNumbersShipped: item.serialNumbersShipped || 0,
+      status: item.status || "pending",
+      lotNumber: item.lotNumber || null,
+      expirationDate: item.expirationDate || null,
+      discount: item.discount || null,
+      taxRate: item.taxRate || null,
+      notes: item.notes || null,
+      createdAt: new Date()
+    };
+    
+    this.salesOrderItems.set(id, newItem);
+    return newItem;
+  }
+  
+  async getSalesOrderItem(id: number): Promise<SalesOrderItem | undefined> {
+    return this.salesOrderItems.get(id);
+  }
+  
+  async updateSalesOrderItem(id: number, updates: Partial<SalesOrderItem>): Promise<SalesOrderItem | undefined> {
+    const item = this.salesOrderItems.get(id);
+    if (!item) {
+      return undefined;
+    }
+    
+    const updatedItem = { ...item, ...updates };
+    this.salesOrderItems.set(id, updatedItem);
+    
+    return updatedItem;
+  }
+  
+  async listSalesOrderItems(soId: number): Promise<SalesOrderItem[]> {
+    const items: SalesOrderItem[] = [];
+    
+    for (const item of this.salesOrderItems.values()) {
+      if (item.salesOrderId === soId) {
+        items.push(item);
+      }
+    }
+    
+    // Order by line number
+    return items.sort((a, b) => a.lineNumber - b.lineNumber);
+  }
+  
+  async deleteSalesOrderItem(id: number): Promise<boolean> {
+    return this.salesOrderItems.delete(id);
+  }
+  
+  // Inventory Management
+  async createInventoryItem(item: InsertInventory): Promise<Inventory> {
+    const id = this.inventoryItemIdCounter++;
+    
+    const newItem: Inventory = {
+      id,
+      gtin: item.gtin,
+      serialNumber: item.serialNumber,
+      lotNumber: item.lotNumber || null,
+      expirationDate: item.expirationDate || null,
+      status: item.status || "available",
+      locationId: item.locationId || null,
+      receivedDate: item.receivedDate || new Date(),
+      poItemId: item.poItemId || null,
+      soItemId: item.soItemId || null,
+      productItemId: item.productItemId || null,
+      quantity: item.quantity || 1,
+      createdAt: new Date(),
+      createdBy: item.createdBy,
+      notes: item.notes || null,
+      lastMovementDate: item.lastMovementDate || new Date()
+    };
+    
+    this.inventoryItems.set(id, newItem);
+    return newItem;
+  }
+  
+  async getInventoryItem(id: number): Promise<Inventory | undefined> {
+    return this.inventoryItems.get(id);
+  }
+  
+  async getInventoryBySGTIN(gtin: string, serialNumber: string): Promise<Inventory | undefined> {
+    for (const item of this.inventoryItems.values()) {
+      if (item.gtin === gtin && item.serialNumber === serialNumber) {
+        return item;
+      }
+    }
+    return undefined;
+  }
+  
+  async updateInventoryItem(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined> {
+    const item = this.inventoryItems.get(id);
+    if (!item) {
+      return undefined;
+    }
+    
+    // If updating status, set lastMovementDate to current date
+    if (updates.status) {
+      updates.lastMovementDate = new Date();
+    }
+    
+    const updatedItem = { ...item, ...updates };
+    this.inventoryItems.set(id, updatedItem);
+    
+    return updatedItem;
+  }
+  
+  async listInventory(filters?: {
+    status?: string;
+    gtin?: string;
+    lotNumber?: string;
+    productName?: string;
+    packageType?: string;
+    warehouse?: string;
+    poId?: number;
+    soId?: number;
+    expirationStart?: Date;
+    expirationEnd?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: Inventory[], total: number }> {
+    let items = Array.from(this.inventoryItems.values());
+    
+    // Apply filters
+    if (filters?.status) {
+      items = items.filter(item => item.status === filters.status);
+    }
+    
+    if (filters?.gtin) {
+      items = items.filter(item => item.gtin === filters.gtin);
+    }
+    
+    if (filters?.lotNumber) {
+      items = items.filter(item => item.lotNumber === filters.lotNumber);
+    }
+    
+    if (filters?.expirationStart) {
+      items = items.filter(item => item.expirationDate && item.expirationDate >= filters.expirationStart);
+    }
+    
+    if (filters?.expirationEnd) {
+      items = items.filter(item => item.expirationDate && item.expirationDate <= filters.expirationEnd);
+    }
+    
+    if (filters?.poId) {
+      // Find all PO items associated with this PO
+      const poItems = Array.from(this.purchaseOrderItems.values())
+        .filter(poItem => poItem.poId === filters.poId)
+        .map(poItem => poItem.id);
+      
+      items = items.filter(item => item.poItemId !== null && poItems.includes(item.poItemId));
+    }
+    
+    if (filters?.soId) {
+      // Find all SO items associated with this SO
+      const soItems = Array.from(this.salesOrderItems.values())
+        .filter(soItem => soItem.salesOrderId === filters.soId)
+        .map(soItem => soItem.id);
+      
+      items = items.filter(item => item.soItemId !== null && soItems.includes(item.soItemId));
+    }
+    
+    // Sort by receivedDate (newest first)
+    items.sort((a, b) => b.receivedDate.getTime() - a.receivedDate.getTime());
+    
+    const total = items.length;
+    
+    // Apply pagination
+    if (filters?.offset !== undefined && filters?.limit !== undefined) {
+      items = items.slice(filters.offset, filters.offset + filters.limit);
+    } else if (filters?.limit !== undefined) {
+      items = items.slice(0, filters.limit);
+    }
+    
+    return { items, total };
+  }
+  
+  // Inventory Transaction Management
+  async createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction> {
+    const id = this.inventoryTransactionIdCounter++;
+    
+    const newTransaction: InventoryTransaction = {
+      id,
+      inventoryId: transaction.inventoryId,
+      transactionType: transaction.transactionType,
+      quantity: transaction.quantity,
+      fromStatus: transaction.fromStatus,
+      toStatus: transaction.toStatus,
+      fromLocationId: transaction.fromLocationId,
+      toLocationId: transaction.toLocationId,
+      createdBy: transaction.createdBy,
+      timestamp: new Date(),
+      referenceId: transaction.referenceId || null,
+      referenceType: transaction.referenceType || null,
+      notes: transaction.notes || null
+    };
+    
+    this.inventoryTransactions.set(id, newTransaction);
+    return newTransaction;
+  }
+  
+  async getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined> {
+    return this.inventoryTransactions.get(id);
+  }
+  
+  async listInventoryTransactions(inventoryId: number): Promise<InventoryTransaction[]> {
+    const transactions: InventoryTransaction[] = [];
+    
+    for (const transaction of this.inventoryTransactions.values()) {
+      if (transaction.inventoryId === inventoryId) {
+        transactions.push(transaction);
+      }
+    }
+    
+    // Order by timestamp (newest first)
+    return transactions.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
 }
 
 // We're now using the DatabaseStorage implementation
