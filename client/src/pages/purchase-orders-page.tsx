@@ -68,9 +68,8 @@ export default function PurchaseOrdersPage() {
     resolver: zodResolver(purchaseOrderSchema),
     defaultValues: {
       poNumber: "",
-      supplierGln: "",
-      supplier: "",
-      customer: "",
+      supplierGln: "0000000000000",
+      customer: "Internal Customer",
       orderDate: new Date(),
       expectedDeliveryDate: null,
       status: "open",
