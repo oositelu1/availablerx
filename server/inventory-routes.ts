@@ -65,6 +65,8 @@ inventoryRouter.get('/', async (req, res) => {
 
 // Get a specific inventory item by ID
 inventoryRouter.get('/:id', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -85,6 +87,8 @@ inventoryRouter.get('/:id', async (req, res) => {
 
 // Find inventory item by SGTIN (GTIN + Serial Number)
 inventoryRouter.get('/sgtin/:gtin/:serialNumber', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const { gtin, serialNumber } = req.params;
 
@@ -102,6 +106,8 @@ inventoryRouter.get('/sgtin/:gtin/:serialNumber', async (req, res) => {
 
 // Create a new inventory item
 inventoryRouter.post('/', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const validatedData = insertInventorySchema.parse({
       ...req.body,
@@ -124,6 +130,8 @@ inventoryRouter.post('/', async (req, res) => {
 
 // Update an inventory item
 inventoryRouter.patch('/:id', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {

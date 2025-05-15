@@ -33,6 +33,8 @@ inventoryTransactionRouter.get('/inventory/:id', async (req, res) => {
 
 // Get a specific transaction by ID
 inventoryTransactionRouter.get('/:id', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -53,6 +55,8 @@ inventoryTransactionRouter.get('/:id', async (req, res) => {
 
 // Create a new transaction (manual transaction)
 inventoryTransactionRouter.post('/', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const validatedData = insertInventoryTransactionSchema.parse({
       ...req.body,
@@ -99,6 +103,8 @@ inventoryTransactionRouter.post('/', async (req, res) => {
 
 // Batch operations - move multiple inventory items to a different status
 inventoryTransactionRouter.post('/batch/status-change', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const { inventoryIds, fromStatus, toStatus, notes } = req.body;
 
@@ -168,6 +174,8 @@ inventoryTransactionRouter.post('/batch/status-change', async (req, res) => {
 
 // Batch operations - transfer multiple inventory items to a different location
 inventoryTransactionRouter.post('/batch/transfer', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
   try {
     const { inventoryIds, toLocationId, notes } = req.body;
 
