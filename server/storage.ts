@@ -194,6 +194,10 @@ export class MemStorage implements IStorage {
   private fileDataStorage: Map<number, Buffer>;
   private purchaseOrders: Map<number, PurchaseOrder>;
   private purchaseOrderItems: Map<number, PurchaseOrderItem>;
+  private salesOrders: Map<number, SalesOrder>;
+  private salesOrderItems: Map<number, SalesOrderItem>;
+  private inventoryItems: Map<number, Inventory>;
+  private inventoryTransactions: Map<number, InventoryTransaction>;
   sessionStore: session.Store;
   private baseDownloadUrl: string;
   
@@ -205,6 +209,10 @@ export class MemStorage implements IStorage {
   private presignedLinkIdCounter: number;
   private purchaseOrderIdCounter: number;
   private purchaseOrderItemIdCounter: number;
+  private salesOrderIdCounter: number;
+  private salesOrderItemIdCounter: number;
+  private inventoryItemIdCounter: number;
+  private inventoryTransactionIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -216,6 +224,10 @@ export class MemStorage implements IStorage {
     this.fileDataStorage = new Map();
     this.purchaseOrders = new Map();
     this.purchaseOrderItems = new Map();
+    this.salesOrders = new Map();
+    this.salesOrderItems = new Map();
+    this.inventoryItems = new Map();
+    this.inventoryTransactions = new Map();
     
     // Set the base URL for downloads
     this.baseDownloadUrl = process.env.BASE_DOWNLOAD_URL || 'http://localhost:5000';
@@ -228,6 +240,10 @@ export class MemStorage implements IStorage {
     this.fileIdCounter = 1;
     this.transmissionIdCounter = 1;
     this.presignedLinkIdCounter = 1;
+    this.salesOrderIdCounter = 1;
+    this.salesOrderItemIdCounter = 1;
+    this.inventoryItemIdCounter = 1;
+    this.inventoryTransactionIdCounter = 1;
     
     const MemoryStore = createMemoryStore(session);
     this.sessionStore = new MemoryStore({

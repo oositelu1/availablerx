@@ -1096,4 +1096,382 @@ export class DatabaseStorage implements IStorage {
       total: total || logsResult.length 
     };
   }
+
+  // Inventory Management
+  
+  async createInventory(item: InsertInventory): Promise<Inventory> {
+    const [newItem] = await db.insert(inventory)
+      .values({
+        gtin: item.gtin,
+        serialNumber: item.serialNumber,
+        lotNumber: item.lotNumber,
+        expirationDate: item.expirationDate,
+        status: item.status || "available",
+        locationId: item.locationId,
+        receivedDate: item.receivedDate || new Date(),
+        poItemId: item.poItemId,
+        soItemId: item.soItemId,
+        productItemId: item.productItemId,
+        quantity: item.quantity || 1,
+        createdBy: item.createdBy,
+        notes: item.notes,
+        lastMovementDate: item.lastMovementDate || new Date(),
+      })
+      .returning();
+    return newItem;
+  }
+  
+  async getInventory(id: number): Promise<Inventory | undefined> {
+    const [item] = await db.select()
+      .from(inventory)
+      .where(eq(inventory.id, id));
+    return item;
+  }
+  
+  async getInventoryBySGTIN(gtin: string, serialNumber: string): Promise<Inventory | undefined> {
+    const [item] = await db.select()
+      .from(inventory)
+      .where(and(
+        eq(inventory.gtin, gtin),
+        eq(inventory.serialNumber, serialNumber)
+      ));
+    return item;
+  }
+  
+  async updateInventory(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined> {
+    // If updating status, set lastMovementDate to current date
+    if (updates.status) {
+      updates.lastMovementDate = new Date();
+    }
+    
+    const [updatedItem] = await db.update(inventory)
+      .set(updates)
+      .where(eq(inventory.id, id))
+      .returning();
+    return updatedItem;
+  }
+  
+  async listInventory(filters?: {
+    status?: string;
+    locationId?: number;
+    poItemId?: number;
+    soItemId?: number;
+    gtin?: string;
+    lotNumber?: string;
+    expirationDateBefore?: Date;
+    expirationDateAfter?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: Inventory[], total: number }> {
+    const whereConditions = [];
+    
+    if (filters?.status) {
+      whereConditions.push(eq(inventory.status, filters.status));
+    }
+    
+    if (filters?.locationId) {
+      whereConditions.push(eq(inventory.locationId, filters.locationId));
+    }
+    
+    if (filters?.poItemId) {
+      whereConditions.push(eq(inventory.poItemId, filters.poItemId));
+    }
+    
+    if (filters?.soItemId) {
+      whereConditions.push(eq(inventory.soItemId, filters.soItemId));
+    }
+    
+    if (filters?.gtin) {
+      whereConditions.push(eq(inventory.gtin, filters.gtin));
+    }
+    
+    if (filters?.lotNumber) {
+      whereConditions.push(eq(inventory.lotNumber, filters.lotNumber));
+    }
+    
+    if (filters?.expirationDateBefore) {
+      whereConditions.push(lte(inventory.expirationDate, filters.expirationDateBefore));
+    }
+    
+    if (filters?.expirationDateAfter) {
+      whereConditions.push(gte(inventory.expirationDate, filters.expirationDateAfter));
+    }
+    
+    // Build the query
+    let query = db.select().from(inventory);
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+    
+    // Sort by inventory ID (default) or receivedDate in descending order
+    query = query.orderBy(desc(inventory.receivedDate));
+    
+    // Apply limit and offset if provided
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    
+    if (filters?.offset) {
+      query = query.offset(filters.offset);
+    }
+    
+    const items = await query;
+    
+    // Count total rows for pagination
+    let countQuery = db.select({ count: db.fn.count() }).from(inventory);
+    if (whereConditions.length > 0) {
+      countQuery = countQuery.where(and(...whereConditions));
+    }
+    const [result] = await countQuery;
+    const total = Number(result.count) || 0;
+    
+    return { items, total };
+  }
+  
+  async getInventorySummary(gtin?: string, locationId?: number): Promise<{ 
+    gtin: string; 
+    productName: string | null;
+    totalQuantity: number; 
+    availableQuantity: number;
+    allocatedQuantity: number;
+    shippedQuantity: number;
+    locationId: number | null;
+    earliestExpirationDate: Date | null;
+  }[]> {
+    // This is a complex query that summarizes inventory by product (GTIN)
+    // We'll simplify by just doing separate queries
+    
+    const whereConditions = [];
+    
+    if (gtin) {
+      whereConditions.push(eq(inventory.gtin, gtin));
+    }
+    
+    if (locationId) {
+      whereConditions.push(eq(inventory.locationId, locationId));
+    }
+    
+    const items = await db.select().from(inventory);
+    if (whereConditions.length > 0) {
+      whereConditions.push(and(...whereConditions));
+    }
+    
+    // Group by GTIN
+    const summaryMap = new Map<string, {
+      gtin: string;
+      productName: string | null;
+      totalQuantity: number;
+      availableQuantity: number;
+      allocatedQuantity: number;
+      shippedQuantity: number;
+      locationId: number | null;
+      earliestExpirationDate: Date | null;
+    }>();
+    
+    for (const item of items) {
+      const locationKey = item.locationId ? `${item.gtin}-${item.locationId}` : item.gtin;
+      
+      if (!summaryMap.has(locationKey)) {
+        summaryMap.set(locationKey, {
+          gtin: item.gtin,
+          productName: null, // We could join with product info, but we don't have that table
+          totalQuantity: 0,
+          availableQuantity: 0,
+          allocatedQuantity: 0,
+          shippedQuantity: 0,
+          locationId: item.locationId,
+          earliestExpirationDate: item.expirationDate
+        });
+      }
+      
+      const summary = summaryMap.get(locationKey)!;
+      
+      // Update quantities based on status
+      summary.totalQuantity += item.quantity;
+      
+      if (item.status === 'available') {
+        summary.availableQuantity += item.quantity;
+      } else if (item.status === 'allocated') {
+        summary.allocatedQuantity += item.quantity;
+      } else if (item.status === 'shipped') {
+        summary.shippedQuantity += item.quantity;
+      }
+      
+      // Update earliest expiration date
+      if (item.expirationDate && summary.earliestExpirationDate) {
+        if (item.expirationDate < summary.earliestExpirationDate) {
+          summary.earliestExpirationDate = item.expirationDate;
+        }
+      } else if (item.expirationDate) {
+        summary.earliestExpirationDate = item.expirationDate;
+      }
+    }
+    
+    return Array.from(summaryMap.values());
+  }
+  
+  async createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction> {
+    const [newTransaction] = await db.insert(inventoryTransactions)
+      .values({
+        inventoryId: transaction.inventoryId,
+        transactionType: transaction.transactionType,
+        quantity: transaction.quantity,
+        fromStatus: transaction.fromStatus,
+        toStatus: transaction.toStatus,
+        fromLocationId: transaction.fromLocationId,
+        toLocationId: transaction.toLocationId,
+        createdBy: transaction.createdBy,
+        referenceId: transaction.referenceId,
+        referenceType: transaction.referenceType,
+        notes: transaction.notes,
+      })
+      .returning();
+    return newTransaction;
+  }
+  
+  async getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined> {
+    const [transaction] = await db.select()
+      .from(inventoryTransactions)
+      .where(eq(inventoryTransactions.id, id));
+    return transaction;
+  }
+  
+  async listInventoryTransactions(inventoryId: number): Promise<InventoryTransaction[]> {
+    return db.select()
+      .from(inventoryTransactions)
+      .where(eq(inventoryTransactions.inventoryId, inventoryId))
+      .orderBy(desc(inventoryTransactions.timestamp));
+  }
+  
+  async allocateInventoryToSalesOrder(soItemId: number, inventoryIds: number[]): Promise<boolean> {
+    // This is a complex operation that should be done within a transaction
+    
+    try {
+      // First, get the sales order item to know what we're allocating
+      const [soItem] = await db.select()
+        .from(salesOrderItems)
+        .where(eq(salesOrderItems.id, soItemId));
+        
+      if (!soItem) {
+        return false;
+      }
+      
+      // Get inventory items
+      const inventoryItems = await db.select()
+        .from(inventory)
+        .where(and(
+          eq(inventory.gtin, soItem.gtin),
+          eq(inventory.status, 'available')
+        ));
+        
+      // Check if we have enough inventory to allocate
+      const totalAvailable = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
+      if (totalAvailable < soItem.quantity) {
+        return false;
+      }
+      
+      // Update inventory status to 'allocated'
+      for (const id of inventoryIds) {
+        await db.update(inventory)
+          .set({ 
+            status: 'allocated', 
+            soItemId: soItemId,
+            lastMovementDate: new Date()
+          })
+          .where(eq(inventory.id, id));
+          
+        // Create transaction record
+        await this.createInventoryTransaction({
+          inventoryId: id,
+          transactionType: 'allocation',
+          quantity: 1, // Assuming each inventory item is 1 unit
+          fromStatus: 'available',
+          toStatus: 'allocated',
+          fromLocationId: null,
+          toLocationId: null,
+          createdBy: 1, // Should be passed in from the calling function
+          referenceId: soItemId,
+          referenceType: 'sales_order_item',
+          notes: `Allocated to sales order item #${soItemId}`
+        });
+      }
+      
+      // Update the sales order item to reflect the allocation
+      await db.update(salesOrderItems)
+        .set({ 
+          serialNumbersAllocated: inventoryIds.length,
+          status: inventoryIds.length >= soItem.quantity ? 'allocated' : 'partially_allocated'
+        })
+        .where(eq(salesOrderItems.id, soItemId));
+        
+      return true;
+    } catch (error) {
+      console.error('Error allocating inventory:', error);
+      return false;
+    }
+  }
+  
+  async shipInventoryForSalesOrder(soId: number): Promise<boolean> {
+    // This updates inventory records associated with a sales order to 'shipped' status
+    try {
+      // Get all items in this sales order
+      const soItems = await db.select()
+        .from(salesOrderItems)
+        .where(eq(salesOrderItems.salesOrderId, soId));
+      
+      for (const item of soItems) {
+        // Get all inventory allocated to this sales order item
+        const inventoryItems = await db.select()
+          .from(inventory)
+          .where(and(
+            eq(inventory.soItemId, item.id),
+            eq(inventory.status, 'allocated')
+          ));
+          
+        // Update each inventory item to shipped
+        for (const invItem of inventoryItems) {
+          await db.update(inventory)
+            .set({ 
+              status: 'shipped',
+              lastMovementDate: new Date()
+            })
+            .where(eq(inventory.id, invItem.id));
+            
+          // Create transaction record
+          await this.createInventoryTransaction({
+            inventoryId: invItem.id,
+            transactionType: 'shipment',
+            quantity: invItem.quantity,
+            fromStatus: 'allocated',
+            toStatus: 'shipped',
+            fromLocationId: invItem.locationId,
+            toLocationId: null, // No longer at any of our locations
+            createdBy: 1, // Should be passed in from the calling function
+            referenceId: soId,
+            referenceType: 'sales_order',
+            notes: `Shipped with sales order #${soId}`
+          });
+        }
+        
+        // Update the sales order item
+        await db.update(salesOrderItems)
+          .set({ 
+            serialNumbersShipped: inventoryItems.length,
+            quantityShipped: inventoryItems.length,
+            status: 'shipped'
+          })
+          .where(eq(salesOrderItems.id, item.id));
+      }
+      
+      // Update the sales order status
+      await db.update(salesOrders)
+        .set({ status: 'shipped' })
+        .where(eq(salesOrders.id, soId));
+        
+      return true;
+    } catch (error) {
+      console.error('Error shipping inventory:', error);
+      return false;
+    }
+  }
 }
