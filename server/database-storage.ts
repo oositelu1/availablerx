@@ -653,6 +653,170 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  // Sales Order methods
+  async createSalesOrder(order: InsertSalesOrder): Promise<SalesOrder> {
+    const [newOrder] = await db.insert(salesOrders)
+      .values({
+        customerId: order.customerId,
+        soNumber: order.soNumber,
+        orderDate: order.orderDate || new Date(),
+        requestedDeliveryDate: order.requestedDeliveryDate,
+        status: order.status || "pending",
+        totalAmount: order.totalAmount || 0,
+        shippingAddress: order.shippingAddress,
+        billingAddress: order.billingAddress,
+        customerPurchaseOrderNum: order.customerPurchaseOrderNum,
+        notes: order.notes,
+        createdBy: order.createdBy,
+        customerGln: order.customerGln,
+        locationId: order.locationId,
+        paymentTerms: order.paymentTerms,
+        shippingMethod: order.shippingMethod,
+        erpReference: order.erpReference
+      })
+      .returning();
+    return newOrder;
+  }
+  
+  async getSalesOrder(id: number): Promise<SalesOrder | undefined> {
+    const [order] = await db.select()
+      .from(salesOrders)
+      .where(eq(salesOrders.id, id));
+    return order;
+  }
+  
+  async getSalesOrderBySoNumber(soNumber: string): Promise<SalesOrder | undefined> {
+    const [order] = await db.select()
+      .from(salesOrders)
+      .where(eq(salesOrders.soNumber, soNumber));
+    return order;
+  }
+  
+  async updateSalesOrder(id: number, updates: Partial<SalesOrder>): Promise<SalesOrder | undefined> {
+    const [updatedOrder] = await db.update(salesOrders)
+      .set(updates)
+      .where(eq(salesOrders.id, id))
+      .returning();
+    return updatedOrder;
+  }
+  
+  async listSalesOrders(filters?: {
+    status?: string;
+    customerId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ orders: SalesOrder[], total: number }> {
+    const whereConditions = [];
+    
+    if (filters?.status) {
+      whereConditions.push(eq(salesOrders.status, filters.status));
+    }
+    
+    if (filters?.customerId) {
+      whereConditions.push(eq(salesOrders.customerId, filters.customerId));
+    }
+    
+    if (filters?.startDate) {
+      whereConditions.push(gte(salesOrders.orderDate, filters.startDate));
+    }
+    
+    if (filters?.endDate) {
+      whereConditions.push(lte(salesOrders.orderDate, filters.endDate));
+    }
+    
+    // Build the query
+    let query = db.select().from(salesOrders);
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+    
+    // Sort by orderDate in descending order (newest first)
+    query = query.orderBy(desc(salesOrders.orderDate));
+    
+    // Apply limit and offset if provided
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    
+    if (filters?.offset) {
+      query = query.offset(filters.offset);
+    }
+    
+    const orders = await query;
+    
+    // Count total rows for pagination
+    let countQuery = db.select({ count: db.fn.count() }).from(salesOrders);
+    if (whereConditions.length > 0) {
+      countQuery = countQuery.where(and(...whereConditions));
+    }
+    const [result] = await countQuery;
+    const total = Number(result.count) || 0;
+    
+    return { orders, total };
+  }
+  
+  // Sales Order Items methods
+  async createSalesOrderItem(item: InsertSalesOrderItem): Promise<SalesOrderItem> {
+    const [newItem] = await db.insert(salesOrderItems)
+      .values({
+        salesOrderId: item.salesOrderId,
+        lineNumber: item.lineNumber,
+        gtin: item.gtin,
+        productName: item.productName,
+        quantity: item.quantity,
+        quantityUnit: item.quantityUnit || "EA",
+        quantityShipped: item.quantityShipped || 0,
+        ndc: item.ndc,
+        manufacturer: item.manufacturer,
+        price: item.price,
+        packageSize: item.packageSize,
+        packageType: item.packageType,
+        packageLevelId: item.packageLevelId || "0",
+        serialNumbersAllocated: item.serialNumbersAllocated || 0,
+        serialNumbersShipped: item.serialNumbersShipped || 0,
+        status: item.status || "pending",
+        lotNumber: item.lotNumber,
+        expirationDate: item.expirationDate,
+        discount: item.discount,
+        taxRate: item.taxRate,
+        notes: item.notes,
+      })
+      .returning();
+    return newItem;
+  }
+  
+  async getSalesOrderItem(id: number): Promise<SalesOrderItem | undefined> {
+    const [item] = await db.select()
+      .from(salesOrderItems)
+      .where(eq(salesOrderItems.id, id));
+    return item;
+  }
+  
+  async updateSalesOrderItem(id: number, updates: Partial<SalesOrderItem>): Promise<SalesOrderItem | undefined> {
+    const [updatedItem] = await db.update(salesOrderItems)
+      .set(updates)
+      .where(eq(salesOrderItems.id, id))
+      .returning();
+    return updatedItem;
+  }
+  
+  async listSalesOrderItems(soId: number): Promise<SalesOrderItem[]> {
+    const items = await db.select()
+      .from(salesOrderItems)
+      .where(eq(salesOrderItems.salesOrderId, soId))
+      .orderBy(salesOrderItems.lineNumber);
+    return items;
+  }
+  
+  async deleteSalesOrderItem(id: number): Promise<boolean> {
+    const result = await db.delete(salesOrderItems)
+      .where(eq(salesOrderItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
   // EPCIS-PO Association management
 
   async createEpcisPoAssociation(association: InsertEpcisPoAssociation): Promise<EpcisPoAssociation> {
