@@ -51,6 +51,8 @@ export function Sidebar() {
     { path: "/files", label: "File History", icon: <History className="mr-3 h-5 w-5" /> },
     { path: "/partners", label: "Partners", icon: <Users className="mr-3 h-5 w-5" /> },
     { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart className="mr-3 h-5 w-5" /> },
+    { path: "/sales-orders", label: "Sales Orders", icon: <Package className="mr-3 h-5 w-5" /> },
+    { path: "/inventory", label: "Inventory", icon: <Package className="mr-3 h-5 w-5" /> },
     { path: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
   ];
 

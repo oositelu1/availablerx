@@ -12,6 +12,9 @@ import AuthPage from "@/pages/auth-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
 import PurchaseOrderDetailPage from "@/pages/purchase-order-detail-page";
 import ValidationSessionPage from "@/pages/validation-session-page";
+import SalesOrdersPage from "@/pages/sales-orders-page";
+import SalesOrderDetailPage from "@/pages/sales-order-detail-page";
+import InventoryPage from "@/pages/inventory-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -29,6 +32,9 @@ function Router() {
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
       <ProtectedRoute path="/purchase-orders/:id/validate" component={ValidationSessionPage} />
+      <ProtectedRoute path="/sales-orders" component={SalesOrdersPage} />
+      <ProtectedRoute path="/sales-orders/:id" component={SalesOrderDetailPage} />
+      <ProtectedRoute path="/inventory" component={InventoryPage} />
       <Route component={NotFound} />
     </Switch>
   );
