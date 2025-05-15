@@ -1,13 +1,18 @@
 import { 
-  users, partners, files, transmissions, presignedLinks,
-  purchaseOrders, epcisPoAssociations, productItems, scannedItems,
+  users, partners, partnerLocations, files, transmissions, presignedLinks,
+  purchaseOrders, purchaseOrderItems, salesOrders, salesOrderItems, 
+  epcisPoAssociations, productItems, scannedItems,
+  inventory, inventoryTransactions,
   validationSessions, auditLogs
 } from "@shared/schema";
 import type { 
-  User, InsertUser, Partner, InsertPartner, File, InsertFile, 
-  Transmission, InsertTransmission, PresignedLink, InsertPresignedLink,
-  PurchaseOrder, InsertPurchaseOrder, EpcisPoAssociation, InsertEpcisPoAssociation,
+  User, InsertUser, Partner, InsertPartner, PartnerLocation, InsertPartnerLocation,
+  File, InsertFile, Transmission, InsertTransmission, PresignedLink, InsertPresignedLink,
+  PurchaseOrder, InsertPurchaseOrder, PurchaseOrderItem, InsertPurchaseOrderItem,
+  SalesOrder, InsertSalesOrder, SalesOrderItem, InsertSalesOrderItem,
+  EpcisPoAssociation, InsertEpcisPoAssociation,
   ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
+  Inventory, InsertInventory, InventoryTransaction, InsertInventoryTransaction,
   ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
@@ -132,6 +137,54 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return !!partner;
+  }
+  
+  // Partner Location methods
+  async createPartnerLocation(location: InsertPartnerLocation): Promise<PartnerLocation> {
+    const [newLocation] = await db
+      .insert(partnerLocations)
+      .values(location)
+      .returning();
+    return newLocation;
+  }
+  
+  async getPartnerLocation(id: number): Promise<PartnerLocation | undefined> {
+    const [location] = await db
+      .select()
+      .from(partnerLocations)
+      .where(eq(partnerLocations.id, id));
+    return location;
+  }
+  
+  async updatePartnerLocation(id: number, updates: Partial<PartnerLocation>): Promise<PartnerLocation | undefined> {
+    const [updatedLocation] = await db
+      .update(partnerLocations)
+      .set(updates)
+      .where(eq(partnerLocations.id, id))
+      .returning();
+    return updatedLocation;
+  }
+  
+  async listPartnerLocations(partnerId: number, locationType?: string): Promise<PartnerLocation[]> {
+    let query = db
+      .select()
+      .from(partnerLocations)
+      .where(eq(partnerLocations.partnerId, partnerId));
+      
+    if (locationType) {
+      query = query.where(eq(partnerLocations.locationType, locationType));
+    }
+    
+    // Order by isDefault (true first) and then by name
+    return await query.orderBy(desc(partnerLocations.isDefault), partnerLocations.name);
+  }
+  
+  async deletePartnerLocation(id: number): Promise<boolean> {
+    const result = await db
+      .delete(partnerLocations)
+      .where(eq(partnerLocations.id, id))
+      .returning();
+    return result.length > 0;
   }
   
   async createFile(data: InsertFile): Promise<File> {
