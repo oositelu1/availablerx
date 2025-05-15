@@ -268,10 +268,16 @@ export async function processFile(
           console.log('Setting manufacturer from direct extraction:', extractResult.manufacturer);
           xmlValidation.metadata.productInfo.manufacturer = extractResult.manufacturer;
         }
+        
+        if (extractResult.ndc) {
+          console.log('Setting NDC from direct extraction:', extractResult.ndc);
+          xmlValidation.metadata.productInfo.ndc = extractResult.ndc;
+        }
       } else if (xmlValidation.metadata) {
         xmlValidation.metadata.productInfo = {
           name: extractResult.name || undefined, 
-          manufacturer: extractResult.manufacturer || undefined
+          manufacturer: extractResult.manufacturer || undefined,
+          ndc: extractResult.ndc || undefined
         };
       }
     } catch (error) {

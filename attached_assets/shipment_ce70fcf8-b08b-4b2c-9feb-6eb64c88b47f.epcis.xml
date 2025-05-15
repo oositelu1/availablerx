@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<epcis:EPCISDocument xmlns:sbdh="http://www.unece.org/cefact/namespaces/StandardBusinessDocumentHeader" xmlns:gs1ushc="https://www.gs1us.org/" xmlns:tt2="http://epcis.test.tracktraceweb.com/ns" xmlns:cbvmda="urn:epcglobal:cbv:mda" xmlns:epcis="urn:epcglobal:epcis:xsd:1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaVersion="1.2" creationDate="2023-12-05T20:43:35.077+00:00">
+  <EPCISHeader>
+      <sbdh:StandardBusinessDocumentHeader>
+      <sbdh:HeaderVersion>1.0</sbdh:HeaderVersion>
+      <sbdh:Sender>
+        <sbdh:Identifier Authority="SGLN">urn:epc:id:sgln:030143.000000.0</sbdh:Identifier>
+      </sbdh:Sender>
+      <sbdh:Receiver>
+        <sbdh:Identifier Authority="SGLN">urn:epc:id:sgln:120014443641..0</sbdh:Identifier>
+      </sbdh:Receiver>
+      <sbdh:DocumentIdentification>
+        <sbdh:Standard>EPCglobal</sbdh:Standard>
+        <sbdh:TypeVersion>1.0</sbdh:TypeVersion>
+        <sbdh:InstanceIdentifier>005056A5473D1EDFB69D04589C58F89C</sbdh:InstanceIdentifier>
+        <sbdh:Type>Events</sbdh:Type>
+        <sbdh:CreationDateAndTime>2025-01-22T17:41:40.020772Z</sbdh:CreationDateAndTime>
+      </sbdh:DocumentIdentification>
+    </sbdh:StandardBusinessDocumentHeader>
+    <extension>
+      <EPCISMasterData>
+        <VocabularyList>
+          <Vocabulary type="urn:epcglobal:epcis:vtype:EPCClass">
+            <VocabularyElementList>
+              <VocabularyElement id="urn:epc:idpat:sgtin:030143.0957010.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">00143957010</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">WEST-WARD PHARMACEUTICALS</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">SODIUMFERRICGLUCONATE</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">VIAL</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">12.5 MG/ML</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">5ML</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:idpat:sgtin:030143.5957010.*">
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentificationTypeCode">FDA_NDC_11</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#additionalTradeItemIdentification">00143957010</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName">WEST-WARD PHARMACEUTICALS</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#regulatedProductName">SODIUMFERRICGLUCONATE</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#dosageFormType">VIAL</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#strengthDescription">12.5 MG/ML</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#netContentDescription">5ML</attribute>
+              </VocabularyElement>
+            </VocabularyElementList>
+          </Vocabulary>
+          <Vocabulary type="urn:epcglobal:epcis:vtype:Location">
+            <VocabularyElementList>
+              <VocabularyElement id="urn:epc:id:sgln:030143.000000.0">
+                <attribute id="urn:epcglobal:cbv:mda#name">Hikma Pharmaceuticals USA</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">200 Connell Drive</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">Berkeley Heights</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">NJ</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">07922</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:id:sgln:030143.000007.0">
+                <attribute id="urn:epcglobal:cbv:mda#name">Creekside DC</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">2130 Rohr Rd</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">Lockbourne</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">OH</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">43137</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+              <VocabularyElement id="urn:epc:id:sgln:120014443641..0">
+                <attribute id="urn:epcglobal:cbv:mda#name">RUSSELL GROUP LLC</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#streetAddressOne">2024 E HICKORY HILL RD STE 300</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#city">ARGYLE</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#state">TX</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#postalCode">76226</attribute>
+                <attribute id="urn:epcglobal:cbv:mda#countryCode">US</attribute>
+              </VocabularyElement>
+            </VocabularyElementList>
+          </Vocabulary>
+        </VocabularyList>
+      </EPCISMasterData>
+    </extension>
+    <gs1ushc:dscsaTransactionStatement xmlns:gs1ushc="http://epcis.gs1us.org/hc/ns">
+      <gs1ushc:affirmTransactionStatement>true</gs1ushc:affirmTransactionStatement>
+      <gs1ushc:legalNotice>Seller has complied with each applicable subsection of FDCA Sec. 581(27)(A)-(G).</gs1ushc:legalNotice>
+    </gs1ushc:dscsaTransactionStatement>
+  </EPCISHeader>
+  <EPCISBody>
+    <EventList>
+      <ObjectEvent>
+        <eventTime>2024-11-11T12:20:34.8272392Z</eventTime>
+        <eventTimeZoneOffset>+00:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:030143.0957010.10016550749981</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10018521666433</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10015409851063</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017938344798</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014064615359</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013279936148</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012293816762</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010392521134</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013020629042</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013986253550</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013896467613</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014232803778</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017323329333</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017895110235</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012180956038</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011162319676</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10016243464244</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10015501225177</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019940037154</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010640876884</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013052998624</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011611472358</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019861458143</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011925986813</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013273441219</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010901186002</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011352171784</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019234544201</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10018642931657</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010804170096</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012306396449</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010021397321</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012817838734</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013526893109</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011941579048</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012661195358</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019170668817</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014065876226</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10016659524163</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019592353017</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014020817498</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10015216486928</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012219463269</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010587272437</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019086358966</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014075999507</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012191746990</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011627989303</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014312315576</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014739546641</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011211607818</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011809021637</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019786265002</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010542978273</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010581021189</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10018349068270</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014528550355</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013689360516</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017175289067</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017992817339</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012888457960</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013847545359</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017605603728</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011961494840</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:56009069.0001.9</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:56009069.0001.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber xmlns:cbvmda="urn:epcglobal:cbv:mda">24052241</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate xmlns:cbvmda="urn:epcglobal:cbv:mda">2026-09-30</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-11-11T12:20:34.8272392Z</eventTime>
+        <eventTimeZoneOffset>+00:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sgtin:030143.5957010.100000059214</epc>
+          <epc>urn:epc:id:sgtin:030143.5957010.100000059212</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:56009069.0001.9</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:56009069.0001.0</id>
+        </bizLocation>
+        <extension>
+          <ilmd>
+            <cbvmda:lotNumber xmlns:cbvmda="urn:epcglobal:cbv:mda">24052241</cbvmda:lotNumber>
+            <cbvmda:itemExpirationDate xmlns:cbvmda="urn:epcglobal:cbv:mda">2026-09-30</cbvmda:itemExpirationDate>
+          </ilmd>
+        </extension>
+      </ObjectEvent>
+      <ObjectEvent>
+        <eventTime>2024-12-24T18:36:10Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sscc:030054.10100473931</epc>
+        </epcList>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:commissioning</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:active</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </bizLocation>
+      </ObjectEvent>
+      <AggregationEvent>
+        <eventTime>2025-01-22T17:41:37Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:030143.5957010.100000059214</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010021397321</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010392521134</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010640876884</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010804170096</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010901186002</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011162319676</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011352171784</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011611472358</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011925986813</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012180956038</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012293816762</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012306396449</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013020629042</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013052998624</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013273441219</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013279936148</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013896467613</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013986253550</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014064615359</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014232803778</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10015409851063</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10015501225177</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10016243464244</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10016550749981</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017323329333</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017895110235</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017938344798</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10018521666433</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10018642931657</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019234544201</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019861458143</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019940037154</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2025-01-22T17:41:37Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sgtin:030143.5957010.100000059212</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010542978273</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010581021189</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10010587272437</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011211607818</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011627989303</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011809021637</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011941579048</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10011961494840</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012191746990</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012219463269</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012661195358</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012817838734</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10012888457960</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013526893109</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013689360516</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10013847545359</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014020817498</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014065876226</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014075999507</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014312315576</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014528550355</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10014739546641</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10015216486928</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10016659524163</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017175289067</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017605603728</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10017992817339</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10018349068270</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019086358966</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019170668817</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019592353017</epc>
+          <epc>urn:epc:id:sgtin:030143.0957010.10019786265002</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <AggregationEvent>
+        <eventTime>2025-01-22T17:41:38Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <parentID>urn:epc:id:sscc:030054.10100473931</parentID>
+        <childEPCs>
+          <epc>urn:epc:id:sgtin:030143.5957010.100000059212</epc>
+          <epc>urn:epc:id:sgtin:030143.5957010.100000059214</epc>
+        </childEPCs>
+        <action>ADD</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:packing</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_progress</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </readPoint>
+        <bizLocation>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </bizLocation>
+      </AggregationEvent>
+      <ObjectEvent>
+        <eventTime>2025-01-22T17:41:39Z</eventTime>
+        <eventTimeZoneOffset>-05:00</eventTimeZoneOffset>
+        <epcList>
+          <epc>urn:epc:id:sscc:030054.10100473931</epc>
+        </epcList>
+        <action>OBSERVE</action>
+        <bizStep>urn:epcglobal:cbv:bizstep:shipping</bizStep>
+        <disposition>urn:epcglobal:cbv:disp:in_transit</disposition>
+        <readPoint>
+          <id>urn:epc:id:sgln:030143.000007.0</id>
+        </readPoint>
+        <bizTransactionList>
+          <bizTransaction type="urn:epcglobal:cbv:btt:desadv">urn:epcglobal:cbv:bt:0301430000005:0083303001</bizTransaction>
+          <bizTransaction type="urn:epcglobal:cbv:btt:po">urn:epcglobal:cbv:bt:1200144436416:41067</bizTransaction>
+        </bizTransactionList>
+        <extension>
+          <sourceList>
+            <source type="urn:epcglobal:cbv:sdt:owning_party">urn:epc:id:sgln:030143.000000.0</source>
+            <source type="urn:epcglobal:cbv:sdt:location">urn:epc:id:sgln:030143.000007.0</source>
+          </sourceList>
+          <destinationList>
+            <destination type="urn:epcglobal:cbv:sdt:owning_party">urn:epc:id:sgln:120014443641..0</destination>
+            <destination type="urn:epcglobal:cbv:sdt:location">urn:epc:id:sgln:120014443641..0</destination>
+          </destinationList>
+        </extension>
+      </ObjectEvent>
+    </EventList>
+  </EPCISBody>
+</epcis:EPCISDocument>
