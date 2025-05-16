@@ -1112,16 +1112,19 @@ export class DatabaseStorage implements IStorage {
         serialNumber: item.serialNumber,
         lotNumber: item.lotNumber,
         expirationDate: item.expirationDate,
+        ndc: item.ndc,
+        productName: item.productName,
+        manufacturer: item.manufacturer,
         status: item.status || "available",
-        locationId: item.locationId,
-        receivedDate: item.receivedDate || new Date(),
-        poItemId: item.poItemId,
-        soItemId: item.soItemId,
-        productItemId: item.productItemId,
-        quantity: item.quantity || 1,
-        createdBy: item.createdBy,
+        packageType: item.packageType || "each",
+        receivedVia: item.receivedVia || "epcis",
+        receivedAt: item.receivedAt || new Date(),
+        sourceFileId: item.sourceFileId,
+        sourcePoId: item.sourcePoId,
+        warehouse: item.warehouse || "default",
+        location: item.location,
         notes: item.notes,
-        lastMovementDate: item.lastMovementDate || new Date(),
+        createdBy: item.createdBy
       })
       .returning();
     return newItem;
