@@ -150,7 +150,17 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         throw new Error("Your browser doesn't support camera access");
       }
       
+      // Log available cameras to help debug
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(device => device.kind === 'videoinput');
+        console.log(`Found ${cameras.length} cameras:`, cameras.map(c => c.label || 'unlabeled camera'));
+      } catch (e) {
+        console.warn("Could not enumerate devices:", e);
+      }
+      
       // Request camera access - try environment facing camera first (back camera on phones)
+      console.log("Requesting camera access with environment facing mode...");
       const constraints = {
         video: { 
           facingMode: "environment" 
@@ -158,22 +168,42 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       };
       
       // This approach is from the working example provided
+      console.log("Calling getUserMedia with constraints:", constraints);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log("Camera access granted! Stream tracks:", stream.getTracks().map(t => `${t.kind}:${t.label}`));
+      
       streamRef.current = stream;
       
       // Set the stream to the video element
       if (videoRef.current) {
+        console.log("Setting video source...");
         videoRef.current.srcObject = stream;
         
+        // Add event listeners to debug video element state
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video loadedmetadata event fired");
+          console.log("Video dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
+        };
+        
+        videoRef.current.onplaying = () => {
+          console.log("Video playing event fired - video is now actively playing");
+        };
+        
+        // Make sure the video element is visible with styling
+        videoRef.current.style.display = "block";
+        videoRef.current.style.width = "100%";
+        videoRef.current.style.height = "100%";
+        
         // Directly play the video as in the working example
+        console.log("Attempting to play video...");
         await videoRef.current.play();
-        console.log("Video is now playing");
+        console.log("Video play() method completed successfully");
         
         // Set up canvas once video is playing
-        if (canvasRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+        if (canvasRef.current) {
           const canvas = canvasRef.current;
-          canvas.height = videoRef.current.videoHeight;
-          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight || 480;
+          canvas.width = videoRef.current.videoWidth || 640;
           console.log("Canvas set up with dimensions:", canvas.width, "x", canvas.height);
         }
         
@@ -185,8 +215,15 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         // Use the technique from the example (requestAnimationFrame)
         const tick = () => {
           scanVideoForCode(); // Scan the current frame
-          if (scanningActive) {
+          if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA) {
+            // Video has enough data and is playing, continue scanning
             scanIntervalRef.current = requestAnimationFrame(tick);
+          } else {
+            // Video not ready yet, check again in a moment
+            console.log("Video not ready in scanning loop, waiting...");
+            setTimeout(() => {
+              scanIntervalRef.current = requestAnimationFrame(tick);
+            }, 100);
           }
         };
         
