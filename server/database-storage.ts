@@ -17,7 +17,7 @@ import type {
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, sql, like } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import crypto from "crypto";
@@ -1159,15 +1159,17 @@ export class DatabaseStorage implements IStorage {
   
   async listInventory(filters?: {
     status?: string;
-    locationId?: number;
-    poItemId?: number;
-    soItemId?: number;
     gtin?: string;
     lotNumber?: string;
-    expirationDateBefore?: Date;
-    expirationDateAfter?: Date;
-    limit?: number;
-    offset?: number;
+    productName?: string;
+    packageType?: string;
+    warehouse?: string;
+    poId?: number;
+    soId?: number;
+    expirationStart?: Date;
+    expirationEnd?: Date;
+    limit?: number | string;
+    offset?: number | string;
   }): Promise<{ items: Inventory[], total: number }> {
     const whereConditions = [];
     
@@ -1175,16 +1177,24 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(inventory.status, filters.status));
     }
     
-    if (filters?.locationId) {
-      whereConditions.push(eq(inventory.locationId, filters.locationId));
+    if (filters?.warehouse) {
+      whereConditions.push(eq(inventory.locationId, parseInt(filters.warehouse as string)));
     }
     
-    if (filters?.poItemId) {
-      whereConditions.push(eq(inventory.poItemId, filters.poItemId));
+    if (filters?.poId) {
+      whereConditions.push(eq(inventory.poItemId, filters.poId));
     }
     
-    if (filters?.soItemId) {
-      whereConditions.push(eq(inventory.soItemId, filters.soItemId));
+    if (filters?.soId) {
+      whereConditions.push(eq(inventory.soItemId, filters.soId));
+    }
+    
+    if (filters?.productName) {
+      whereConditions.push(like(inventory.productName, `%${filters.productName}%`));
+    }
+    
+    if (filters?.packageType) {
+      whereConditions.push(eq(inventory.packageType, filters.packageType));
     }
     
     if (filters?.gtin) {
@@ -1195,12 +1205,12 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(inventory.lotNumber, filters.lotNumber));
     }
     
-    if (filters?.expirationDateBefore) {
-      whereConditions.push(lte(inventory.expirationDate, filters.expirationDateBefore));
+    if (filters?.expirationEnd) {
+      whereConditions.push(lte(inventory.expirationDate, filters.expirationEnd));
     }
     
-    if (filters?.expirationDateAfter) {
-      whereConditions.push(gte(inventory.expirationDate, filters.expirationDateAfter));
+    if (filters?.expirationStart) {
+      whereConditions.push(gte(inventory.expirationDate, filters.expirationStart));
     }
     
     // Build the query
