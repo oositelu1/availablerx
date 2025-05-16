@@ -506,10 +506,12 @@ export class DatabaseStorage implements IStorage {
     const [purchaseOrder] = await db.insert(purchaseOrders).values({
       poNumber: order.poNumber,
       supplierGln: order.supplierGln,
+      customer: order.customer || null,
       orderDate: order.orderDate,
       expectedDeliveryDate: order.expectedDeliveryDate || null,
       status: order.status || 'open',
       createdBy: order.createdBy,
+      partnerId: order.partnerId,
       metadata: order.metadata || null
     }).returning();
     
