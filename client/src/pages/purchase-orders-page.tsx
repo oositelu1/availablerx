@@ -252,7 +252,7 @@ export default function PurchaseOrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[120px]">PO Number</TableHead>
-                <TableHead>Supplier</TableHead>
+                <TableHead>Supplier GLN</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Order Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -275,7 +275,7 @@ export default function PurchaseOrdersPage() {
                 filteredPOs.map((po) => (
                   <TableRow key={po.id}>
                     <TableCell className="font-medium">{po.poNumber}</TableCell>
-                    <TableCell>{po.supplier}</TableCell>
+                    <TableCell>{po.supplierGln}</TableCell>
                     <TableCell>{po.customer}</TableCell>
                     <TableCell>{new Date(po.orderDate).toLocaleDateString()}</TableCell>
                     <TableCell>
