@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Calendar, FileText, Package, Plus, Search, Truck } from "lucide-react";
@@ -97,7 +97,7 @@ export default function SalesOrdersPage() {
     },
   });
 
-  // Mutation for creating sales orders using API request helper
+  // Mutation for creating sales orders using direct API call to ensure correct endpoint
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
       // Validate customer selection
@@ -105,13 +105,13 @@ export default function SalesOrdersPage() {
         throw new Error("Please select a customer");
       }
       
-      // Prepare minimal data required by the backend
+      // Create a clean payload specifically for SALES orders
       const payload = {
         soNumber: values.soNumber,
         customerId: Number(values.customerId),
         status: values.status || "draft",
         orderDate: values.orderDate instanceof Date 
-          ? values.orderDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
+          ? values.orderDate.toISOString().split('T')[0] 
           : values.orderDate,
         notes: values.notes || null,
         customerGln: values.customerGln || null,
@@ -121,39 +121,47 @@ export default function SalesOrdersPage() {
           : null
       };
       
-      console.log("Creating sales order with:", payload);
+      console.log("Creating SALES order with:", payload);
       
-      // Use direct fetch for better error handling
-      const response = await fetch('/api/sales-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        let errorMessage = "Failed to create sales order";
-        try {
-          const errorData = await response.json();
-          console.error("Error creating sales order:", errorData);
-          errorMessage = errorData.message || errorMessage;
-          
-          // Show validation errors if available
-          if (errorData.errors && Array.isArray(errorData.errors)) {
-            errorMessage = errorData.errors.map((e: any) => e.message || e.path).join(', ');
+      // Use direct fetch and explicitly target the SALES ORDER endpoint
+      try {
+        const response = await fetch('/api/sales-orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
+        
+        console.log(`Sales order API response status: ${response.status}`);
+        
+        if (!response.ok) {
+          let errorMessage = "Failed to create sales order";
+          try {
+            const errorData = await response.json();
+            console.error("Sales order creation error:", errorData);
+            errorMessage = errorData.message || errorMessage;
+            
+            if (errorData.errors && Array.isArray(errorData.errors)) {
+              errorMessage = errorData.errors.map((e: any) => e.message || e.path).join(', ');
+            }
+          } catch (e) {
+            const text = await response.text();
+            console.error("Raw error response from sales order API:", text);
+            errorMessage = text || errorMessage;
           }
-        } catch (e) {
-          // If we can't parse JSON, use the text
-          const text = await response.text();
-          console.error("Raw error response:", text);
-          errorMessage = text || errorMessage;
+          throw new Error(errorMessage);
         }
-        throw new Error(errorMessage);
+        
+        // Successfully created a sales order
+        const data = await response.json();
+        console.log("Sales order created successfully:", data);
+        return data;
+      } catch (error) {
+        console.error("Sales order creation failed:", error);
+        throw error;
       }
-      
-      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sales-orders'] });
