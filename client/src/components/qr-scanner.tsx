@@ -22,24 +22,34 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<number | null>(null);
   
-  // Cleanup function to stop camera and scanning
+  // Cleanup function to stop camera and scanning - updated for requestAnimationFrame
   const stopScanning = () => {
-    // Stop the scanning interval
+    // Cancel the animation frame request if active
     if (scanIntervalRef.current) {
-      window.clearInterval(scanIntervalRef.current);
+      cancelAnimationFrame(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
     
     // Stop the camera stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        console.log("Stopping track:", track.kind, track.label);
+        track.stop();
+      });
       streamRef.current = null;
+    }
+    
+    // Clear video source if present
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject = null;
     }
     
     // Reset UI state
     setIsScanning(false);
     setScanningActive(false);
     setCameraReady(false);
+    
+    console.log("Camera and scanning stopped");
   };
   
   // Cleanup on unmount
@@ -59,22 +69,33 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   
   // Function to scan for QR/Data Matrix codes in the video stream
   const scanVideoForCode = () => {
-    if (!videoRef.current || !canvasRef.current || !cameraReady) return;
+    // Check that we have all required references and video is ready to be processed
+    if (!videoRef.current || !canvasRef.current) return;
     
     const video = videoRef.current;
+    
+    // Ensure video is ready and has enough data
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      console.log("Video not ready yet, waiting for more data...");
+      return;
+    }
+    
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
     
-    if (!context) return;
-    
-    // Set the canvas dimensions to match the video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // Only continue if the video is playing
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    if (!context) {
+      console.error("Could not get canvas context");
+      return;
+    }
     
     try {
+      // Ensure canvas dimensions match video dimensions
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        console.log("Setting canvas dimensions to match video:", video.videoWidth, "x", video.videoHeight);
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+      
       // Draw the current video frame to the canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
@@ -83,12 +104,23 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       
       // Use jsQR to attempt to find a QR code in the image
       const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "dontInvert",
+        inversionAttempts: "attemptBoth", // Try both normal and inverted colors
       });
       
       // If a code was found, process it
       if (code) {
-        console.log("QR Code found:", code);
+        console.log("QR Code found:", code.data);
+        
+        // Draw a highlight around the detected code
+        context.beginPath();
+        context.lineWidth = 4;
+        context.strokeStyle = "#FF3B58";
+        context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+        context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
+        context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
+        context.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
+        context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+        context.stroke();
         
         // Parse the barcode data
         const parsedCode = parseGS1Barcode(code.data);
@@ -102,7 +134,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     }
   };
   
-  // Start camera and scanning function
+  // Start camera and scanning function - adapted from the provided example
   const startScanning = async () => {
     setIsScanning(true);
     setError(null);
@@ -118,20 +150,14 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         throw new Error("Your browser doesn't support camera access");
       }
       
-      // Get available cameras
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const cameras = devices.filter(device => device.kind === 'videoinput');
-      console.log("Available cameras:", cameras);
-      
       // Request camera access - try environment facing camera first (back camera on phones)
       const constraints = {
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+        video: { 
+          facingMode: "environment" 
         }
       };
       
+      // This approach is from the working example provided
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       
@@ -139,23 +165,33 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
-        // Setup event for when video is ready
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            console.log("Video ready, dimensions:", videoRef.current.videoWidth, videoRef.current.videoHeight);
-            videoRef.current.play().then(() => {
-              setCameraReady(true);
-              setScanningActive(true);
-              
-              // Start the scanning interval
-              scanIntervalRef.current = window.setInterval(scanVideoForCode, 100); // scan every 100ms
-            }).catch(err => {
-              console.error("Error playing video:", err);
-              setError("Could not start video stream: " + err.message);
-              stopScanning();
-            });
+        // Directly play the video as in the working example
+        await videoRef.current.play();
+        console.log("Video is now playing");
+        
+        // Set up canvas once video is playing
+        if (canvasRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+          const canvas = canvasRef.current;
+          canvas.height = videoRef.current.videoHeight;
+          canvas.width = videoRef.current.videoWidth;
+          console.log("Canvas set up with dimensions:", canvas.width, "x", canvas.height);
+        }
+        
+        // Start the scanning loop using requestAnimationFrame instead of setInterval
+        // This is more efficient and syncs better with the browser's rendering
+        setCameraReady(true);
+        setScanningActive(true);
+        
+        // Use the technique from the example (requestAnimationFrame)
+        const tick = () => {
+          scanVideoForCode(); // Scan the current frame
+          if (scanningActive) {
+            scanIntervalRef.current = requestAnimationFrame(tick);
           }
         };
+        
+        scanIntervalRef.current = requestAnimationFrame(tick);
+        console.log("Scanning loop started");
       } else {
         throw new Error("Video element not found");
       }
@@ -202,15 +238,38 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
             className="hidden"
           />
           
-          {/* Scanning indicator overlay */}
+          {/* Scanning indicator overlay with scan line animation */}
           {isScanning && scanningActive && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-black/40 rounded-lg p-3 flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-white" />
-                <span className="text-white font-medium">Scanning...</span>
+            <>
+              {/* Red scan line that moves up and down */}
+              <div className="absolute left-0 right-0 h-0.5 bg-red-500 z-10" 
+                   style={{
+                     animation: 'scan 1.5s infinite ease-in-out',
+                   }}
+              />
+              
+              {/* Rectangular frame to show scan area */}
+              <div className="absolute inset-0 border-2 border-primary/70 rounded-md pointer-events-none"></div>
+              
+              {/* Corner indicators */}
+              <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-primary"></div>
+              <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-primary"></div>
+              <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-primary"></div>
+              <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-primary"></div>
+              
+              {/* Status indicator */}
+              <div className="absolute top-2 right-2 bg-black/50 rounded-lg px-2 py-1 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin text-white" />
+                <span className="text-white text-xs font-medium">Active</span>
               </div>
-              <div className="absolute inset-0 border-2 border-primary/50 rounded-md pointer-events-none"></div>
-            </div>
+              
+              {/* Instruction overlay */}
+              <div className="absolute bottom-2 left-0 right-0 text-center">
+                <div className="bg-black/50 mx-auto inline-block px-3 py-1 rounded-full">
+                  <p className="text-white text-xs">Position barcode in frame</p>
+                </div>
+              </div>
+            </>
           )}
           
           {/* Placeholder when camera is not active */}
