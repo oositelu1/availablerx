@@ -179,7 +179,7 @@ export default function PurchaseOrdersPage() {
   const filteredPOs = purchaseOrdersArray.filter(po => {
     const matchesSearch = searchQuery === "" || 
       po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      po.supplier.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      po.supplierGln.toLowerCase().includes(searchQuery.toLowerCase()) ||
       po.customer.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || po.status === statusFilter;
@@ -363,20 +363,6 @@ export default function PurchaseOrdersPage() {
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="supplier"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Supplier Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ABC Pharmaceuticals" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
                 <FormField
                   control={form.control}
                   name="supplierGln"
