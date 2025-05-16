@@ -117,11 +117,17 @@ inventoryRouter.post('/', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
   
   try {
-    const validatedData = insertInventorySchema.parse({
+    // Pre-process date fields before validation
+    const processedData = {
       ...req.body,
-      createdBy: req.user.id
-    });
-
+      createdBy: req.user.id,
+      // Convert string dates to actual Date objects
+      expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
+      receivedAt: req.body.receivedAt ? new Date(req.body.receivedAt) : new Date()
+    };
+    
+    const validatedData = insertInventorySchema.parse(processedData);
+    
     const newItem = await storage.createInventoryItem(validatedData);
     res.status(201).json(newItem);
   } catch (error) {
