@@ -12,12 +12,25 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  console.log(`Making ${method} request to ${url}`, data);
+  
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  if (!res.ok) {
+    // Log more details about the error
+    console.error(`API request failed with status ${res.status}:`, res.statusText);
+    try {
+      const errorBody = await res.clone().json();
+      console.error("Error response body:", errorBody);
+    } catch (e) {
+      console.error("Could not parse error response as JSON");
+    }
+  }
 
   await throwIfResNotOk(res);
   return res;

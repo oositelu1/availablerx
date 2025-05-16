@@ -68,7 +68,7 @@ export default function SalesOrdersPage() {
     },
   });
 
-  // Mutation for creating a new sales order - using the provided apiRequest function
+  // Mutation for creating a new sales order - direct implementation
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
       // Make sure customerId is provided and is a number
@@ -85,25 +85,33 @@ export default function SalesOrdersPage() {
         ? values.requestedShipDate.toISOString().split('T')[0] 
         : values.requestedShipDate;
       
-      // Get current user to include createdBy
-      const userData = await queryClient.fetchQuery({
-        queryKey: ['/api/user'],
-        queryFn: getQueryFn({ on401: "throw" }),
-      });
-      
-      // Prepare data for submission
+      // Prepare data for submission with the current user ID
       const submissionData = {
         ...values,
         customerId: Number(values.customerId),
-        createdBy: userData.id,
+        createdBy: user.id, // Use directly from user context
         orderDate: orderDate,
         requestedShipDate: requestedShipDate
       };
       
       console.log("Submitting sales order:", submissionData);
       
-      // Use the apiRequest function from queryClient for consistent auth handling
-      const response = await apiRequest('POST', '/api/sales-orders', submissionData);
+      // Direct fetch implementation with credentials
+      const response = await fetch('/api/sales-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(errorText || "Failed to create sales order");
+      }
+      
       return await response.json();
     },
     onSuccess: () => {
