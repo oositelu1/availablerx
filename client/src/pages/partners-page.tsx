@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { PartnerWizard } from "@/components/partner-wizard";
@@ -203,6 +204,12 @@ export default function PartnersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/partners/${partner.id}`}>
+                              <Building className="mr-2 h-4 w-4" />
+                              <span>View Details</span>
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem>
                             <Edit className="mr-2 h-4 w-4" />
                             <span>Edit</span>

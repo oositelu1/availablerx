@@ -28,6 +28,7 @@ function Router() {
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/upload" component={UploadPage} />
       <ProtectedRoute path="/partners" component={PartnersPage} />
+      <ProtectedRoute path="/partners/:id" component={PartnerDetailPage} />
       <ProtectedRoute path="/files" component={FileHistoryPage} />
       <ProtectedRoute path="/files/:id" component={FileDetailPage} />
       <ProtectedRoute path="/product-items/file/:fileId" component={ProductItemsPage} />
