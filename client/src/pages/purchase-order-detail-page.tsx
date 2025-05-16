@@ -92,6 +92,13 @@ export default function PurchaseOrderDetailPage() {
   // Mutation for associating a file with this PO
   const associateMutation = useMutation({
     mutationFn: async (values: AssociationFormValues) => {
+      // Get user info to include createdBy field
+      const userResponse = await fetch('/api/user');
+      if (!userResponse.ok) {
+        throw new Error("You must be logged in to associate files");
+      }
+      const userData = await userResponse.json();
+      
       const response = await fetch('/api/associations', {
         method: 'POST',
         headers: {
@@ -99,7 +106,8 @@ export default function PurchaseOrderDetailPage() {
         },
         body: JSON.stringify({
           ...values, 
-          poId
+          poId,
+          createdBy: userData.id
         }),
       });
       
