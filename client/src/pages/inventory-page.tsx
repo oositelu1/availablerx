@@ -70,9 +70,10 @@ export default function InventoryPage() {
       filters.expirationDateBefore = today.toISOString();
     }
     
-    let filtered = Array.isArray(inventoryItems) 
-      ? inventoryItems
-      : [];
+    // Handle both array format and object format with items property
+    let filtered = inventoryItems.items 
+      ? inventoryItems.items 
+      : (Array.isArray(inventoryItems) ? inventoryItems : []);
     
     // Apply search filter
     if (searchQuery) {
