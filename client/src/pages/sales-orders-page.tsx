@@ -68,44 +68,43 @@ export default function SalesOrdersPage() {
     },
   });
 
-  // Mutation for creating a new sales order
+  // Mutation for creating a new sales order - using the provided apiRequest function
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
-      // Get user info to include createdBy field
-      const userResponse = await fetch('/api/user');
-      if (!userResponse.ok) {
-        throw new Error("You must be logged in to create a sales order");
-      }
-      const userData = await userResponse.json();
-      
       // Make sure customerId is provided and is a number
       if (!values.customerId || isNaN(Number(values.customerId))) {
         throw new Error("Please select a customer");
       }
       
+      // Format dates to proper ISO strings
+      const orderDate = values.orderDate instanceof Date 
+        ? values.orderDate.toISOString().split('T')[0] 
+        : values.orderDate;
+        
+      const requestedShipDate = values.requestedShipDate instanceof Date 
+        ? values.requestedShipDate.toISOString().split('T')[0] 
+        : values.requestedShipDate;
+      
+      // Get current user to include createdBy
+      const userData = await queryClient.fetchQuery({
+        queryKey: ['/api/user'],
+        queryFn: getQueryFn({ on401: "throw" }),
+      });
+      
       // Prepare data for submission
       const submissionData = {
         ...values,
         customerId: Number(values.customerId),
-        createdBy: userData.id
+        createdBy: userData.id,
+        orderDate: orderDate,
+        requestedShipDate: requestedShipDate
       };
       
       console.log("Submitting sales order:", submissionData);
       
-      const response = await fetch('/api/sales-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submissionData),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create sales order");
-      }
-      
-      return response.json();
+      // Use the apiRequest function from queryClient for consistent auth handling
+      const response = await apiRequest('POST', '/api/sales-orders', submissionData);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sales-orders'] });
