@@ -436,7 +436,7 @@ export function PartnerLocations({ partnerId, partnerName }: PartnerLocationsPro
       
       {/* Add Location Dialog */}
       <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Location</DialogTitle>
           </DialogHeader>
@@ -638,7 +638,7 @@ export function PartnerLocations({ partnerId, partnerName }: PartnerLocationsPro
       
       {/* Edit Location Dialog */}
       <Dialog open={editLocationOpen} onOpenChange={setEditLocationOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Location</DialogTitle>
           </DialogHeader>
