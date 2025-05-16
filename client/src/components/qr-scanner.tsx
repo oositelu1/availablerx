@@ -16,6 +16,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   const [error, setError] = useState<string | null>(null);
   const [scanningActive, setScanningActive] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [scanAttempts, setScanAttempts] = useState(0); // Track scan attempts for debug
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,6 +64,16 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   const parseGS1Barcode = (text: string) => {
     console.log("Parsing barcode:", text);
     
+    // Try to identify if this is a GS1 barcode format
+    // GS1 barcodes typically have application identifiers in parentheses like (01), (10), (17), etc.
+    const isLikelyGS1 = /\(\d{2}\)/.test(text); // Simple test for presence of application identifiers
+    
+    if (isLikelyGS1) {
+      console.log("Detected GS1 format barcode");
+    } else {
+      console.log("Not a standard GS1 format, using raw text");
+    }
+    
     // Return the raw text - it should be in GS1 format like "(01)12345678901234(17)220930(10)ABC123"
     return text;
   };
@@ -78,6 +89,11 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     if (video.readyState !== video.HAVE_ENOUGH_DATA) {
       console.log("Video not ready yet, waiting for more data...");
       return;
+    }
+    
+    setScanAttempts(prev => prev + 1);
+    if (scanAttempts % 30 === 0) {
+      console.log(`Scanning attempt ${scanAttempts} - Camera is active`);
     }
     
     const canvas = canvasRef.current;
@@ -99,39 +115,102 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       // Draw the current video frame to the canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Get the image data for scanning
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      // Multi-scan approach - scan different regions and scales of the image
+      // This increases chance of reading codes that are at an angle or partially visible
       
-      // Use jsQR to attempt to find a QR code in the image
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "attemptBoth", // Try both normal and inverted colors
+      // Full frame scan
+      const fullImageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const fullCode = jsQR(fullImageData.data, fullImageData.width, fullImageData.height, {
+        inversionAttempts: "attemptBoth" // Try both normal and inverted colors
       });
       
-      // If a code was found, process it
-      if (code) {
-        console.log("QR Code found:", code.data);
+      if (fullCode) {
+        handleDetectedCode(fullCode, context);
+        return;
+      }
+      
+      // Center region scan (where most users hold the barcode)
+      const centerX = Math.floor(canvas.width / 4);
+      const centerY = Math.floor(canvas.height / 4);
+      const centerWidth = Math.floor(canvas.width / 2);
+      const centerHeight = Math.floor(canvas.height / 2);
+      
+      const centerImageData = context.getImageData(centerX, centerY, centerWidth, centerHeight);
+      const centerCode = jsQR(centerImageData.data, centerImageData.width, centerImageData.height, {
+        inversionAttempts: "attemptBoth"
+      });
+      
+      if (centerCode) {
+        // Adjust location coordinates to match the full canvas
+        centerCode.location.topLeftCorner.x += centerX;
+        centerCode.location.topLeftCorner.y += centerY;
+        centerCode.location.topRightCorner.x += centerX;
+        centerCode.location.topRightCorner.y += centerY;
+        centerCode.location.bottomLeftCorner.x += centerX;
+        centerCode.location.bottomLeftCorner.y += centerY;
+        centerCode.location.bottomRightCorner.x += centerX;
+        centerCode.location.bottomRightCorner.y += centerY;
         
-        // Draw a highlight around the detected code
-        context.beginPath();
-        context.lineWidth = 4;
-        context.strokeStyle = "#FF3B58";
-        context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-        context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
-        context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
-        context.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
-        context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-        context.stroke();
+        handleDetectedCode(centerCode, context);
+        return;
+      }
+      
+      // If this is a frequent scan attempt (every 5 attempts), try grayscale conversion to improve contrast
+      if (scanAttempts % 5 === 0) {
+        // Convert to grayscale for better contrast
+        const grayImageData = new ImageData(
+          new Uint8ClampedArray(fullImageData.data),
+          fullImageData.width,
+          fullImageData.height
+        );
         
-        // Parse the barcode data
-        const parsedCode = parseGS1Barcode(code.data);
+        // Apply grayscale filter
+        for (let i = 0; i < grayImageData.data.length; i += 4) {
+          const gray = (grayImageData.data[i] + grayImageData.data[i+1] + grayImageData.data[i+2]) / 3;
+          grayImageData.data[i] = gray;
+          grayImageData.data[i+1] = gray;
+          grayImageData.data[i+2] = gray;
+        }
         
-        // Stop scanning and call the success handler
-        stopScanning();
-        onScanSuccess(parsedCode, { result: code });
+        const grayCode = jsQR(grayImageData.data, grayImageData.width, grayImageData.height, {
+          inversionAttempts: "attemptBoth"
+        });
+        
+        if (grayCode) {
+          handleDetectedCode(grayCode, context);
+          return;
+        }
       }
     } catch (err) {
       console.error("Error processing video frame:", err);
     }
+  };
+  
+  // Helper function to handle detected QR/barcode
+  const handleDetectedCode = (code: any, context: CanvasRenderingContext2D) => {
+    console.log("Code detected:", code.data);
+    
+    // Draw a highlight around the detected code
+    context.beginPath();
+    context.lineWidth = 4;
+    context.strokeStyle = "#FF3B58";
+    context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+    context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
+    context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
+    context.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
+    context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+    context.stroke();
+    
+    // Fill in the QR code for highlighting
+    context.fillStyle = "rgba(255, 59, 88, 0.2)";
+    context.fill();
+    
+    // Parse the barcode data
+    const parsedCode = parseGS1Barcode(code.data);
+    
+    // Stop scanning and call the success handler
+    stopScanning();
+    onScanSuccess(parsedCode, { result: code });
   };
   
   // Start camera and scanning function - adapted from the provided example
