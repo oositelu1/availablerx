@@ -435,12 +435,32 @@ export const inventory = pgTable("inventory", {
   createdBy: integer("created_by").notNull().references(() => users.id),
 });
 
-export const insertInventorySchema = createInsertSchema(inventory).omit({
+// Create a base schema first
+const baseInsertInventorySchema = createInsertSchema(inventory).omit({
   id: true,
   createdAt: true,
   lastScannedAt: true,
   lastScannedBy: true,
   shippedAt: true,
+});
+
+// Then extend it with proper date handling
+export const insertInventorySchema = z.object({
+  ...baseInsertInventorySchema.shape,
+  receivedAt: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') return new Date(val);
+      return val;
+    },
+    z.date()
+  ),
+  expirationDate: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') return new Date(val);
+      return val;
+    }, 
+    z.date()
+  )
 });
 
 // Inventory Transaction History
