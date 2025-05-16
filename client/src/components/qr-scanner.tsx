@@ -81,18 +81,25 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       const html5QrCode = new Html5Qrcode(scannerContainerId);
       scannerRef.current = html5QrCode;
       
-      // Configure scanner with optimal settings for reliability
+      // Simplified config - removing problematic formats
       const config = { 
         fps: 10, 
         qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0,
-        // Use numeric values instead of enum references to avoid issues
-        formatsToSupport: [2, 0] // 2 is DATA_MATRIX, 0 is QR_CODE
+        aspectRatio: 1.0
       };
       
-      // Basic camera with environment (rear) preference
+      console.log("Starting camera scanner...");
+      
+      // Try to get available cameras first
+      const devices = await Html5Qrcode.getCameras();
+      console.log("Available cameras:", devices);
+      
+      // Use first camera if available, otherwise default to environment facing
+      const cameraId = devices && devices.length > 0 ? devices[0].id : { facingMode: "environment" };
+      
+      // Start the scanner with simplified config
       await html5QrCode.start(
-        { facingMode: "environment" }, 
+        cameraId, 
         config,
         (decodedText, decodedResult) => {
           onScanSuccess(decodedText, decodedResult);
@@ -107,6 +114,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     } catch (err) {
       setIsScanning(false);
       let errorMsg = err instanceof Error ? err.message : String(err);
+      console.error("Camera error details:", err);
       
       // Make error messages more user-friendly
       if (errorMsg.includes("OverconstrainedError")) {
@@ -117,10 +125,19 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         errorMsg = "No camera found. Please ensure your device has a camera.";
       } else if (errorMsg.includes("NotReadableError")) {
         errorMsg = "Camera is in use by another application or not accessible.";
+      } else if (errorMsg.includes("undefined is not an object")) {
+        errorMsg = "Browser compatibility issue. Try using Chrome or Safari.";
+      } else if (errorMsg.toLowerCase().includes("insecure context")) {
+        errorMsg = "Camera requires a secure connection (HTTPS).";
       }
       
-      setError(`Failed to start camera: ${errorMsg}`);
-      if (onScanError) onScanError(`Failed to start camera: ${errorMsg}`);
+      // Log detailed troubleshooting info
+      console.log("Scanner container:", document.getElementById(scannerContainerId));
+      console.log("Is HTTPS:", window.location.protocol === "https:");
+      console.log("User Agent:", navigator.userAgent);
+      
+      setError(`Camera issue: ${errorMsg}`);
+      if (onScanError) onScanError(`Camera issue: ${errorMsg}`);
     }
   };
 
