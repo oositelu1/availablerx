@@ -60,11 +60,13 @@ export default function SalesOrdersPage() {
     resolver: zodResolver(salesOrderSchema),
     defaultValues: {
       soNumber: "",
-      customerId: undefined, // This was missing
+      customerId: undefined,
       customerGln: null,
       orderDate: new Date(),
       requestedShipDate: null,
       status: "draft",
+      notes: null,
+      shipToLocationId: null,
     },
   });
 
@@ -366,13 +368,18 @@ export default function SalesOrdersPage() {
                       <FormLabel>Customer</FormLabel>
                       <Select 
                         onValueChange={(value) => {
-                          field.onChange(parseInt(value, 10));
-                          const selectedPartner = partners?.find(p => p.id === parseInt(value, 10));
-                          if (selectedPartner) {
-                            form.setValue('customerGln', selectedPartner.gln || null);
+                          // Ensure we're setting a number value and not a string
+                          const numericValue = parseInt(value, 10);
+                          if (!isNaN(numericValue)) {
+                            field.onChange(numericValue);
+                            // Find the selected partner and update GLN if available
+                            const selectedPartner = partners?.find(p => p.id === numericValue);
+                            if (selectedPartner) {
+                              form.setValue('customerGln', selectedPartner.gln || null);
+                            }
                           }
                         }}
-                        value={field.value?.toString()}
+                        value={field.value !== undefined ? field.value.toString() : ""}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -387,6 +394,9 @@ export default function SalesOrdersPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormDescription>
+                        Required to create a sales order
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
