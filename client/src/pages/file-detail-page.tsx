@@ -150,6 +150,34 @@ export default function FileDetailPage() {
     },
   });
 
+  // Create inventory items from EPCIS file
+  const createInventoryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/inventory/from-epcis/${fileId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create inventory items");
+      }
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Inventory Created",
+        description: `Successfully created ${data.itemsCreated} inventory items from this EPCIS file.`,
+        variant: "success",
+      });
+      // Navigate to inventory page to see the newly created items
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Create Inventory",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Download file mutation
   const downloadMutation = useMutation({
     mutationFn: async () => {
@@ -317,6 +345,22 @@ export default function FileDetailPage() {
             <ShoppingCart className="h-4 w-4" />
             Associate PO
           </Button>
+
+          {(productItems && productItems.length > 0) && (
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => createInventoryMutation.mutate()}
+              disabled={createInventoryMutation.isPending}
+            >
+              {createInventoryMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+              Create Inventory
+            </Button>
+          )}
         </div>
       </div>
 
