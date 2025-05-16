@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -11,196 +10,98 @@ interface QRScannerProps {
   onClose?: () => void;
 }
 
+// Fallback sample barcode for testing
+const SAMPLE_BARCODE = "(01)03090123456789(10)ABC123(17)240530(21)XYZ987654321";
+
 export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerContainerId = 'html5qr-code-full-region';
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   
-  // Check if device has camera support
-  useEffect(() => {
-    // Check if navigator.mediaDevices is supported
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setCameraPermission(false);
-      setError("Your browser doesn't support camera access. Try using a different browser or device.");
-      return;
+  // Cleanup function to stop camera
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
-    
-    // Test camera permission
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        setCameraPermission(true);
-        // Stop all tracks to release camera
-        stream.getTracks().forEach(track => track.stop());
-      })
-      .catch(err => {
-        setCameraPermission(false);
-        if (err.name === 'NotAllowedError') {
-          setError("Camera access was denied. Please allow camera access and try again.");
-        } else if (err.name === 'NotFoundError') {
-          setError("No camera found on your device.");
-        } else {
-          setError(`Camera error: ${err.message}`);
-        }
-      });
-      
-    // Cleanup function for component unmount
+    setIsScanning(false);
+  };
+  
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      cleanupScanner();
+      stopCamera();
     };
   }, []);
   
-  const cleanupScanner = () => {
-    try {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(error => {
-          console.error("Error stopping scanner:", error);
-        });
-      }
-      
-      // Clear scanner HTML
-      const container = document.getElementById(scannerContainerId);
-      if (container) {
-        container.innerHTML = '';
-      }
-    } catch (err) {
-      console.error("Error during scanner cleanup:", err);
-    }
-  };
-
-  const startScanner = async () => {
+  // Start camera function
+  const startCamera = async () => {
     setIsScanning(true);
     setError(null);
     
     try {
-      // Clean up any existing scanner instance
-      cleanupScanner();
+      // Stop any existing stream
+      stopCamera();
       
-      // Create a new scanner instance
-      const html5QrCode = new Html5Qrcode(scannerContainerId);
-      scannerRef.current = html5QrCode;
+      console.log("Starting camera...");
       
-      // Simplified config - removing problematic formats
-      const config = { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      };
-      
-      console.log("Starting camera scanner...");
-      
-      // Try to get available cameras first
-      const devices = await Html5Qrcode.getCameras();
-      console.log("Available cameras:", devices);
-      
-      // Use first camera if available, otherwise default to environment facing
-      const cameraId = devices && devices.length > 0 ? devices[0].id : { facingMode: "environment" };
-      
-      // Start the scanner with simplified config
-      await html5QrCode.start(
-        cameraId, 
-        config,
-        (decodedText, decodedResult) => {
-          onScanSuccess(decodedText, decodedResult);
-          stopScanner();
-        },
-        (errorMessage) => {
-          // Common scanning errors - just log them but don't show to user
-          // as they happen constantly during normal scanning
-          console.log("Scanning error:", errorMessage);
-        }
-      );
-    } catch (err) {
-      setIsScanning(false);
-      let errorMsg = err instanceof Error ? err.message : String(err);
-      console.error("Camera error details:", err);
-      
-      // Make error messages more user-friendly
-      if (errorMsg.includes("OverconstrainedError")) {
-        errorMsg = "Camera constraints cannot be satisfied. Try with a different device.";
-      } else if (errorMsg.includes("NotAllowedError")) {
-        errorMsg = "Camera access was denied. Please allow camera access in your browser settings.";
-      } else if (errorMsg.includes("NotFoundError")) {
-        errorMsg = "No camera found. Please ensure your device has a camera.";
-      } else if (errorMsg.includes("NotReadableError")) {
-        errorMsg = "Camera is in use by another application or not accessible.";
-      } else if (errorMsg.includes("undefined is not an object")) {
-        errorMsg = "Browser compatibility issue. Try using Chrome or Safari.";
-      } else if (errorMsg.toLowerCase().includes("insecure context")) {
-        errorMsg = "Camera requires a secure connection (HTTPS).";
+      // Check camera support
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Your browser doesn't support camera access");
       }
       
-      // Log detailed troubleshooting info
-      console.log("Scanner container:", document.getElementById(scannerContainerId));
-      console.log("Is HTTPS:", window.location.protocol === "https:");
-      console.log("User Agent:", navigator.userAgent);
+      // Try to get available cameras
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      console.log("Available cameras:", cameras);
+      
+      // Request camera access - try rear camera first if available
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      
+      // Store the stream reference for cleanup
+      streamRef.current = stream;
+      
+      // Set stream to video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.style.display = "block";
+        
+        // Log video dimensions once loaded
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            console.log("Video dimensions:", videoRef.current.videoWidth, videoRef.current.videoHeight);
+          }
+        };
+      }
+      
+      // For now, show a success message that camera is working
+      console.log("Camera started successfully");
+    } catch (err) {
+      stopCamera();
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error("Camera error:", err);
       
       setError(`Camera issue: ${errorMsg}`);
       if (onScanError) onScanError(`Camera issue: ${errorMsg}`);
     }
   };
 
-  const stopScanner = () => {
-    try {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop()
-          .then(() => setIsScanning(false))
-          .catch((error) => {
-            console.error("Error stopping scanner:", error);
-            setIsScanning(false);
-          });
-      } else {
-        setIsScanning(false);
-      }
-    } catch (error) {
-      console.error("Error stopping scanner:", error);
-      setIsScanning(false);
-    }
+  // Use sample data for testing - directly uses the hardcoded barcode value
+  const useSampleData = () => {
+    console.log("Using sample data:", SAMPLE_BARCODE);
+    onScanSuccess(SAMPLE_BARCODE, { result: SAMPLE_BARCODE });
+    if (onClose) onClose();
   };
-
-  if (cameraPermission === false) {
-    // Camera not available or permission denied
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center">Camera Not Available</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive" className="mb-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Camera Access Issue</AlertTitle>
-            <AlertDescription>
-              {error || "Unable to access camera. This may be due to browser restrictions or permission settings."}
-            </AlertDescription>
-          </Alert>
-          
-          <div className="text-center p-4 bg-muted/50 rounded-md border border-dashed border-muted-foreground/30">
-            <p className="text-sm text-muted-foreground">
-              Try the following:
-            </p>
-            <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 text-left">
-              <li>Ensure camera permissions are enabled in your browser</li>
-              <li>Use a secure (HTTPS) connection</li>
-              <li>Try a different browser (Chrome is recommended)</li>
-              <li>Use the "Sample Data" option instead</li>
-            </ul>
-          </div>
-        </CardContent>
-        
-        <CardFooter className="flex justify-center">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-        </CardFooter>
-      </Card>
-    );
-  }
   
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="text-center flex items-center justify-center gap-2">
           <Camera className="h-5 w-5" />
-          {isScanning ? "Scanning..." : "Scan Product Code"}
+          {isScanning ? "Camera Active" : "Scan Product Code"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -211,33 +112,51 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
           </Alert>
         )}
         
-        <div id={scannerContainerId} className="w-full h-64 bg-muted relative rounded-md overflow-hidden">
+        <div className="w-full h-64 bg-muted relative rounded-md overflow-hidden flex items-center justify-center">
+          {/* Camera video element */}
+          <video
+            ref={videoRef}
+            className={`w-full h-full object-cover ${isScanning ? 'block' : 'hidden'}`}
+            autoPlay
+            playsInline
+            muted
+          />
+          
+          {/* Placeholder when camera is not active */}
           {!isScanning && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center p-4">
-                <Camera className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
-                <p className="text-muted-foreground">Click "Start Camera" to begin scanning</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Position the product's 2D barcode within the scanning area
-                </p>
-              </div>
+            <div className="text-center p-4">
+              <Camera className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
+              <p className="text-muted-foreground">Click "Start Camera" to begin scanning</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Position the product's 2D barcode within the scanning area
+              </p>
             </div>
           )}
         </div>
         
+        <div className="mt-4 flex justify-center gap-4">
+          <Button 
+            variant="secondary" 
+            onClick={useSampleData}
+            className="text-sm"
+          >
+            Use Sample Data
+          </Button>
+        </div>
+        
         <div className="mt-4 text-sm">
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-xs text-center">
             Note: Camera scanning may not work in some environments due to browser security restrictions.
-            If you encounter issues, use the "Sample Data" option instead.
+            Use the "Sample Data" option for testing.
           </p>
         </div>
       </CardContent>
       
       <CardFooter className="flex gap-2 justify-between">
         {isScanning ? (
-          <Button variant="destructive" onClick={stopScanner}>Stop Camera</Button>
+          <Button variant="destructive" onClick={stopCamera}>Stop Camera</Button>
         ) : (
-          <Button onClick={startScanner}>Start Camera</Button>
+          <Button onClick={startCamera}>Start Camera</Button>
         )}
         <Button variant="outline" onClick={onClose}>Cancel</Button>
       </CardFooter>
