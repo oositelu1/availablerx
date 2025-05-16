@@ -172,6 +172,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
   poNumber: varchar("po_number", { length: 50 }).notNull().unique(),
   partnerId: integer("partner_id").notNull().references(() => partners.id), // Link to supplier partner
   supplierGln: varchar("supplier_gln", { length: 50 }).notNull(),
+  customer: varchar("customer", { length: 200 }), // Customer name field
   shipToLocationId: integer("ship_to_location_id").references(() => partnerLocations.id), // Optional specific ship-to location
   orderDate: date("order_date").notNull(),
   expectedShipDate: date("expected_ship_date"),
