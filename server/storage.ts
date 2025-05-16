@@ -150,6 +150,7 @@ export interface IStorage {
   getInventoryItem(id: number): Promise<Inventory | undefined>;
   getInventoryBySGTIN(gtin: string, serialNumber: string): Promise<Inventory | undefined>;
   updateInventoryItem(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined>;
+  createInventoryFromFile(fileId: number, userId: number): Promise<number>; // Returns count of items created
   listInventory(filters?: {
     status?: string;
     gtin?: string;
