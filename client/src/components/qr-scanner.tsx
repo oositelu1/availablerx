@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Camera, AlertTriangle } from 'lucide-react';
+import { Camera, AlertTriangle, Loader2 } from 'lucide-react';
+import jsQR from 'jsqr';
 
 interface QRScannerProps {
   onScanSuccess: (decodedText: string, decodedResult: any) => void;
@@ -10,90 +11,163 @@ interface QRScannerProps {
   onClose?: () => void;
 }
 
-// Fallback sample barcode for testing
-const SAMPLE_BARCODE = "(01)03090123456789(10)ABC123(17)240530(21)XYZ987654321";
-
 export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [scanningActive, setScanningActive] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   
-  // Cleanup function to stop camera
-  const stopCamera = () => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
+  
+  // Cleanup function to stop camera and scanning
+  const stopScanning = () => {
+    // Stop the scanning interval
+    if (scanIntervalRef.current) {
+      window.clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    
+    // Stop the camera stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    
+    // Reset UI state
     setIsScanning(false);
+    setScanningActive(false);
+    setCameraReady(false);
   };
   
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopCamera();
+      stopScanning();
     };
   }, []);
   
-  // Start camera function
-  const startCamera = async () => {
+  // Function to parse a GS1 barcode (Data Matrix or QR)
+  const parseGS1Barcode = (text: string) => {
+    console.log("Parsing barcode:", text);
+    
+    // Return the raw text - it should be in GS1 format like "(01)12345678901234(17)220930(10)ABC123"
+    return text;
+  };
+  
+  // Function to scan for QR/Data Matrix codes in the video stream
+  const scanVideoForCode = () => {
+    if (!videoRef.current || !canvasRef.current || !cameraReady) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    
+    if (!context) return;
+    
+    // Set the canvas dimensions to match the video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Only continue if the video is playing
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    
+    try {
+      // Draw the current video frame to the canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get the image data for scanning
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Use jsQR to attempt to find a QR code in the image
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+      
+      // If a code was found, process it
+      if (code) {
+        console.log("QR Code found:", code);
+        
+        // Parse the barcode data
+        const parsedCode = parseGS1Barcode(code.data);
+        
+        // Stop scanning and call the success handler
+        stopScanning();
+        onScanSuccess(parsedCode, { result: code });
+      }
+    } catch (err) {
+      console.error("Error processing video frame:", err);
+    }
+  };
+  
+  // Start camera and scanning function
+  const startScanning = async () => {
     setIsScanning(true);
     setError(null);
     
     try {
-      // Stop any existing stream
-      stopCamera();
+      // Cleanup any existing scanning/camera
+      stopScanning();
       
-      console.log("Starting camera...");
+      console.log("Starting camera for barcode scanning...");
       
       // Check camera support
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error("Your browser doesn't support camera access");
       }
       
-      // Try to get available cameras
+      // Get available cameras
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cameras = devices.filter(device => device.kind === 'videoinput');
       console.log("Available cameras:", cameras);
       
-      // Request camera access - try rear camera first if available
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-      });
+      // Request camera access - try environment facing camera first (back camera on phones)
+      const constraints = {
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
       
-      // Store the stream reference for cleanup
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       
-      // Set stream to video element
+      // Set the stream to the video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.style.display = "block";
         
-        // Log video dimensions once loaded
+        // Setup event for when video is ready
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
-            console.log("Video dimensions:", videoRef.current.videoWidth, videoRef.current.videoHeight);
+            console.log("Video ready, dimensions:", videoRef.current.videoWidth, videoRef.current.videoHeight);
+            videoRef.current.play().then(() => {
+              setCameraReady(true);
+              setScanningActive(true);
+              
+              // Start the scanning interval
+              scanIntervalRef.current = window.setInterval(scanVideoForCode, 100); // scan every 100ms
+            }).catch(err => {
+              console.error("Error playing video:", err);
+              setError("Could not start video stream: " + err.message);
+              stopScanning();
+            });
           }
         };
+      } else {
+        throw new Error("Video element not found");
       }
       
-      // For now, show a success message that camera is working
-      console.log("Camera started successfully");
     } catch (err) {
-      stopCamera();
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error("Camera error:", err);
       
       setError(`Camera issue: ${errorMsg}`);
       if (onScanError) onScanError(`Camera issue: ${errorMsg}`);
+      stopScanning();
     }
-  };
-
-  // Use sample data for testing - directly uses the hardcoded barcode value
-  const useSampleData = () => {
-    console.log("Using sample data:", SAMPLE_BARCODE);
-    onScanSuccess(SAMPLE_BARCODE, { result: SAMPLE_BARCODE });
-    if (onClose) onClose();
   };
   
   return (
@@ -101,7 +175,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       <CardHeader>
         <CardTitle className="text-center flex items-center justify-center gap-2">
           <Camera className="h-5 w-5" />
-          {isScanning ? "Camera Active" : "Scan Product Code"}
+          {isScanning ? "Scanning for Barcodes..." : "Scan Product Code"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -113,7 +187,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         )}
         
         <div className="w-full h-64 bg-muted relative rounded-md overflow-hidden flex items-center justify-center">
-          {/* Camera video element */}
+          {/* Camera video element (always present but toggle display) */}
           <video
             ref={videoRef}
             className={`w-full h-full object-cover ${isScanning ? 'block' : 'hidden'}`}
@@ -121,6 +195,23 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
             playsInline
             muted
           />
+          
+          {/* Hidden canvas for image processing */}
+          <canvas 
+            ref={canvasRef} 
+            className="hidden"
+          />
+          
+          {/* Scanning indicator overlay */}
+          {isScanning && scanningActive && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="bg-black/40 rounded-lg p-3 flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-white" />
+                <span className="text-white font-medium">Scanning...</span>
+              </div>
+              <div className="absolute inset-0 border-2 border-primary/50 rounded-md pointer-events-none"></div>
+            </div>
+          )}
           
           {/* Placeholder when camera is not active */}
           {!isScanning && (
@@ -134,29 +225,19 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
           )}
         </div>
         
-        <div className="mt-4 flex justify-center gap-4">
-          <Button 
-            variant="secondary" 
-            onClick={useSampleData}
-            className="text-sm"
-          >
-            Use Sample Data
-          </Button>
-        </div>
-        
         <div className="mt-4 text-sm">
           <p className="text-muted-foreground text-xs text-center">
-            Note: Camera scanning may not work in some environments due to browser security restrictions.
-            Use the "Sample Data" option for testing.
+            Camera scanning requires secure browsing (HTTPS) and camera permissions.
+            Hold the camera steady over the barcode for best results.
           </p>
         </div>
       </CardContent>
       
       <CardFooter className="flex gap-2 justify-between">
         {isScanning ? (
-          <Button variant="destructive" onClick={stopCamera}>Stop Camera</Button>
+          <Button variant="destructive" onClick={stopScanning}>Stop Camera</Button>
         ) : (
-          <Button onClick={startCamera}>Start Camera</Button>
+          <Button onClick={startScanning}>Start Camera</Button>
         )}
         <Button variant="outline" onClick={onClose}>Cancel</Button>
       </CardFooter>

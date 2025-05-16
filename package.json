@@ -63,6 +63,7 @@
     "framer-motion": "^11.13.1",
     "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
+    "jsqr": "^1.4.0",
     "libxmljs2": "^0.35.0",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
