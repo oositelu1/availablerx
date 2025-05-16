@@ -86,7 +86,8 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         fps: 10, 
         qrbox: { width: 250, height: 250 },
         aspectRatio: 1.0,
-        formatsToSupport: [Html5Qrcode.FORMATS.DATA_MATRIX, Html5Qrcode.FORMATS.QR_CODE]
+        // Use numeric values instead of enum references to avoid issues
+        formatsToSupport: [2, 0] // 2 is DATA_MATRIX, 0 is QR_CODE
       };
       
       // Basic camera with environment (rear) preference
