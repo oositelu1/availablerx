@@ -187,6 +187,9 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
           <p className="text-muted-foreground">Track and manage serialized pharmaceutical inventory</p>
         </div>
+        <Button onClick={() => window.location.href = '/inventory/add'}>
+          Add Inventory Item
+        </Button>
       </div>
       
       {/* Inventory Statistics */}

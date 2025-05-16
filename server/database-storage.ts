@@ -1105,7 +1105,7 @@ export class DatabaseStorage implements IStorage {
 
   // Inventory Management
   
-  async createInventory(item: InsertInventory): Promise<Inventory> {
+  async createInventoryItem(item: InsertInventory): Promise<Inventory> {
     const [newItem] = await db.insert(inventory)
       .values({
         gtin: item.gtin,
@@ -1127,7 +1127,7 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
   
-  async getInventory(id: number): Promise<Inventory | undefined> {
+  async getInventoryItem(id: number): Promise<Inventory | undefined> {
     const [item] = await db.select()
       .from(inventory)
       .where(eq(inventory.id, id));
@@ -1144,7 +1144,7 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
   
-  async updateInventory(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined> {
+  async updateInventoryItem(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined> {
     // If updating status, set lastMovementDate to current date
     if (updates.status) {
       updates.lastMovementDate = new Date();
@@ -1230,7 +1230,7 @@ export class DatabaseStorage implements IStorage {
     const items = await query;
     
     // Count total rows for pagination
-    let countQuery = db.select({ count: count() }).from(inventory);
+    let countQuery = db.select({ count: sql`count(*)` }).from(inventory);
     if (whereConditions.length > 0) {
       countQuery = countQuery.where(and(...whereConditions));
     }
