@@ -1,15 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Calendar, FileText, Package, Plus, Search, Truck } from "lucide-react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { insertSalesOrderSchema } from "@shared/schema";
 import { Layout } from "@/components/layout/layout";
+import { insertSalesOrderSchema } from "@shared/schema";
+import { CreateSalesOrderForm } from "@/components/sales-order/create-sales-order-form";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,6 @@ export default function SalesOrdersPage() {
     customer: string;
     status: string;
     orderDate: string;
-    // Add other fields as needed
   }
   
   // Define sales orders response interface
@@ -73,7 +71,6 @@ export default function SalesOrdersPage() {
     name: string;
     gln: string | null;
     partnerType: string;
-    // Add other fields as needed
   }
 
   // Fetch partners for customer selection
@@ -81,123 +78,6 @@ export default function SalesOrdersPage() {
     queryKey: ['/api/partners'],
     enabled: !!user,
   });
-
-  // Set up form for creating sales orders
-  const form = useForm<SalesOrderFormValues>({
-    resolver: zodResolver(salesOrderSchema),
-    defaultValues: {
-      soNumber: "",
-      customerId: undefined,
-      customerGln: null,
-      orderDate: new Date(),
-      requestedShipDate: null,
-      status: "draft",
-      notes: null,
-      shipToLocationId: null,
-    },
-  });
-
-  // Mutation for creating sales orders using direct API call to ensure correct endpoint
-  const createMutation = useMutation({
-    mutationFn: async (values: SalesOrderFormValues) => {
-      // Validate customer selection
-      if (!values.customerId || isNaN(Number(values.customerId))) {
-        throw new Error("Please select a customer");
-      }
-      
-      // Create a clean payload specifically for SALES orders
-      const payload = {
-        soNumber: values.soNumber,
-        customerId: Number(values.customerId),
-        status: values.status || "draft",
-        orderDate: values.orderDate instanceof Date 
-          ? values.orderDate.toISOString().split('T')[0] 
-          : values.orderDate,
-        notes: values.notes || null,
-        customerGln: values.customerGln || null,
-        shipToLocationId: values.shipToLocationId || null,
-        requestedShipDate: values.requestedShipDate instanceof Date 
-          ? values.requestedShipDate.toISOString().split('T')[0] 
-          : null
-      };
-      
-      console.log("Creating SALES order with:", payload);
-      
-      // Use direct fetch and explicitly target the SALES ORDER endpoint
-      try {
-        const response = await fetch('/api/sales-orders', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          credentials: 'include'
-        });
-        
-        console.log(`Sales order API response status: ${response.status}`);
-        
-        if (!response.ok) {
-          let errorMessage = "Failed to create sales order";
-          try {
-            const errorData = await response.json();
-            console.error("Sales order creation error:", errorData);
-            errorMessage = errorData.message || errorMessage;
-            
-            if (errorData.errors && Array.isArray(errorData.errors)) {
-              errorMessage = errorData.errors.map((e: any) => e.message || e.path).join(', ');
-            }
-          } catch (e) {
-            const text = await response.text();
-            console.error("Raw error response from sales order API:", text);
-            errorMessage = text || errorMessage;
-          }
-          throw new Error(errorMessage);
-        }
-        
-        // Successfully created a sales order
-        const data = await response.json();
-        console.log("Sales order created successfully:", data);
-        return data;
-      } catch (error) {
-        console.error("Sales order creation failed:", error);
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sales-orders'] });
-      setCreateDialogOpen(false);
-      form.reset();
-      toast({
-        title: "Sales Order Created",
-        description: "The sales order has been successfully created.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (values: SalesOrderFormValues) => {
-    // Log the values for debugging
-    console.log("Form values being submitted:", values);
-    
-    // Make sure customerId is provided and is a number
-    if (!values.customerId) {
-      toast({
-        title: "Error",
-        description: "Please select a customer",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Execute the mutation with the values
-    createMutation.mutate(values);
-  };
 
   // Extract and normalize the sales orders array from the API response
   const salesOrdersArray = salesOrders?.orders || [];
@@ -240,7 +120,7 @@ export default function SalesOrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
           <p className="text-muted-foreground">Manage sales orders and track inventory allocation</p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <Button onClick={() => setLocation('/create-sales-order')}>
           <Plus className="mr-2 h-4 w-4" /> Create Sales Order
         </Button>
       </div>
@@ -347,14 +227,7 @@ export default function SalesOrdersPage() {
       {/* Create Sales Order Dialog */}
       <Dialog 
         open={createDialogOpen} 
-        onOpenChange={(open) => {
-          console.log("Dialog open state changing to:", open);
-          setCreateDialogOpen(open);
-          // Reset form when closing dialog
-          if (!open) {
-            form.reset();
-          }
-        }}
+        onOpenChange={setCreateDialogOpen}
       >
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -364,160 +237,15 @@ export default function SalesOrdersPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="soNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SO Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="SO-12345" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="picking">Picking</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="customerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Customer</FormLabel>
-                      <Select 
-                        onValueChange={(value) => {
-                          // Ensure we're setting a number value and not a string
-                          const numericValue = parseInt(value, 10);
-                          if (!isNaN(numericValue)) {
-                            field.onChange(numericValue);
-                            // Find the selected partner and update GLN if available
-                            const selectedPartner = partners?.find(p => p.id === numericValue);
-                            if (selectedPartner) {
-                              form.setValue('customerGln', selectedPartner.gln || null);
-                            }
-                          }
-                        }}
-                        value={field.value !== undefined ? field.value.toString() : ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select customer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {partners?.map(partner => (
-                            <SelectItem key={partner.id} value={partner.id.toString()}>
-                              {partner.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Required to create a sales order
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="customerGln"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Customer GLN</FormLabel>
-                      <FormControl>
-                        <Input placeholder="0123456789012" {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="orderDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Order Date</FormLabel>
-                      <DatePicker 
-                        date={field.value} 
-                        setDate={field.onChange} 
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="requestedShipDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Requested Ship Date</FormLabel>
-                      <DatePicker 
-                        date={field.value} 
-                        setDate={field.onChange} 
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setCreateDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createMutation.isPending}
-                >
-                  {createMutation.isPending ? "Creating..." : "Create Sales Order"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          {/* Using the dedicated sales order creation form */}
+          {partners && (
+            <div className="py-4">
+              <CreateSalesOrderForm 
+                partners={partners} 
+                onSuccess={() => setCreateDialogOpen(false)} 
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </Layout>
