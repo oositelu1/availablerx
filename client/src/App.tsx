@@ -4,6 +4,7 @@ import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import UploadPage from "@/pages/upload-page";
 import PartnersPage from "@/pages/partners-page";
+import PartnerDetailPage from "@/pages/partner-detail-page";
 import FileHistoryPage from "@/pages/file-history-page";
 import FileDetailPage from "@/pages/file-detail-page";
 import ProductItemsPage from "@/pages/product-items-page";
