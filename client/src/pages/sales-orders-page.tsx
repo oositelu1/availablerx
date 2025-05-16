@@ -337,7 +337,17 @@ export default function SalesOrdersPage() {
       </Card>
 
       {/* Create Sales Order Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog 
+        open={createDialogOpen} 
+        onOpenChange={(open) => {
+          console.log("Dialog open state changing to:", open);
+          setCreateDialogOpen(open);
+          // Reset form when closing dialog
+          if (!open) {
+            form.reset();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Create Sales Order</DialogTitle>
