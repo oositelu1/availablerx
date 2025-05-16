@@ -68,7 +68,7 @@ export default function SalesOrdersPage() {
     },
   });
 
-  // Mutation for creating a new sales order - direct implementation
+  // Simple direct mutation
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
       // Make sure customerId is provided and is a number
@@ -76,43 +76,48 @@ export default function SalesOrdersPage() {
         throw new Error("Please select a customer");
       }
       
-      // Format dates to proper ISO strings
-      const orderDate = values.orderDate instanceof Date 
-        ? values.orderDate.toISOString().split('T')[0] 
-        : values.orderDate;
-        
-      const requestedShipDate = values.requestedShipDate instanceof Date 
-        ? values.requestedShipDate.toISOString().split('T')[0] 
-        : values.requestedShipDate;
-      
-      // Prepare data for submission with the current user ID
-      const submissionData = {
+      // Format dates properly for backend
+      const formattedData = {
         ...values,
         customerId: Number(values.customerId),
-        createdBy: user.id, // Use directly from user context
-        orderDate: orderDate,
-        requestedShipDate: requestedShipDate
+        orderDate: values.orderDate instanceof Date 
+          ? values.orderDate.toISOString().split('T')[0] 
+          : values.orderDate,
+        requestedShipDate: values.requestedShipDate instanceof Date 
+          ? values.requestedShipDate.toISOString().split('T')[0] 
+          : values.requestedShipDate
       };
       
-      console.log("Submitting sales order:", submissionData);
-      
-      // Direct fetch implementation with credentials
-      const response = await fetch('/api/sales-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submissionData),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error response:", errorText);
-        throw new Error(errorText || "Failed to create sales order");
+      // We don't need to add createdBy - the backend adds it from req.user.id
+      console.log("Submitting form data:", formattedData);
+
+      try {
+        const response = await fetch('/api/sales-orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formattedData),
+          credentials: 'include' // Important for passing session cookie
+        });
+        
+        if (!response.ok) {
+          try {
+            const errorData = await response.json();
+            console.error("Server error:", errorData);
+            throw new Error(errorData.message || "Failed to create sales order");
+          } catch (e) {
+            const text = await response.text();
+            console.error("Error response:", text);
+            throw new Error(text || "Failed to create sales order");
+          }
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error("Mutation error:", error);
+        throw error;
       }
-      
-      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sales-orders'] });
