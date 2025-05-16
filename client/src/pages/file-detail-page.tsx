@@ -150,6 +150,9 @@ export default function FileDetailPage() {
     },
   });
 
+  // For navigation
+  const [, setLocation] = useLocation();
+
   // Create inventory items from EPCIS file
   const createInventoryMutation = useMutation({
     mutationFn: async () => {
@@ -168,6 +171,11 @@ export default function FileDetailPage() {
       });
       // Navigate to inventory page to see the newly created items
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      
+      // Navigate to the inventory page to see the newly created items
+      setTimeout(() => {
+        setLocation("/inventory");
+      }, 1000);
     },
     onError: (error) => {
       toast({
