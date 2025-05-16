@@ -1210,17 +1210,21 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Sort by inventory ID (default) or receivedDate in descending order
-    query = query.orderBy(inventory.receivedDate);
+    query = query.orderBy(desc(inventory.receivedAt));
     
     // Apply limit and offset if provided - convert to numbers to ensure proper SQL formatting
     if (filters?.limit !== undefined) {
-      const limitNum = typeof filters.limit === 'string' ? parseInt(filters.limit) : filters.limit;
-      query = query.limit(limitNum);
+      const limitValue = typeof filters.limit === 'string' ? 
+                         parseInt(filters.limit) : 
+                         filters.limit;
+      query = query.limit(limitValue);
     }
     
     if (filters?.offset !== undefined) {
-      const offsetNum = typeof filters.offset === 'string' ? parseInt(filters.offset) : filters.offset;
-      query = query.offset(offsetNum);
+      const offsetValue = typeof filters.offset === 'string' ? 
+                          parseInt(filters.offset) : 
+                          filters.offset;
+      query = query.offset(offsetValue);
     }
     
     const items = await query;
