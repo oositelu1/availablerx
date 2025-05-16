@@ -101,6 +101,8 @@ export default function PurchaseOrdersPage() {
         customer: values.customer || "Internal Customer",
         // Add default status if missing
         status: values.status || "open",
+        // Add the current user as creator
+        createdBy: user?.id,
       };
       
       console.log("Prepared payload for submission:", payload);
