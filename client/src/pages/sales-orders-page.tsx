@@ -97,7 +97,7 @@ export default function SalesOrdersPage() {
     },
   });
 
-  // Mutation for creating sales orders
+  // Mutation for creating sales orders using API request helper
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
       // Validate customer selection
@@ -105,55 +105,55 @@ export default function SalesOrdersPage() {
         throw new Error("Please select a customer");
       }
       
-      // Format the data for the API
-      const formattedData = {
+      // Prepare minimal data required by the backend
+      const payload = {
         soNumber: values.soNumber,
         customerId: Number(values.customerId),
         status: values.status || "draft",
-        notes: values.notes,
-        shipToLocationId: values.shipToLocationId,
-        customerGln: values.customerGln,
-        // Format dates as ISO strings for the API
         orderDate: values.orderDate instanceof Date 
-          ? values.orderDate.toISOString() 
+          ? values.orderDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
           : values.orderDate,
-        requestedShipDate: values.requestedShipDate instanceof Date && values.requestedShipDate
-          ? values.requestedShipDate.toISOString()
-          : values.requestedShipDate,
-        actualShipDate: null // Not needed for initial creation
+        notes: values.notes || null,
+        customerGln: values.customerGln || null,
+        shipToLocationId: values.shipToLocationId || null,
+        requestedShipDate: values.requestedShipDate instanceof Date 
+          ? values.requestedShipDate.toISOString().split('T')[0] 
+          : null
       };
       
-      console.log("Submitting sales order data:", formattedData);
-
-      try {
-        const response = await fetch('/api/sales-orders', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formattedData),
-          credentials: 'include' // Include auth cookies
-        });
-        
-        if (!response.ok) {
-          // Attempt to parse error response
-          try {
-            const errorData = await response.json();
-            console.error("Sales order creation error:", errorData);
-            throw new Error(errorData.message || "Failed to create sales order");
-          } catch (parseError) {
-            // If JSON parsing fails, use the raw text
-            const text = await response.text();
-            console.error("Sales order error response:", text);
-            throw new Error(text || "Failed to create sales order");
+      console.log("Creating sales order with:", payload);
+      
+      // Use direct fetch for better error handling
+      const response = await fetch('/api/sales-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        let errorMessage = "Failed to create sales order";
+        try {
+          const errorData = await response.json();
+          console.error("Error creating sales order:", errorData);
+          errorMessage = errorData.message || errorMessage;
+          
+          // Show validation errors if available
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            errorMessage = errorData.errors.map((e: any) => e.message || e.path).join(', ');
           }
+        } catch (e) {
+          // If we can't parse JSON, use the text
+          const text = await response.text();
+          console.error("Raw error response:", text);
+          errorMessage = text || errorMessage;
         }
-        
-        return await response.json();
-      } catch (error) {
-        console.error("Sales order mutation error:", error);
-        throw error;
+        throw new Error(errorMessage);
       }
+      
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sales-orders'] });
