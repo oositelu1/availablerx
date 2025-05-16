@@ -749,12 +749,12 @@ export class DatabaseStorage implements IStorage {
     const orders = await query;
     
     // Count total rows for pagination
-    let countQuery = db.select({ count: db.fn.count() }).from(salesOrders);
+    let countQuery = db.select({ count: sql`count(*)` }).from(salesOrders);
     if (whereConditions.length > 0) {
       countQuery = countQuery.where(and(...whereConditions));
     }
     const [result] = await countQuery;
-    const total = Number(result.count) || 0;
+    const total = result && result.count ? Number(result.count) : 0;
     
     return { orders, total };
   }
