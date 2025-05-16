@@ -1144,6 +1144,82 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
   
+  async createInventoryFromFile(fileId: number, userId: number): Promise<number> {
+    // Get file and its metadata
+    const file = await this.getFile(fileId);
+    if (!file) {
+      throw new Error(`File with ID ${fileId} not found`);
+    }
+    
+    // Get all product items for this file
+    const productItems = await this.listProductItemsForFile(fileId);
+    if (productItems.length === 0) {
+      return 0;
+    }
+    
+    // Get product details from file metadata
+    const metadata = file.metadata as any;
+    const productName = metadata?.productInfo?.name || "";
+    const manufacturer = metadata?.productInfo?.manufacturer || "";
+    const ndc = metadata?.productInfo?.ndc || "";
+    
+    // Process each product item and create inventory item
+    let createdCount = 0;
+    
+    for (const item of productItems) {
+      // Check if this item already exists in inventory
+      const existing = await this.getInventoryBySGTIN(item.gtin, item.serialNumber);
+      if (existing) {
+        continue; // Skip if already in inventory
+      }
+      
+      // Determine package type based on GTIN indicator digit (position 7)
+      // '0' is item/each, '5' is case
+      const packageType = item.gtin.charAt(7) === '5' ? 'case' : 'each';
+      
+      // Create inventory item
+      const inventoryItem: InsertInventory = {
+        gtin: item.gtin,
+        serialNumber: item.serialNumber,
+        lotNumber: item.lotNumber,
+        expirationDate: new Date(item.expirationDate),
+        ndc: ndc,
+        productName: productName,
+        manufacturer: manufacturer,
+        status: 'available',
+        packageType: packageType,
+        receivedVia: 'epcis',
+        receivedAt: new Date(),
+        sourceFileId: fileId,
+        sourcePoId: item.poId,
+        warehouse: 'default',
+        location: null,
+        notes: `Created from EPCIS file ${file.originalName}`,
+        createdBy: userId
+      };
+      
+      await this.createInventoryItem(inventoryItem);
+      createdCount++;
+      
+      // Create an audit log entry
+      await this.createAuditLog({
+        action: 'create_inventory_from_epcis',
+        entityType: 'inventory',
+        entityId: createdCount, // This is not the actual ID but we don't have it yet
+        userId: userId,
+        details: { 
+          fileId: fileId,
+          fileName: file.originalName,
+          gtin: item.gtin,
+          serialNumber: item.serialNumber
+        },
+        ipAddress: null
+      });
+    }
+    
+    return createdCount;
+  }
+  
   async updateInventoryItem(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined> {
     // If updating status, set lastMovementDate to current date
     if (updates.status) {

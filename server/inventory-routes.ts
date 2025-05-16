@@ -189,6 +189,52 @@ inventoryRouter.patch('/:id', async (req, res) => {
   }
 });
 
+// Create inventory items from an EPCIS file
+inventoryRouter.post('/from-epcis/:fileId', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  
+  try {
+    const fileId = parseInt(req.params.fileId);
+    if (isNaN(fileId)) {
+      return res.status(400).json({ message: 'Invalid file ID' });
+    }
+
+    // Check if the file exists
+    const file = await storage.getFile(fileId);
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Create inventory items from the file
+    const createdCount = await storage.createInventoryFromFile(fileId, req.user.id);
+    
+    // Create an audit log entry
+    await storage.createAuditLog({
+      action: 'create_inventory_from_epcis',
+      entityType: 'file',
+      entityId: fileId,
+      userId: req.user.id,
+      details: {
+        fileName: file.originalName,
+        itemsCreated: createdCount
+      },
+      ipAddress: req.ip
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: `Created ${createdCount} inventory items from EPCIS file`,
+      itemsCreated: createdCount
+    });
+  } catch (error) {
+    console.error('Error creating inventory from EPCIS file:', error);
+    res.status(500).json({ 
+      message: 'Failed to create inventory items from EPCIS file',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // Get inventory summary (counts by status, location, etc.)
 inventoryRouter.get('/summary/stats', async (req, res) => {
   try {
