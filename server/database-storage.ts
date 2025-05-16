@@ -751,7 +751,16 @@ export class DatabaseStorage implements IStorage {
     const [result] = await countQuery;
     const total = result && result.count ? Number(result.count) : 0;
     
-    return { orders, total };
+    // Enhance orders with customer information
+    const enhancedOrders = await Promise.all(orders.map(async (order) => {
+      const customer = await this.getPartner(order.customerId);
+      return {
+        ...order,
+        customer: customer ? customer.name : "Unknown Customer"
+      };
+    }));
+
+    return { orders: enhancedOrders, total };
   }
   
   // Sales Order Items methods
