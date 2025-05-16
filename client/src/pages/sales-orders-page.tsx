@@ -43,14 +43,41 @@ export default function SalesOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  // Define sales order interface
+  interface SalesOrder {
+    id: number;
+    soNumber: string;
+    customer: string;
+    status: string;
+    orderDate: string;
+    // Add other fields as needed
+  }
+  
+  // Define sales orders response interface
+  interface SalesOrdersResponse {
+    orders: SalesOrder[];
+    total: number;
+    page: number;
+    limit: number;
+  }
+
   // Fetch all sales orders
-  const { data: salesOrders, isLoading } = useQuery({
+  const { data: salesOrders, isLoading } = useQuery<SalesOrdersResponse>({
     queryKey: ['/api/sales-orders'],
     enabled: !!user,
   });
 
+  // Define partner interface
+  interface Partner {
+    id: number;
+    name: string;
+    gln: string | null;
+    partnerType: string;
+    // Add other fields as needed
+  }
+
   // Fetch partners for customer selection
-  const { data: partners } = useQuery({
+  const { data: partners } = useQuery<Partner[]>({
     queryKey: ['/api/partners'],
     enabled: !!user,
   });
@@ -70,28 +97,33 @@ export default function SalesOrdersPage() {
     },
   });
 
-  // Simple direct mutation
+  // Mutation for creating sales orders
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
-      // Make sure customerId is provided and is a number
+      // Validate customer selection
       if (!values.customerId || isNaN(Number(values.customerId))) {
         throw new Error("Please select a customer");
       }
       
-      // Format dates properly for backend
+      // Format the data for the API
       const formattedData = {
-        ...values,
+        soNumber: values.soNumber,
         customerId: Number(values.customerId),
+        status: values.status || "draft",
+        notes: values.notes,
+        shipToLocationId: values.shipToLocationId,
+        customerGln: values.customerGln,
+        // Format dates as ISO strings for the API
         orderDate: values.orderDate instanceof Date 
-          ? values.orderDate.toISOString().split('T')[0] 
+          ? values.orderDate.toISOString() 
           : values.orderDate,
-        requestedShipDate: values.requestedShipDate instanceof Date 
-          ? values.requestedShipDate.toISOString().split('T')[0] 
-          : values.requestedShipDate
+        requestedShipDate: values.requestedShipDate instanceof Date && values.requestedShipDate
+          ? values.requestedShipDate.toISOString()
+          : values.requestedShipDate,
+        actualShipDate: null // Not needed for initial creation
       };
       
-      // We don't need to add createdBy - the backend adds it from req.user.id
-      console.log("Submitting form data:", formattedData);
+      console.log("Submitting sales order data:", formattedData);
 
       try {
         const response = await fetch('/api/sales-orders', {
@@ -100,24 +132,26 @@ export default function SalesOrdersPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(formattedData),
-          credentials: 'include' // Important for passing session cookie
+          credentials: 'include' // Include auth cookies
         });
         
         if (!response.ok) {
+          // Attempt to parse error response
           try {
             const errorData = await response.json();
-            console.error("Server error:", errorData);
+            console.error("Sales order creation error:", errorData);
             throw new Error(errorData.message || "Failed to create sales order");
-          } catch (e) {
+          } catch (parseError) {
+            // If JSON parsing fails, use the raw text
             const text = await response.text();
-            console.error("Error response:", text);
+            console.error("Sales order error response:", text);
             throw new Error(text || "Failed to create sales order");
           }
         }
         
         return await response.json();
       } catch (error) {
-        console.error("Mutation error:", error);
+        console.error("Sales order mutation error:", error);
         throw error;
       }
     },
@@ -157,14 +191,14 @@ export default function SalesOrdersPage() {
     createMutation.mutate(values);
   };
 
-  // Filter sales orders based on search query and status
-  const salesOrdersArray = Array.isArray(salesOrders) ? salesOrders : 
-    (salesOrders && salesOrders.orders ? salesOrders.orders : []);
+  // Extract and normalize the sales orders array from the API response
+  const salesOrdersArray = salesOrders?.orders || [];
     
-  const filteredSOs = salesOrdersArray.filter(so => {
+  // Filter sales orders based on search query and status
+  const filteredSOs = salesOrdersArray.filter((so: SalesOrder) => {
     const matchesSearch = searchQuery === "" || 
       so.soNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      so.customer?.toLowerCase().includes(searchQuery.toLowerCase());
+      (so.customer && so.customer.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesStatus = statusFilter === "all" || so.status === statusFilter;
     
@@ -258,7 +292,7 @@ export default function SalesOrdersPage() {
                   </TableRow>
                 ))
               ) : filteredSOs.length > 0 ? (
-                filteredSOs.map((so) => (
+                filteredSOs.map((so: SalesOrder) => (
                   <TableRow key={so.id}>
                     <TableCell className="font-medium">{so.soNumber}</TableCell>
                     <TableCell>{so.customer}</TableCell>
