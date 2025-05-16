@@ -31,7 +31,6 @@ const salesOrderSchema = insertSalesOrderSchema.extend({
   requestedShipDate: z.date().nullable().optional(),
   soNumber: z.string().min(3, "SO number must be at least 3 characters"),
   customerGln: z.string().nullable().optional(),
-  customer: z.string().min(2, "Customer name must be at least 2 characters"),
 });
 
 type SalesOrderFormValues = z.infer<typeof salesOrderSchema>;
@@ -63,7 +62,6 @@ export default function SalesOrdersPage() {
       soNumber: "",
       customerId: undefined, // This was missing
       customerGln: null,
-      customer: "",
       orderDate: new Date(),
       requestedShipDate: null,
       status: "draft",
@@ -128,6 +126,20 @@ export default function SalesOrdersPage() {
   });
 
   const onSubmit = (values: SalesOrderFormValues) => {
+    // Log the values for debugging
+    console.log("Form values being submitted:", values);
+    
+    // Make sure customerId is provided and is a number
+    if (!values.customerId) {
+      toast({
+        title: "Error",
+        description: "Please select a customer",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Execute the mutation with the values
     createMutation.mutate(values);
   };
 
@@ -345,7 +357,6 @@ export default function SalesOrdersPage() {
                           field.onChange(parseInt(value, 10));
                           const selectedPartner = partners?.find(p => p.id === parseInt(value, 10));
                           if (selectedPartner) {
-                            form.setValue('customer', selectedPartner.name);
                             form.setValue('customerGln', selectedPartner.gln || null);
                           }
                         }}
