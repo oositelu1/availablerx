@@ -61,6 +61,7 @@ export default function SalesOrdersPage() {
     resolver: zodResolver(salesOrderSchema),
     defaultValues: {
       soNumber: "",
+      customerId: undefined, // This was missing
       customerGln: null,
       customer: "",
       orderDate: new Date(),
@@ -72,17 +73,38 @@ export default function SalesOrdersPage() {
   // Mutation for creating a new sales order
   const createMutation = useMutation({
     mutationFn: async (values: SalesOrderFormValues) => {
+      // Get user info to include createdBy field
+      const userResponse = await fetch('/api/user');
+      if (!userResponse.ok) {
+        throw new Error("You must be logged in to create a sales order");
+      }
+      const userData = await userResponse.json();
+      
+      // Make sure customerId is provided and is a number
+      if (!values.customerId || isNaN(Number(values.customerId))) {
+        throw new Error("Please select a customer");
+      }
+      
+      // Prepare data for submission
+      const submissionData = {
+        ...values,
+        customerId: Number(values.customerId),
+        createdBy: userData.id
+      };
+      
+      console.log("Submitting sales order:", submissionData);
+      
       const response = await fetch('/api/sales-orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(submissionData),
       });
       
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create sales order");
+        throw new Error(error.message || "Failed to create sales order");
       }
       
       return response.json();

@@ -17,7 +17,7 @@ import type {
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, or, gte, lte, desc } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import crypto from "crypto";
@@ -662,18 +662,13 @@ export class DatabaseStorage implements IStorage {
         customerId: order.customerId,
         soNumber: order.soNumber,
         orderDate: order.orderDate || new Date(),
-        requestedDeliveryDate: order.requestedDeliveryDate,
-        status: order.status || "pending",
-        totalAmount: order.totalAmount || 0,
-        shippingAddress: order.shippingAddress,
-        billingAddress: order.billingAddress,
-        customerPurchaseOrderNum: order.customerPurchaseOrderNum,
+        requestedShipDate: order.requestedShipDate,
+        status: order.status || "draft",
         notes: order.notes,
         createdBy: order.createdBy,
         customerGln: order.customerGln,
-        locationId: order.locationId,
-        paymentTerms: order.paymentTerms,
-        shippingMethod: order.shippingMethod,
+        shipFromLocationId: order.shipFromLocationId,
+        shipToLocationId: order.shipToLocationId,
         erpReference: order.erpReference
       })
       .returning();
