@@ -173,7 +173,7 @@ export default function PurchaseOrderDetailPage() {
           </h1>
           <p className="text-muted-foreground">
             {isLoadingPO ? <Skeleton className="h-5 w-64 mt-1" /> : 
-              `${purchaseOrder?.supplier} — ${formatDate(purchaseOrder?.orderDate)}`}
+              `${purchaseOrder?.customer || 'Internal Customer'} — ${formatDate(purchaseOrder?.orderDate)}`}
           </p>
         </div>
       </div>
@@ -214,8 +214,8 @@ export default function PurchaseOrderDetailPage() {
                       <div className="text-sm font-medium">PO Number:</div>
                       <div>{purchaseOrder.poNumber}</div>
                       
-                      <div className="text-sm font-medium">Supplier:</div>
-                      <div>{purchaseOrder.supplier}</div>
+                      <div className="text-sm font-medium">Partner:</div>
+                      <div>{purchaseOrder.partnerId || "N/A"}</div>
                       
                       <div className="text-sm font-medium">Supplier GLN:</div>
                       <div>{purchaseOrder.supplierGln}</div>
