@@ -486,28 +486,27 @@ export async function sendFile(
           ipRestriction: null
         });
         
-        // Generate the UUID for the pre-signed link
-        const uuid = presignedLink.uuid;
+        // Get the UUID from the pre-signed link
+        const linkUuid = presignedLink.uuid;
         
         // Create a URL that will work in emails (hardcoded Replit domain if in Replit environment)
         let downloadProtocol = 'https';
         let downloadHost = hostName || 'localhost:3000';
         
-        // Always use Replit domain structure if in Replit environment
+        // Force the Replit domain for all download URLs
+        downloadProtocol = 'https';
         if (process.env.REPLIT_DOMAINS) {
-          downloadProtocol = 'https';
-          const domains = process.env.REPLIT_DOMAINS.split(',');
-          if (domains.length > 0) {
-            downloadHost = domains[0];
-          }
+          downloadHost = process.env.REPLIT_DOMAINS;
+          console.log("Using REPLIT_DOMAINS: " + downloadHost);
         } else if (process.env.REPLIT_DEV_DOMAIN) {
-          downloadProtocol = 'https';
           downloadHost = process.env.REPLIT_DEV_DOMAIN;
+          console.log("Using REPLIT_DEV_DOMAIN: " + downloadHost);
         } else if (downloadHost.includes('localhost')) {
           downloadProtocol = 'http';
+          console.log("Using localhost URL");
         }
         
-        const downloadUrl = `${downloadProtocol}://${downloadHost}/api/download/${uuid}`;
+        const downloadUrl = `${downloadProtocol}://${downloadHost}/api/download/${linkUuid}`;
         
         // Send email notification to the partner
         try {

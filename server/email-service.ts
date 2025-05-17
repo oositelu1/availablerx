@@ -173,13 +173,13 @@ export async function sendFileShareNotification(
   // Ensure the presignedUrl is using the correct domain for Replit environment
   let finalUrl = presignedUrl;
   
-  // If the URL contains localhost but we're in Replit, fix it
-  if (presignedUrl.includes('localhost') && process.env.REPLIT_DOMAINS) {
+  // Always enforce the correct domain in Replit environment
+  if (process.env.REPLIT_DOMAINS) {
     const protocol = 'https';
-    const host = process.env.REPLIT_DOMAINS.split(',')[0];
+    const host = process.env.REPLIT_DOMAINS;
     const uuid = presignedUrl.split('/').pop(); // Extract the UUID from the URL
     finalUrl = `${protocol}://${host}/api/download/${uuid}`;
-    console.log(`Converting localhost URL to Replit domain: ${finalUrl}`);
+    console.log(`Setting URL to use Replit domain: ${finalUrl}`);
   }
   // Format the expiration date for display
   const expirationDate = expiresAt.toLocaleDateString('en-US', { 
