@@ -102,8 +102,8 @@ export default function ProductValidationDialog({
         matches
       });
       
-      // Hide scanner once we have a result
-      setShowScanner(false);
+      // Hide manual entry once we have a result
+      setShowManualEntry(false);
     } catch (error) {
       console.error("Error processing scan:", error);
       // Could display an error message to the user here
