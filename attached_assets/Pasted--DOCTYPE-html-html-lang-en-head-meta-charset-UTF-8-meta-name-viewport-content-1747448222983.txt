@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GS1 Barcode Scanner for EPCIS Validation</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gs1/GS1DigitalLinkToolkit.js@1.2.0/js/GS1DigitalLinkToolkit.js"></script> <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        #video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        canvas {
+            display: none; /* Hidden canvas for processing */
+        }
+        #output-container {
+            width: 100%;
+            max-width: 640px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        #output-container h3 {
+            margin-top: 0;
+        }
+        #output-container div {
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            word-wrap: break-word;
+        }
+        #raw-data-title, #gs1-data-title, #epcis-status-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #raw-data, #gs1-data, #epcis-status {
+            background-color: #f9f9f9;
+        }
+        #scan-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 2px;
+            background-color: red;
+            opacity: 0.7;
+            z-index: 10;
+            animation: scan 1.5s infinite linear;
+        }
+        @keyframes scan {
+            0% { top: 0%; }
+            50% { top: 99%; }
+            100% { top: 0%; }
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>GS1 Barcode Scanner for EPCIS Validation</h1>
+    <p>Point your camera at a QR code or barcode.</p>
+
+    <div id="video-container">
+        <video id="video" playsinline autoplay muted></video>
+        <div id="scan-line"></div>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <button id="startButton" style="display:none;">Start Scan</button>
+    <button id="stopButton" style="display:none;">Stop Scan</button>
+
+    <div id="output-container">
+        <div>
+            <div id="raw-data-title">Raw Decoded Data:</div>
+            <pre id="raw-data">Scanning...</pre>
+        </div>
+        <div>
+            <div id="gs1-data-title">Parsed GS1 Data:</div>
+            <pre id="gs1-data">N/A</pre>
+        </div>
+        <div>
+            <div id="epcis-status-title">EPCIS Validation Status:</div>
+            <pre id="epcis-status">N/A</pre>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvasElement = document.getElementById('canvas');
+        const canvas = canvasElement.getContext('2d', { willReadFrequently: true });
+        const rawDataElement = document.getElementById('raw-data');
+        const gs1DataElement = document.getElementById('gs1-data');
+        const epcisStatusElement = document.getElementById('epcis-status');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+
+        let stream = null;
+        let animationFrameId = null;
+        let gs1DigitalLinkToolkit = null;
+
+        // Initialize GS1 Toolkit
+        try {
+            gs1DigitalLinkToolkit = new GS1DigitalLinkToolkit();
+        } catch (e) {
+            console.error("Failed to initialize GS1DigitalLinkToolkit:", e);
+            gs1DataElement.textContent = "Error: GS1 Toolkit failed to load.";
+        }
+
+        async function startCamera() {
+            try {
+                if (stream) { // Stop existing stream before starting a new one
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvasElement.height = video.videoHeight;
+                    canvasElement.width = video.videoWidth;
+                    if (video.paused) video.play(); // Ensure video is playing
+                    animationFrameId = requestAnimationFrame(tick);
+                    startButton.style.display = 'none';
+                    stopButton.style.display = 'inline-block';
+                    rawDataElement.textContent = "Scanning...";
+                    gs1DataElement.textContent = "N/A";
+                    epcisStatusElement.textContent = "N/A";
+                };
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                rawDataElement.textContent = "Camera access denied or no camera found.";
+                startButton.style.display = 'inline-block';
+                stopButton.style.display = 'none';
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            rawDataElement.textContent = "Scanner stopped.";
+            startButton.style.display = 'inline-block';
+            stopButton.style.display = 'none';
+        }
+
+        function tick() {
+            if (!stream || video.readyState !== video.HAVE_ENOUGH_DATA || video.paused) {
+                if (animationFrameId) animationFrameId = requestAnimationFrame(tick); // Keep trying if paused or not ready
+                return;
+            }
+
+            try {
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert", // or "attemptBoth" if needed
+                });
+
+                if (code) {
+                    rawDataElement.textContent = code.data;
+                    parseGS1Data(code.data);
+                    // Optional: Stop scanning after a successful scan
+                    // stopCamera();
+                    // setTimeout(startCamera, 3000); // Restart after a delay
+                } else {
+                    // Keep "Scanning..." if no code found this frame, unless it's already showing a result
+                    // if (rawDataElement.textContent !== "Scanning...") { // Avoid flickering
+                    //     // rawDataElement.textContent = "Scanning...";
+                    // }
+                }
+            } catch (err) {
+                console.error("Error in scanning loop:", err);
+                // Avoid stopping the loop for minor errors, but log them.
+            }
+            if (animationFrameId) animationFrameId = requestAnimationFrame(tick);
+        }
+
+        function parseGS1Data(data) {
+            if (!gs1DigitalLinkToolkit) {
+                gs1DataElement.textContent = "GS1 Toolkit not available.";
+                epcisStatusElement.textContent = "Cannot validate: GS1 Toolkit error.";
+                return;
+            }
+
+            let parsedGS1 = null;
+            let displayString = "N/A";
+
+            try {
+                // Attempt to parse as GS1 Digital Link URI
+                if (data.includes('https://') || data.includes('http://') || data.match(/\/\d+\//)) { // Basic check for URI structure
+                     const dlComponents = gs1DigitalLinkToolkit.parseDigitalLink(data, false); // false for not strict
+                     if (Object.keys(dlComponents.identifiers).length > 0 || Object.keys(dlComponents.qualifiers).length > 0 || Object.keys(dlComponents.attributes).length > 0) {
+                        parsedGS1 = { type: "DigitalLink", components: dlComponents };
+                        displayString = "GS1 Digital Link Components:\n";
+                        displayString += formatGS1Components(dlComponents.identifiers, "Identifiers");
+                        displayString += formatGS1Components(dlComponents.qualifiers, "Qualifiers");
+                        displayString += formatGS1Components(dlComponents.attributes, "Data Attributes");
+                    }
+                }
+
+                // If not parsed as Digital Link or if desired, try to extract from element strings
+                // jsQR data usually doesn't contain FNC1 as char(29).
+                // GS1 element strings are often represented with <GS> or AI in parentheses.
+                // The toolkit's extractFromGS1elementStrings might expect FNC1.
+                // For simplicity, we'll try to handle common representations.
+                // A more robust solution might involve preprocessing `data` to insert FNC1 if implicit.
+                // For now, we'll mainly rely on Digital Link parsing or a simple AI extraction if it's a raw string of AIs.
+                if (!parsedGS1) {
+                    // This function is more powerful if FNC1 is present (e.g. String.fromCharCode(29))
+                    // Let's assume the data string might be like (01)gtin(10)lot...
+                    // Or a raw string 01gtin10lot... (harder for this specific function without FNC1)
+                    const elementStrings = gs1DigitalLinkToolkit.extractFromGS1elementStrings(data.replace(/\(/g, '').replace(/\)/g, '')); // Basic attempt if AIs are like (01)...
+                    if (elementStrings && Object.keys(elementStrings).length > 0) {
+                         parsedGS1 = { type: "ElementStrings", elements: elementStrings };
+                         displayString = "GS1 Application Identifiers:\n";
+                         for (const ai in elementStrings) {
+                            const aiInfo = gs1DigitalLinkToolkit.getAIinfo(ai);
+                            displayString += `  ${ai} (${aiInfo ? aiInfo.title : 'Unknown AI'}): ${elementStrings[ai]}\n`;
+                         }
+                    } else if (!parsedGS1) {
+                        displayString = "Could not parse as GS1 Digital Link or extract GS1 Element Strings.";
+                    }
+                }
+                gs1DataElement.textContent = displayString.trim();
+                validateWithEPCIS(parsedGS1);
+
+            } catch (e) {
+                console.error("Error parsing GS1 data:", e);
+                gs1DataElement.textContent = `Error parsing GS1: ${e.message}`;
+                epcisStatusElement.textContent = "Cannot validate: GS1 parsing error.";
+            }
+        }
+
+        function formatGS1Components(componentGroup, groupName) {
+            let str = "";
+            if (componentGroup && Object.keys(componentGroup).length > 0) {
+                str += `  ${groupName}:\n`;
+                for (const key in componentGroup) {
+                    str += `    ${key}: ${componentGroup[key]}\n`;
+                }
+            }
+            return str;
+        }
+
+        function validateWithEPCIS(gs1Data) {
+            if (!gs1Data) {
+                epcisStatusElement.textContent = "N/A (No valid GS1 data to validate)";
+                return;
+            }
+
+            // This is a placeholder for actual EPCIS validation logic.
+            // In a real application, you would:
+            // 1. Extract key identifiers (e.g., GTIN, Serial Number) from gs1Data.
+            //    Example:
+            //    let gtin, serialNumber;
+            //    if (gs1Data.type === "DigitalLink") {
+            //        gtin = gs1Data.components.identifiers["01"];
+            //        serialNumber = gs1Data.components.identifiers["21"];
+            //    } else if (gs1Data.type === "ElementStrings") {
+            //        gtin = gs1Data.elements["01"];
+            //        serialNumber = gs1Data.elements["21"];
+            //    }
+            // 2. Make an API call to your EPCIS repository/backend with these identifiers.
+            // 3. The backend would query EPCIS events related to this product instance.
+            // 4. Based on the query results, you'd update the status (e.g., "Verified: Product Shipped", "Error: Product Not Found", "Verified: Ready for Receiving").
+
+            let validationMessage = "Conceptual EPCIS Validation:\n";
+            validationMessage += `Received GS1 Data: ${JSON.stringify(gs1Data, null, 2)}\n`;
+            validationMessage += "Next step: Send relevant identifiers (e.g., GTIN, SGTIN, SSCC) to an EPCIS system to query event data and validate.\n";
+            validationMessage += "Example: Check if this item was 'shipped' and is now expected for 'receiving'.";
+
+            epcisStatusElement.textContent = validationMessage;
+            console.log("Data for EPCIS validation:", gs1Data);
+        }
+
+        // Start camera automatically or provide a button
+        startButton.onclick = startCamera;
+        stopButton.onclick = stopCamera;
+
+        // Attempt to start camera on load
+        startCamera();
+
+        // Fallback if autoplay is blocked or permissions need explicit grant via button
+        video.addEventListener('play', () => {
+            // Ensure tick is called if video starts playing after initial attempt
+            if (!animationFrameId && stream) {
+                animationFrameId = requestAnimationFrame(tick);
+            }
+        });
+         video.addEventListener('pause', () => {
+            // If video is paused externally, we might want to reflect this in UI
+            // but the tick loop already handles video.paused state.
+        });
+
+    </script>
+</body>
+</html>
