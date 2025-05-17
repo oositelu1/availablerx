@@ -3,8 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera, Info, KeyboardIcon } from "lucide-react";
-import HTML5Scanner from "@/components/html5-scanner";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon } from "lucide-react";
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { Separator } from "@/components/ui/separator";
@@ -307,10 +306,10 @@ export default function ProductValidationDialog({
     return undefined;
   };
 
-  // Reset scanning
+  // Reset validation to show manual entry again
   const handleReset = () => {
     setScanResult(null);
-    setShowScanner(false);
+    setShowManualEntry(true);
   };
 
   // Format a date for display
@@ -687,116 +686,15 @@ export default function ProductValidationDialog({
       );
     }
     
+    // This code should not be reached since we're always showing either the manual entry or scan results
     return (
       <div className="space-y-6 py-4">
         <div className="text-center">
           <Scan className="h-12 w-12 text-primary/60 mx-auto mb-3" />
-          <h3 className="text-lg font-medium mb-1">Scan Product Code</h3>
+          <h3 className="text-lg font-medium mb-1">Enter Product Code</h3>
           <p className="text-sm text-muted-foreground">
-            Scan a product's 2D DataMatrix or QR code to validate it against the EPCIS data.
+            Enter a product's barcode data to validate it against the EPCIS data.
           </p>
-        </div>
-        
-        <div className="flex flex-col gap-3 items-center">
-          <div className="w-full max-w-xs bg-blue-50 border border-blue-200 rounded-md p-4 text-sm shadow-sm">
-            <div className="font-semibold text-blue-800 flex items-center mb-2">
-              <CheckCircle className="h-5 w-5 mr-2 text-blue-600" />
-              Test with Sample Data
-            </div>
-            <p className="text-blue-700 mb-3 text-sm">
-              This option uses data from the current EPCIS file to create a valid GS1 code for testing.
-            </p>
-            <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => {
-                // Use data from the first product item for testing
-                if (productItems && productItems.length > 0) {
-                  // Create an enhanced version of the first item with product info
-                  const index = 0;
-                  const firstItem = productItems[index];
-                  
-                  // Create a GS1 DataMatrix code format from actual product data
-                  const sampleCode = `(01)${firstItem.gtin}(10)${firstItem.lotNumber}(17)${
-                    new Date(firstItem.expirationDate).toISOString().split('T')[0].replace(/-/g, '').substring(2)
-                  }(21)${firstItem.serialNumber}`;
-                  
-                  // Create a temporary enhanced copy of the product items array
-                  // that includes the product name and manufacturer
-                  const enhancedItems = [...productItems];
-                  enhancedItems[index] = {
-                    ...firstItem,
-                    metadata: {
-                      productInfo: {
-                        name: fileMetadata?.productInfo?.name || "Acetaminophen",
-                        manufacturer: fileMetadata?.productInfo?.manufacturer || "MedTech Pharmaceuticals",
-                        dosageForm: fileMetadata?.productInfo?.dosageForm || "Tablet",
-                        strength: fileMetadata?.productInfo?.strength || "500mg"
-                      }
-                    }
-                  };
-                  
-                  // Parse the QR code data
-                  const parsedData = parseQRCode(sampleCode);
-                  
-                  // Find matching products using the enhanced array
-                  const matches = enhancedItems.map(productItem => {
-                    const matchResult = compareWithEPCISData(parsedData, {
-                      gtin: productItem.gtin,
-                      lotNumber: productItem.lotNumber,
-                      expirationDate: productItem.expirationDate,
-                      serialNumber: productItem.serialNumber
-                    });
-                    
-                    return {
-                      productItem,
-                      matchResult
-                    };
-                  });
-              
-                  // Set the scan result with the enhanced product items
-                  setScanResult({
-                    timestamp: new Date(),
-                    scannedData: parsedData,
-                    matches
-                  });
-                } else {
-                  // Fallback sample if no product items are available
-                  const sampleCode = "(01)03090123456789(10)ABC123(17)240530(21)XYZ987654321";
-                  handleScanSuccess(sampleCode);
-                }
-              }}
-            >
-              Use Sample Data for Testing
-            </Button>
-          </div>
-          
-          <div className="w-full max-w-xs">
-            <Button 
-              variant="default" 
-              className="w-full flex items-center gap-2"
-              onClick={() => setShowManualEntry(true)}
-            >
-              <KeyboardIcon className="h-4 w-4" />
-              Paste from Scanner App
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Paste data from your iPhone scanner app
-            </p>
-          </div>
-
-          <div className="w-full max-w-xs">
-            <Button 
-              variant="outline" 
-              className="w-full flex items-center gap-2"
-              onClick={() => setShowScanner(true)}
-            >
-              <Camera className="h-4 w-4" />
-              Start Camera Scanning
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Note: External scanner apps typically provide better results
-            </p>
-          </div>
         </div>
         
         <div className="bg-muted/40 rounded-md p-3 text-sm">
@@ -807,15 +705,6 @@ export default function ProductValidationDialog({
             <li>Serial number</li>
             <li>Expiration date</li>
           </ul>
-          
-          <div className="mt-2 pt-2 border-t border-dashed border-muted">
-            <h4 className="font-medium mb-1">Important Note:</h4>
-            <p className="text-xs text-muted-foreground">
-              Camera access requires a secure context (HTTPS), appropriate camera permissions, 
-              and often doesn't work in sandbox environments like Replit. <strong>Please use 
-              the "Use Sample Data" option</strong> to test the functionality in this environment.
-            </p>
-          </div>
         </div>
       </div>
     );
