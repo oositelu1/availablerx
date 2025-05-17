@@ -508,13 +508,18 @@ export class DatabaseStorage implements IStorage {
     
     // Generate the URL using the host from the request if available
     // This ensures the URL will work in any environment (localhost, Replit, etc.)
-    let baseUrl = this.baseDownloadUrl;
-    if (requestHost) {
-      const protocol = requestHost.includes('localhost') ? 'http' : 'https';
-      baseUrl = `${protocol}://${requestHost}`;
+    let protocol = 'https';
+    let host = requestHost || 'localhost:3000';
+    
+    // Handle Replit environment specifically
+    if (process.env.REPLIT_SLUG) {
+      protocol = 'https';
+      host = `${process.env.REPLIT_SLUG}.replit.dev`;
+    } else if (host.includes('localhost')) {
+      protocol = 'http';
     }
     
-    const downloadUrl = `${baseUrl}/api/download/${uuid}`;
+    const downloadUrl = `${protocol}://${host}/api/download/${uuid}`;
     console.log(`Generated pre-signed URL: ${downloadUrl}`);
     
     return downloadUrl;
