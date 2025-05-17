@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera, Info } from "lucide-react";
-import SimpleScanner from "@/components/simple-scanner";
+import SimplifiedScanner from "@/components/simplified-scanner";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -158,7 +158,7 @@ export default function ProductValidationDialog({
   const renderContent = () => {
     if (showScanner) {
       return (
-        <SimpleScanner 
+        <SimplifiedScanner 
           onScanSuccess={handleScanSuccess}
           onClose={() => setShowScanner(false)}
         />
@@ -183,10 +183,10 @@ export default function ProductValidationDialog({
                   <span>This product matches an item in the EPCIS data.</span>
                   
                   {/* Show PO information more prominently if available */}
-                  {(poId || (bestMatch.productItem.bizTransactionList && bestMatch.productItem.bizTransactionList.length > 0)) && (
+                  {(poId || (bestMatch.productItem.bizTransactionList?.length > 0)) && (
                     <Badge variant="outline" className="mt-1 bg-primary/5 text-primary border-primary/20 flex items-center gap-1 w-fit">
                       <ShoppingCart className="h-3 w-3" />
-                      PO: {poId || bestMatch.productItem.bizTransactionList[0]}
+                      PO: {poId || (bestMatch.productItem.bizTransactionList?.[0] || 'Unknown')}
                     </Badge>
                   )}
                 </AlertDescription>
