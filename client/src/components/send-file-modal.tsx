@@ -22,12 +22,12 @@ import { Loader2, X, FileArchive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface SendFileModalProps {
-  isOpen: boolean;
-  setIsOpen: (isOpen: boolean) => void;
   fileId: number;
+  onClose: () => void;
+  isOpen?: boolean;
 }
 
-export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps) {
+export function SendFileModal({ fileId, onClose, isOpen = true }: SendFileModalProps) {
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
   const [transportType, setTransportType] = useState<"AS2" | "HTTPS" | "PRESIGNED">("AS2");
   const [priority, setPriority] = useState<string>("normal");
@@ -35,13 +35,13 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
   const { toast } = useToast();
 
   // Fetch file details
-  const { data: file, isLoading: isLoadingFile } = useQuery({
+  const { data: file, isLoading: isLoadingFile } = useQuery<any>({
     queryKey: [`/api/files/${fileId}`],
     enabled: isOpen && !!fileId,
   });
 
   // Fetch partners
-  const { data: partners, isLoading: isLoadingPartners } = useQuery({
+  const { data: partners, isLoading: isLoadingPartners } = useQuery<any[]>({
     queryKey: ["/api/partners?activeOnly=true"],
     enabled: isOpen,
   });
@@ -56,7 +56,9 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
   }, [isOpen]);
 
   // Get selected partner details
-  const selectedPartner = partners?.find((p: any) => p.id.toString() === selectedPartnerId);
+  const selectedPartner = partners && Array.isArray(partners) 
+    ? partners.find((p: any) => p.id.toString() === selectedPartnerId)
+    : undefined;
 
   // Send file mutation
   const sendFileMutation = useMutation({
@@ -74,7 +76,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
         title: "File sent successfully",
         description: "The file has been queued for transmission to the partner.",
       });
-      setIsOpen(false);
+      onClose();
     },
     onError: (error: any) => {
       toast({
@@ -103,7 +105,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
   };
 
   const handleCancel = () => {
-    setIsOpen(false);
+    onClose();
   };
 
   // Format file size for display
@@ -114,7 +116,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -142,9 +144,9 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
               <div className="flex items-center p-3 bg-neutral-100 rounded-md">
                 <FileArchive className="text-neutral-600 mr-2 h-5 w-5" />
                 <div>
-                  <p className="font-medium">{file.originalName}</p>
+                  <p className="font-medium">{file?.originalName || "EPCIS File"}</p>
                   <p className="text-sm text-neutral-600">
-                    Valid EPCIS 1.2 file • {formatFileSize(file.fileSize)}
+                    Valid EPCIS 1.2 file • {formatFileSize(file?.fileSize || 0)}
                   </p>
                 </div>
               </div>
@@ -159,7 +161,7 @@ export function SendFileModal({ isOpen, setIsOpen, fileId }: SendFileModalProps)
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <span>Loading partners...</span>
                 </div>
-              ) : partners && partners.length > 0 ? (
+              ) : partners && Array.isArray(partners) && partners.length > 0 ? (
                 <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
                   <SelectTrigger id="partnerSelect" className="w-full">
                     <SelectValue placeholder="Choose a trading partner" />
