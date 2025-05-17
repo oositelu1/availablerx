@@ -50,8 +50,8 @@ export default function ProductValidationDialog({
   poId,
   fileMetadata
 }: ProductValidationDialogProps) {
-  const [showScanner, setShowScanner] = useState(false);
-  const [showManualEntry, setShowManualEntry] = useState(false);
+  // Simplified state - we're only using manual entry now
+  const [showManualEntry, setShowManualEntry] = useState(true);
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -71,8 +71,7 @@ export default function ProductValidationDialog({
   useEffect(() => {
     if (!isOpen) {
       setScanResult(null);
-      setShowScanner(false);
-      setShowManualEntry(false);
+      setShowManualEntry(true);
     }
   }, [isOpen]);
 
@@ -326,18 +325,8 @@ export default function ProductValidationDialog({
 
   // We don't derive NDC from GTIN anymore - only use what's in the file metadata
 
-  // Content to display
+  // Content to display - simplified to just manual entry
   const renderContent = () => {
-    if (showScanner) {
-      return (
-        <HTML5Scanner 
-          onScanSuccess={handleScanSuccess} 
-          onDetected={handleScanSuccess}
-          onClose={() => setShowScanner(false)}
-        />
-      );
-    }
-    
     if (showManualEntry) {
       return (
         <ManualBarcodeEntry
@@ -346,7 +335,7 @@ export default function ProductValidationDialog({
             setShowManualEntry(false);
             handleScanSuccess(data);
           }}
-          onCancel={() => setShowManualEntry(false)}
+          onCancel={() => onClose()}
         />
       );
     }
@@ -690,7 +679,7 @@ export default function ProductValidationDialog({
           
           <div className="flex justify-between mt-4 pt-4 border-t">
             <Button onClick={handleReset} variant="outline">
-              Scan Another
+              Validate Another
             </Button>
             <Button onClick={onClose}>Done</Button>
           </div>
