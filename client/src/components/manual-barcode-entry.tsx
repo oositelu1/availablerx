@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon } from 'lucide-react';
+import { InfoIcon, ClipboardCopy } from 'lucide-react';
 
 interface ManualBarcodeEntryProps {
   onSubmit: (barcodeData: string) => void;
@@ -23,6 +24,8 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
       setError('Please enter barcode data');
       return;
     }
+    
+    console.log("Processing barcode data:", barcodeData);
     
     // Try to format the data as GS1 if it doesn't already have parentheses
     let formattedData = barcodeData.trim();
@@ -52,9 +55,12 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
         }
         
         formattedData = formatted;
+        console.log("Formatted as GS1:", formattedData);
       }
     }
     
+    // Submit the data
+    console.log("Submitting barcode data:", formattedData);
     onSubmit(formattedData);
   };
 
@@ -86,17 +92,35 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="barcode-data">Enter Barcode Data</Label>
-            <Input
+            <Label htmlFor="barcode-data">Paste Scanner Output</Label>
+            <Textarea
               id="barcode-data"
-              placeholder="Enter barcode data here..."
+              placeholder="Paste the raw data from your scanner app here..."
               value={barcodeData}
               onChange={(e) => setBarcodeData(e.target.value)}
-              className="font-mono"
+              className="font-mono h-24 resize-none"
             />
-            <p className="text-xs text-muted-foreground">
-              Enter the DataMatrix code exactly as printed on the product packaging
-            </p>
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 px-2 text-xs"
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                      setBarcodeData(text);
+                    }
+                  } catch (err) {
+                    console.error("Clipboard access error:", err);
+                    setError("Couldn't access clipboard. Please paste manually.");
+                  }
+                }}
+              >
+                <ClipboardCopy className="h-3 w-3 mr-1" />
+                Paste from Clipboard
+              </Button>
+            </div>
           </div>
           
           <Separator />
