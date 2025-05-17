@@ -145,7 +145,7 @@ Serial Number: 0102405`
   ];
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-3xl mx-auto">
       <CardHeader>
         <CardTitle className="text-center">Manual Barcode Entry</CardTitle>
       </CardHeader>
@@ -166,7 +166,7 @@ Serial Number: 0102405`
               placeholder="Paste the raw data from your scanner app here..."
               value={barcodeData}
               onChange={(e) => setBarcodeData(e.target.value)}
-              className="font-mono h-24 resize-none"
+              className="font-mono h-32 resize-none text-base w-full"
             />
             <div className="text-xs text-muted-foreground flex items-center gap-1">
               <Button 
