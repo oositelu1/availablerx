@@ -20,16 +20,29 @@ import { auditLogRouter } from './audit-log-routes';
 import { partnerLocationRouter } from './partner-location-routes';
 
 // Helper function to generate proper download URLs for the current environment
-function generateDownloadUrl(req: Request, uuid: string): string {
+function generateDownloadUrl(uuid: string, req?: Request): string {
   let protocol = 'https';
-  let host = req.get('host') || 'localhost:3000';
+  let host = 'localhost:3000';
   
-  // Special handling for Replit environment
-  if (process.env.REPLIT_SLUG) {
-    protocol = 'https';
-    host = `${process.env.REPLIT_SLUG}.replit.dev`;
-  } else if (host.includes('localhost')) {
-    protocol = 'http';
+  // For Replit environment, always use the Replit domain
+  if (process.env.REPL_ID) {
+    host = process.env.REPLIT_SLUG 
+      ? `${process.env.REPLIT_SLUG}.replit.dev`
+      : `${process.env.REPL_ID}.id.repl.co`;
+  }
+  // Otherwise, use request info if available
+  else if (req) {
+    host = req.get('host') || host;
+    
+    // Use the request protocol if available
+    if (req.protocol) {
+      protocol = req.protocol;
+    }
+    
+    // For localhost, use http protocol
+    if (host.includes('localhost')) {
+      protocol = 'http';
+    }
   }
   
   return `${protocol}://${host}/api/download/${uuid}`;
