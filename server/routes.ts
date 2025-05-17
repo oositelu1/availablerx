@@ -21,28 +21,33 @@ import { partnerLocationRouter } from './partner-location-routes';
 
 // Helper function to generate proper download URLs for the current environment
 function generateDownloadUrl(uuid: string, req?: Request): string {
+  // Default values
   let protocol = 'https';
   let host = 'localhost:3000';
   
-  // Use the REPLIT_DOMAINS env var which contains actual Replit domain
+  console.log('Generating download URL with environment:');
+  console.log(`REPLIT_DOMAINS: ${process.env.REPLIT_DOMAINS}`);
+  console.log(`REPLIT_DEV_DOMAIN: ${process.env.REPLIT_DEV_DOMAIN}`);
+  
+  // Force Replit domain in Replit environment
   if (process.env.REPLIT_DOMAINS) {
-    const domains = process.env.REPLIT_DOMAINS.split(',');
-    if (domains.length > 0) {
-      host = domains[0];
-    }
+    protocol = 'https';
+    host = process.env.REPLIT_DOMAINS;
+    console.log(`Using REPLIT_DOMAINS: ${host}`);
   } 
   // Fallback to REPLIT_DEV_DOMAIN env var
   else if (process.env.REPLIT_DEV_DOMAIN) {
+    protocol = 'https';
     host = process.env.REPLIT_DEV_DOMAIN;
+    console.log(`Using REPLIT_DEV_DOMAIN: ${host}`);
   }
   // If not in Replit, use request info if available
   else if (req) {
     host = req.get('host') || host;
-    
-    // Use the request protocol if available
     if (req.protocol) {
       protocol = req.protocol;
     }
+    console.log(`Using request host: ${host}`);
   }
   
   // For localhost, use http protocol
@@ -51,11 +56,14 @@ function generateDownloadUrl(uuid: string, req?: Request): string {
   }
   
   // Hard-coded domain for production environment
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && !process.env.REPLIT_DOMAINS) {
     host = 'availablerx.com';
+    console.log(`Using production host: ${host}`);
   }
   
-  return `${protocol}://${host}/api/download/${uuid}`;
+  const url = `${protocol}://${host}/api/download/${uuid}`;
+  console.log(`Generated URL: ${url}`);
+  return url;
 }
 import { poItemRouter } from './po-item-routes';
 import { inventoryRouter } from './inventory-routes';
