@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import BarcodeScanner from '@/components/barcode-scanner';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ScannerTestPage() {
-  const [isShowingScanner, setIsShowingScanner] = useState(false);
+  const [isShowingScanner, setIsShowingScanner] = useState(true);
   const [lastScannedData, setLastScannedData] = useState<string | null>(null);
-  const [scanHistory, setScanHistory] = useState<string[]>([]);
 
   function handleScanSuccess(scannedText: string) {
     console.log("Scan successful:", scannedText);
     setLastScannedData(scannedText);
-    setScanHistory(prev => [scannedText, ...prev].slice(0, 5));
     setIsShowingScanner(false);
   }
 
@@ -23,10 +19,12 @@ export default function ScannerTestPage() {
     setIsShowingScanner(false);
   }
 
-  return (
-    <div className="container mx-auto py-8 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Barcode Scanner Test</h1>
+  function startNewScan() {
+    setIsShowingScanner(true);
+  }
 
+  return (
+    <div className="container mx-auto py-4 max-w-3xl">
       {isShowingScanner ? (
         <BarcodeScanner 
           onScanSuccess={handleScanSuccess}
@@ -34,51 +32,26 @@ export default function ScannerTestPage() {
           onClose={handleCloseScanner}
         />
       ) : (
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Scan a Product Barcode</CardTitle>
-              <CardDescription>
-                Test the scanner with any GS1 barcode or QR code
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setIsShowingScanner(true)}>
-                Launch Scanner
-              </Button>
-            </CardContent>
-          </Card>
-
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h2 className="text-xl font-medium mb-4">Scan Result</h2>
+          
           {lastScannedData && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Last Scanned Code</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="bg-gray-100 p-3 rounded text-sm overflow-x-auto">
+            <div className="mb-6">
+              <div className="text-sm text-gray-500 mb-1">Decoded data:</div>
+              <div className="bg-gray-50 p-3 border rounded-md">
+                <pre className="text-sm overflow-x-auto whitespace-pre-wrap break-all">
                   {lastScannedData}
                 </pre>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
-
-          {scanHistory.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Scan History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {scanHistory.map((scan, index) => (
-                    <li key={index} className="border-b pb-2 last:border-0">
-                      <div className="text-xs text-gray-500">#{index + 1}</div>
-                      <div className="text-sm font-mono break-all">{scan}</div>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+          
+          <button 
+            onClick={startNewScan}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Scan Again
+          </button>
         </div>
       )}
     </div>

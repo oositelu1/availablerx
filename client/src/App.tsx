@@ -19,6 +19,7 @@ import InventoryPage from "@/pages/inventory-page";
 import AddInventoryPage from "@/pages/add-inventory-page";
 import DirectSalesOrderForm from "@/pages/direct-sales-order-form";
 import ScannerTestPage from "@/pages/scanner-test-page";
+import QrTest from "@/pages/qr-test";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -42,7 +43,7 @@ function Router() {
       <ProtectedRoute path="/sales-orders/:id" component={SalesOrderDetailPage} />
       <ProtectedRoute path="/inventory" component={InventoryPage} />
       <ProtectedRoute path="/inventory/add" component={AddInventoryPage} />
-      <ProtectedRoute path="/scanner-test" component={ScannerTestPage} />
+      <Route path="/qr-test" component={QrTest} />
       <Route component={NotFound} />
     </Switch>
   );
