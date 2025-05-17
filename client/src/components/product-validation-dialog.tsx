@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera, Info } from "lucide-react";
-import QRScanner from "@/components/qr-scanner";
+import SimpleScanner from "@/components/simple-scanner";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -158,7 +158,7 @@ export default function ProductValidationDialog({
   const renderContent = () => {
     if (showScanner) {
       return (
-        <QRScanner 
+        <SimpleScanner 
           onScanSuccess={handleScanSuccess}
           onClose={() => setShowScanner(false)}
         />

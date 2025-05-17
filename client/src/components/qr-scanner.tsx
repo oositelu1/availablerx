@@ -15,108 +15,64 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rawData, setRawData] = useState<string>("Scanning...");
-  const [scanCount, setScanCount] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameIdRef = useRef<number | null>(null);
+  const requestRef = useRef<number | null>(null);
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      stopScanning();
+      stopCamera();
     };
   }, []);
 
-  // Start the camera and scanning process
-  async function startScanning() {
-    setIsScanning(true);
-    setError(null);
-    setRawData("Scanning...");
-    setScanCount(0);
-    
+  async function startCamera() {
     try {
-      // Clean up any existing scanning session
-      stopScanning();
+      setIsScanning(true);
+      setError(null);
+      setRawData("Scanning...");
       
-      console.log("Starting camera for barcode scanning...");
-      
-      // Check for video element
-      if (!videoRef.current) {
-        throw new Error("Video element not found");
-      }
-      
-      // Request camera access with simple constraints
+      // Get camera stream
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: false 
+        video: true,
+        audio: false
       });
       
-      console.log("Camera access granted!");
-      
-      // Store stream reference for cleanup
+      // Store stream for cleanup
       streamRef.current = stream;
       
-      // Set video source
-      videoRef.current.srcObject = stream;
-      videoRef.current.autoplay = true;
-      videoRef.current.playsInline = true;
-      
-      try {
-        // Explicitly start playing (some browsers need this)
-        await videoRef.current.play();
-        console.log("Video is now playing!");
+      // Connect to video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
         
-        // When video is ready, set up canvas and start scanning
-        if (videoRef.current && canvasRef.current) {
-          // Set canvas dimensions to match video
-          canvasRef.current.height = videoRef.current.videoHeight || 480;
-          canvasRef.current.width = videoRef.current.videoWidth || 640;
-          
-          console.log("Starting scan frame loop");
-          // Start scanning loop
-          scanFrame();
-        }
-      } catch (playErr) {
-        console.error("Error playing video:", playErr);
-        setError("Could not start video: " + playErr.message);
+        // Start scanning
+        scanQRCode();
       }
     } catch (err) {
-      console.error("Error accessing camera:", err);
-      setError("Camera access failed: " + (err instanceof Error ? err.message : String(err)));
-      setIsScanning(false);
-    }
-      
-    } catch (err) {
-      console.error("Error setting up camera:", err);
-      setError("Camera access failed: " + 
-               (err instanceof Error ? err.message : String(err)));
+      console.error("Camera error:", err);
+      setError("Could not access camera. Please check permissions and try again.");
       setIsScanning(false);
     }
   }
 
-  // Stop scanning and clean up resources
-  function stopScanning() {
-    console.log("Stopping scanner...");
-    
-    // Stop animation frame loop
-    if (animationFrameIdRef.current) {
-      cancelAnimationFrame(animationFrameIdRef.current);
-      animationFrameIdRef.current = null;
+  function stopCamera() {
+    // Cancel animation frame
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+      requestRef.current = null;
     }
     
-    // Stop and release camera stream
+    // Stop all tracks in the stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        console.log("Stopping track:", track.kind, track.label);
-        track.stop();
-      });
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     
     // Clear video source
-    if (videoRef.current && videoRef.current.srcObject) {
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     
@@ -124,102 +80,77 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     setRawData("Scanner stopped");
   }
 
-  // Main scanning function that processes video frames
-  function scanFrame() {
-    if (!videoRef.current || !canvasRef.current) return;
-    
-    // Only process video if it has enough data and is playing
-    if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA || 
-        videoRef.current.paused) {
-      // Keep trying if not ready yet
-      animationFrameIdRef.current = requestAnimationFrame(scanFrame);
+  function scanQRCode() {
+    if (!videoRef.current || !canvasRef.current || !isScanning) {
       return;
     }
     
-    const canvas = canvasRef.current.getContext('2d', { willReadFrequently: true });
-    
-    if (!canvas) {
-      console.error("Could not get canvas context");
+    // Check if video is ready
+    if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
+      // Try again when not ready
+      requestRef.current = requestAnimationFrame(scanQRCode);
       return;
     }
     
-    setScanCount(count => count + 1);
+    // Get canvas context
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    
+    if (!context) {
+      requestRef.current = requestAnimationFrame(scanQRCode);
+      return;
+    }
+    
+    // Set canvas size to match video
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    
+    // Draw the video frame to the canvas
+    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     
     try {
-      // Draw current video frame to canvas for processing
-      canvas.drawImage(
-        videoRef.current, 
-        0, 0, 
-        canvasRef.current.width, 
-        canvasRef.current.height
-      );
+      // Get image data for processing
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       
-      // Get image data for QR processing
-      const imageData = canvas.getImageData(
-        0, 0, 
-        canvasRef.current.width, 
-        canvasRef.current.height
-      );
+      // Try to find QR code in the image
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth"
+      });
       
-      // Scan for QR code
-      const code = jsQR(
-        imageData.data, 
-        imageData.width, 
-        imageData.height, 
-        { inversionAttempts: "attemptBoth" }
-      );
-      
-      // If code found, process it
+      // Process if code found
       if (code) {
-        console.log("QR Code found:", code.data);
+        console.log("QR code found:", code.data);
         setRawData(code.data);
         
-        // Draw a highlight around the detected code
-        canvas.beginPath();
-        canvas.lineWidth = 4;
-        canvas.strokeStyle = "#FF3B58";
-        canvas.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-        canvas.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
-        canvas.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
-        canvas.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
-        canvas.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-        canvas.stroke();
+        // Highlight the code
+        context.beginPath();
+        context.lineWidth = 4;
+        context.strokeStyle = "#FF3B58";
+        context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+        context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
+        context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
+        context.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
+        context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+        context.stroke();
         
-        // Add a bit of fill to show detection more clearly
-        canvas.fillStyle = "rgba(255, 59, 88, 0.2)";
-        canvas.fill();
-        
-        // Stop scanning and call success handler
-        stopScanning();
+        // Stop scanning and return the result
+        stopCamera();
         onScanSuccess(code.data, { result: code });
         return;
       }
       
-      // Draw scan line and scanning overlay
-      drawScanOverlay(canvas, canvasRef.current.width, canvasRef.current.height);
-      
+      // Draw a targeting guide
+      drawTargetGuide(context, canvas.width, canvas.height);
     } catch (err) {
-      console.error("Error in scanning loop:", err);
+      console.error("Error scanning frame:", err);
     }
     
-    // Continue scanning loop
-    if (isScanning) {
-      animationFrameIdRef.current = requestAnimationFrame(scanFrame);
-    }
+    // Continue scanning
+    requestRef.current = requestAnimationFrame(scanQRCode);
   }
-  
-  // Draw visual indicators on the canvas
-  function drawScanOverlay(ctx: CanvasRenderingContext2D, width: number, height: number) {
-    // Draw a scan line that moves up and down
-    const scanLineY = Math.sin(Date.now() / 500) * (height * 0.4) + (height * 0.5);
-    ctx.beginPath();
-    ctx.moveTo(0, scanLineY);
-    ctx.lineTo(width, scanLineY);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
-    ctx.stroke();
-    
-    // Draw a center targeting rectangle
+
+  function drawTargetGuide(ctx: CanvasRenderingContext2D, width: number, height: number) {
+    // Draw center rectangle
     const centerX = width * 0.25;
     const centerY = height * 0.25;
     const centerWidth = width * 0.5;
@@ -231,12 +162,14 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     ctx.strokeRect(centerX, centerY, centerWidth, centerHeight);
     ctx.setLineDash([]);
     
-    // Add scan count
-    ctx.font = '14px Arial';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillRect(5, 5, 70, 20);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.fillText(`Scan: ${scanCount}`, 10, 20);
+    // Draw scan line that moves up and down
+    const scanLineY = Math.sin(Date.now() / 500) * (height * 0.4) + (height * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(0, scanLineY);
+    ctx.lineTo(width, scanLineY);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+    ctx.stroke();
   }
 
   return (
@@ -244,7 +177,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       <CardHeader>
         <CardTitle className="text-center flex items-center justify-center gap-2">
           <Camera className="h-5 w-5" />
-          {isScanning ? "Scanning for Barcodes..." : "Scan Product Code"}
+          {isScanning ? "Scanning for Codes..." : "Scan Product Code"}
         </CardTitle>
       </CardHeader>
       
@@ -257,69 +190,50 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         )}
         
         <div className="w-full relative rounded-md overflow-hidden border-2 border-gray-300">
-          {/* Video container with scan animation */}
-          <div className="relative aspect-video bg-muted">
+          <div className="relative aspect-video bg-black">
             {/* Video element */}
             <video
               ref={videoRef}
               className="w-full h-full object-cover"
-              autoPlay
               playsInline
               muted
+              autoPlay
             />
             
-            {/* Canvas element - positioned on top of video */}
+            {/* Canvas for processing and display */}
             <canvas 
               ref={canvasRef}
-              className={`absolute inset-0 w-full h-full ${isScanning ? 'block' : 'hidden'}`}
+              className="absolute inset-0 w-full h-full"
+              style={{ display: isScanning ? 'block' : 'none' }}
             />
-            
-            {/* Scanning line animation */}
-            {isScanning && (
-              <div 
-                className="absolute left-0 right-0 h-0.5 bg-red-500 z-10"
-                style={{
-                  animation: 'scan 1.5s infinite linear',
-                  top: '50%'
-                }}
-              />
-            )}
             
             {/* Placeholder when not scanning */}
             {!isScanning && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                 <div className="text-center p-4">
-                  <Camera className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
-                  <p className="text-muted-foreground">Click "Start Camera" to begin scanning</p>
+                  <Camera className="h-12 w-12 text-white/60 mb-2 mx-auto" />
+                  <p className="text-white/80">Click "Start Camera" to begin scanning</p>
                 </div>
               </div>
             )}
           </div>
         </div>
         
-        {/* Output display */}
-        <div className="mt-4 border p-3 rounded-md bg-gray-50">
-          <div className="font-medium text-sm mb-1">Raw Decoded Data:</div>
-          <pre className="text-xs p-2 bg-white border rounded overflow-x-auto">
-            {rawData}
-          </pre>
-        </div>
-        
-
-        
         <div className="mt-4 text-xs text-muted-foreground text-center">
-          Position product barcode within the frame for scanning.
-          Ensure good lighting for best results.
+          Position product barcode within the green frame for scanning.
+          Hold steady with good lighting.
         </div>
       </CardContent>
       
       <CardFooter className="flex gap-2 justify-between">
         {isScanning ? (
-          <Button variant="destructive" onClick={stopScanning}>Stop Camera</Button>
+          <Button variant="destructive" onClick={stopCamera}>Stop Camera</Button>
         ) : (
-          <Button onClick={startScanning}>Start Camera</Button>
+          <Button onClick={startCamera}>Start Camera</Button>
         )}
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        {onClose && (
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+        )}
       </CardFooter>
     </Card>
   );
