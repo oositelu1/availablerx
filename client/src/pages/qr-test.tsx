@@ -62,51 +62,102 @@ export default function QrTest() {
   };
 
   const scanCode = () => {
+    // Don't continue if we're not scanning
     if (!scanning) return;
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-      const context = canvas.getContext('2d', { willReadFrequently: true });
+    // Make sure video and canvas exist
+    if (!video || !canvas) {
+      console.log("Video or canvas missing");
+      animationFrame.current = requestAnimationFrame(scanCode);
+      return;
+    }
+    
+    // Make sure video has enough data
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      console.log("Video not ready yet");
+      animationFrame.current = requestAnimationFrame(scanCode);
+      return;
+    }
+    
+    // Get the canvas context
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) {
+      console.error("Could not get canvas context");
+      return;
+    }
+    
+    try {
+      // Set canvas size to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       
-      if (context) {
-        // Set canvas size to match video
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      // Draw video frame to canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get image data for processing
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Try to detect QR code
+      const code = jsQR(
+        imageData.data, 
+        imageData.width, 
+        imageData.height, 
+        { inversionAttempts: "dontInvert" }
+      );
+      
+      // If code found
+      if (code) {
+        console.log("Code detected:", code.data);
         
-        // Draw video frame to canvas
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Highlight the code
+        context.beginPath();
+        context.lineWidth = 5;
+        context.strokeStyle = "#00FF00";
+        context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+        context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
+        context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
+        context.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
+        context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+        context.stroke();
         
-        // Get image data for processing
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        // Show result and stop scanning
+        setResult(code.data);
+        stopScan();
+        return;
+      } else {
+        // Try again with invert
+        const invertedCode = jsQR(
+          imageData.data, 
+          imageData.width, 
+          imageData.height, 
+          { inversionAttempts: "onlyInvert" }
+        );
         
-        // Try to detect QR code
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "attemptBoth"
-        });
-        
-        // If code found
-        if (code) {
-          console.log("Code detected:", code.data);
+        if (invertedCode) {
+          console.log("Inverted code detected:", invertedCode.data);
           
           // Highlight the code
           context.beginPath();
           context.lineWidth = 5;
           context.strokeStyle = "#00FF00";
-          context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
-          context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
-          context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
-          context.lineTo(code.location.bottomLeftCorner.x, code.location.bottomLeftCorner.y);
-          context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
+          context.moveTo(invertedCode.location.topLeftCorner.x, invertedCode.location.topLeftCorner.y);
+          context.lineTo(invertedCode.location.topRightCorner.x, invertedCode.location.topRightCorner.y);
+          context.lineTo(invertedCode.location.bottomRightCorner.x, invertedCode.location.bottomRightCorner.y);
+          context.lineTo(invertedCode.location.bottomLeftCorner.x, invertedCode.location.bottomLeftCorner.y);
+          context.lineTo(invertedCode.location.topLeftCorner.x, invertedCode.location.topLeftCorner.y);
           context.stroke();
           
           // Show result and stop scanning
-          setResult(code.data);
+          setResult(invertedCode.data);
           stopScan();
           return;
         }
       }
+    } catch (err) {
+      console.error("Error processing frame:", err);
     }
     
     // Continue scanning
