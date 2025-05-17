@@ -609,6 +609,20 @@ export default function ProductValidationDialog({
           
           <div className="w-full max-w-xs">
             <Button 
+              variant="default" 
+              className="w-full flex items-center gap-2"
+              onClick={() => setShowManualEntry(true)}
+            >
+              <KeyboardIcon className="h-4 w-4" />
+              Paste from Scanner App
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Paste data from your iPhone scanner app
+            </p>
+          </div>
+
+          <div className="w-full max-w-xs">
+            <Button 
               variant="outline" 
               className="w-full flex items-center gap-2"
               onClick={() => setShowScanner(true)}
@@ -617,7 +631,7 @@ export default function ProductValidationDialog({
               Start Camera Scanning
             </Button>
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              Note: Camera may not work in some environments due to security restrictions.
+              Note: External scanner apps typically provide better results
             </p>
           </div>
         </div>
