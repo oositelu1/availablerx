@@ -23,6 +23,8 @@ import { pool } from "./db";
 import crypto from "crypto";
 import { v4 as uuidv4 } from 'uuid';
 import { IStorage } from "./storage";
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 const PostgresSessionStore = connectPg(session);
 
@@ -377,7 +379,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async retrieveFileData(fileId: number): Promise<Buffer | undefined> {
-    // First try to get from memory
+    // First try to get from memory cache
     const fileDataFromMemory = this.fileDataStorage.get(fileId);
     if (fileDataFromMemory) {
       return fileDataFromMemory;
@@ -393,8 +395,6 @@ export class DatabaseStorage implements IStorage {
       
       // Check if this is one of our sample files in attached_assets
       if (file.originalName.startsWith('shipment_')) {
-        const fs = require('fs/promises');
-        const path = require('path');
         const samplePath = path.join(process.cwd(), 'attached_assets', file.originalName);
         console.log(`File data not in memory, trying to load from: ${samplePath}`);
         
