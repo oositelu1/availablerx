@@ -54,10 +54,25 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
         }
         
         if (expirationMatch && expirationMatch[1]) {
+          console.log("Found expiration date:", expirationMatch[1]);
           // Convert MM/DD/YY to YYMMDD
           const parts = expirationMatch[1].split('/');
           if (parts.length === 3) {
-            parsedFormat += `(17)${parts[2]}${parts[0]}${parts[1]}`;
+            // Ensure month and day are padded to 2 digits
+            const month = parts[0].padStart(2, '0');
+            const day = parts[1].padStart(2, '0');
+            let year = parts[2];
+            
+            // Make sure we get correct format for GS1
+            if (year.length === 2) {
+              // If 2-digit year (YY format)
+              parsedFormat += `(17)${year}${month}${day}`;
+              console.log("Formatted expiration date (YYMMDD):", `${year}${month}${day}`);
+            } else if (year.length === 4) {
+              // If 4-digit year (YYYY format), take last 2 digits
+              parsedFormat += `(17)${year.substring(2)}${month}${day}`;
+              console.log("Formatted expiration date (YYMMDD):", `${year.substring(2)}${month}${day}`);
+            }
           }
         }
         
