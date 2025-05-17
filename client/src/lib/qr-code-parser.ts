@@ -28,8 +28,73 @@ export function parseQRCode(qrData: string): ParsedQRData {
     isGS1Format: false
   };
 
+  console.log("Parsing QR code data:", qrData);
+
+  // Check if this is iPhone scanner app output
+  if (qrData.includes('GTIN:') || qrData.includes('Lot Number:') || qrData.includes('Expiration Date:')) {
+    console.log('Detected iPhone scanner app output format');
+    
+    // Extract GTIN
+    const gtinMatch = qrData.match(/GTIN:\s*([0-9]+)/);
+    if (gtinMatch && gtinMatch[1]) {
+      result.gtin = gtinMatch[1];
+      result.isGS1Format = true;
+      console.log("Extracted GTIN:", result.gtin);
+    }
+    
+    // Extract Lot Number
+    const lotMatch = qrData.match(/Lot Number:\s*([A-Za-z0-9]+)/);
+    if (lotMatch && lotMatch[1]) {
+      result.lotNumber = lotMatch[1];
+      console.log("Extracted Lot Number:", result.lotNumber);
+    }
+    
+    // Extract Expiration Date
+    const expMatch = qrData.match(/Expiration Date:\s*([0-9\/]+)/);
+    if (expMatch && expMatch[1]) {
+      // Try to handle MM/DD/YY format
+      const dateParts = expMatch[1].split('/');
+      if (dateParts.length === 3) {
+        const month = dateParts[0].padStart(2, '0');
+        const day = dateParts[1].padStart(2, '0');
+        let year = dateParts[2];
+        
+        // Convert 2-digit year to 4-digit
+        if (year.length === 2) {
+          year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+        }
+        
+        result.expirationDate = `${year}-${month}-${day}`;
+        console.log("Extracted Expiration Date:", result.expirationDate);
+      }
+    }
+    
+    // Extract Serial Number
+    const serialMatch = qrData.match(/Serial Number:\s*([0-9A-Za-z]+)/);
+    if (serialMatch && serialMatch[1]) {
+      result.serialNumber = serialMatch[1];
+      console.log("Extracted Serial Number:", result.serialNumber);
+    }
+    
+    // If we couldn't extract GTIN, try to get it from the Content line
+    if (!result.gtin) {
+      const contentMatch = qrData.match(/Content\s*\n([0-9]+)/);
+      if (contentMatch && contentMatch[1]) {
+        const rawContent = contentMatch[1].trim();
+        console.log("Raw content:", rawContent);
+        
+        // If it looks like a GTIN (14+ digits)
+        if (/^[0-9]{14,}/.test(rawContent)) {
+          result.gtin = rawContent.substring(0, 14);
+          result.isGS1Format = true;
+          console.log("Extracted GTIN from content:", result.gtin);
+        }
+      }
+    }
+  }
   // Check if it's in GS1 format (begins with an Application Identifier in parentheses)
-  if (qrData.startsWith('(')) {
+  else if (qrData.includes('(')) {
+    console.log('Detected GS1 format');
     result.isGS1Format = true;
     
     // GTIN - Application Identifier (01)
@@ -68,12 +133,84 @@ export function parseQRCode(qrData: string): ParsedQRData {
     if (quantityMatch && quantityMatch[1]) {
       result.quantity = quantityMatch[1];
     }
-  } else {
-    // Handle non-GS1 formats
-    // This is for simple key=value format, URL format, or JSON format
+  } 
+  // Try to parse raw numeric content (typical DataMatrix raw format)
+  else if (/^[0-9]{14,}/.test(qrData)) {
+    console.log('Detected raw numeric format');
     
-    // Check if it's a URL with parameters
+    // First 14 digits are likely GTIN
+    result.gtin = qrData.substring(0, 14);
+    console.log("Extracted GTIN from raw format:", result.gtin);
+    
+    // Check if there's more data after GTIN
+    if (qrData.length > 14) {
+      const remainder = qrData.substring(14);
+      
+      // Try to parse remainder as lot/serial numbers
+      // This is a simplistic approach and may need refinement
+      if (/^[0-9]{6}/.test(remainder)) {
+        // If next 6 digits look like a date (YYMMDD)
+        const dateStr = remainder.substring(0, 6);
+        const year = parseInt(`20${dateStr.substring(0, 2)}`);
+        const month = parseInt(dateStr.substring(2, 4)) - 1;
+        const day = parseInt(dateStr.substring(4, 6));
+        
+        const date = new Date(year, month, day);
+        result.expirationDate = date.toISOString().split('T')[0];
+        console.log("Extracted expiration date from raw format:", result.expirationDate);
+        
+        // Remainder might be lot or serial
+        if (remainder.length > 6) {
+          // If the remainder has letters, it's probably a lot number
+          const rest = remainder.substring(6);
+          if (/[A-Za-z]/.test(rest)) {
+            // Look for alphanumeric pattern that might be a lot
+            const lotMatch = rest.match(/([A-Za-z0-9]+)/);
+            if (lotMatch) {
+              result.lotNumber = lotMatch[1];
+              console.log("Extracted lot number from raw format:", result.lotNumber);
+              
+              // Anything after might be a serial
+              const afterLot = rest.substring(lotMatch[1].length);
+              if (afterLot.length > 0) {
+                result.serialNumber = afterLot;
+                console.log("Extracted serial number from raw format:", result.serialNumber);
+              }
+            }
+          } else {
+            // If it's all numbers, assume it's a serial
+            result.serialNumber = rest;
+            console.log("Extracted serial number from raw format:", result.serialNumber);
+          }
+        }
+      } else {
+        // If no date pattern, try to determine lot and serial
+        if (/[A-Za-z]/.test(remainder)) {
+          // Look for alphanumeric pattern that might be a lot
+          const lotMatch = remainder.match(/([A-Za-z0-9]+)/);
+          if (lotMatch) {
+            result.lotNumber = lotMatch[1];
+            console.log("Extracted lot number from raw format:", result.lotNumber);
+            
+            // Anything after might be a serial
+            const afterLot = remainder.substring(lotMatch[1].length);
+            if (afterLot.length > 0) {
+              result.serialNumber = afterLot;
+              console.log("Extracted serial number from raw format:", result.serialNumber);
+            }
+          }
+        } else {
+          // If it's all numbers, assume it's a serial
+          result.serialNumber = remainder;
+          console.log("Extracted serial number from raw format:", result.serialNumber);
+        }
+      }
+    }
+  }
+  // Handle URL or JSON formats as a fallback
+  else {
     try {
+      // Check if it's a URL with parameters
       if (qrData.includes('://') && qrData.includes('?')) {
         const url = new URL(qrData);
         
