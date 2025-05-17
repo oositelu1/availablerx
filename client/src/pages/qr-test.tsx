@@ -9,37 +9,49 @@ export default function QrTest() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const animationFrame = useRef<number | null>(null);
 
-  // Auto-start camera when component loads
+  // Don't auto-start - let user click the button
   useEffect(() => {
-    startScan();
     return () => stopScan();
   }, []);
 
   const startScan = async () => {
     try {
       setResult(null);
+      console.log("Starting camera...");
       
-      // Get the camera
+      // Get the camera - use simpler constraints for better compatibility
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
+        video: true,
+        audio: false
       });
       
+      console.log("Camera access granted");
       setStream(mediaStream);
       
       if (videoRef.current) {
+        console.log("Setting video source");
         videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play();
+        
+        // Make sure autoplay is enabled
+        videoRef.current.autoplay = true;
+        videoRef.current.playsInline = true;
+        
+        try {
+          await videoRef.current.play();
+          console.log("Video playback started");
+        } catch (playError) {
+          console.error("Error playing video:", playError);
+        }
+      } else {
+        console.error("Video element not available");
       }
       
       setScanning(true);
+      console.log("Starting scan loop");
       scanCode();
     } catch (err) {
       console.error('Camera access error:', err);
-      alert('Could not access camera. Please allow camera access and try again.');
+      alert('Could not access camera. Please make sure camera permissions are enabled and try again.');
     }
   };
 
