@@ -233,25 +233,24 @@ export default function BarcodeScanner({ onScanSuccess, onScanError, onClose }: 
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-center flex items-center justify-center gap-2">
-          <Camera className="h-5 w-5" />
-          {isScanning ? "Scanning for Codes..." : "Scan Product Code"}
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent>
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+    <div className="w-full max-w-md mx-auto">
+      <div className="bg-white shadow-sm rounded-lg">
+        <div className="px-4 py-3 border-b">
+          <div className="text-lg font-semibold text-center flex items-center justify-center gap-2">
+            <Camera className="h-5 w-5" />
+            {isScanning ? "Scanning..." : "Scan Code"}
+          </div>
+        </div>
         
-        <div className="w-full relative rounded-md overflow-hidden border-2 border-gray-300">
-          {/* Video container with scan animation */}
-          <div className="relative aspect-video bg-muted">
+        <div className="p-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md mb-4">
+              <div className="font-medium">Error</div>
+              <div className="text-sm">{error}</div>
+            </div>
+          )}
+          
+          <div className="w-full relative rounded-md overflow-hidden border border-gray-300">
             {/* Video element */}
             <video
               ref={videoRef}
@@ -259,77 +258,63 @@ export default function BarcodeScanner({ onScanSuccess, onScanError, onClose }: 
               autoPlay
               playsInline
               muted
+              style={{ minHeight: "250px" }}
             />
             
             {/* Canvas element - positioned on top of video */}
             <canvas 
               ref={canvasRef}
-              className={`absolute inset-0 w-full h-full ${isScanning ? 'block' : 'hidden'}`}
+              className="absolute inset-0 w-full h-full"
+              style={{ display: isScanning ? 'block' : 'none' }}
             />
-            
-            {/* Scanning indicator */}
-            {isScanning && (
-              <div className="absolute top-2 right-2 bg-black/70 rounded-lg px-2 py-1 flex items-center gap-1 z-20">
-                <RefreshCw className="h-3 w-3 animate-spin text-white" />
-                <span className="text-white text-xs font-medium">Scanning...</span>
-              </div>
-            )}
             
             {/* Placeholder when not scanning */}
             {!isScanning && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80">
                 <div className="text-center p-4">
-                  <Camera className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
-                  <p className="text-muted-foreground">Click "Start Camera" to begin scanning</p>
+                  <Camera className="h-10 w-10 text-gray-400 mb-2 mx-auto" />
+                  <p className="text-gray-500">Click "Start Camera" to begin scanning</p>
                 </div>
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Output display */}
-        <div className="mt-4 border p-3 rounded-md bg-gray-50">
-          <div className="font-medium text-sm mb-1">Raw Decoded Data:</div>
-          <pre className="text-xs p-2 bg-white border rounded overflow-x-auto min-h-[40px]">
-            {rawData}
-          </pre>
-        </div>
-        
-        {/* Example barcode section */}
-        <div className="mt-6 border border-blue-200 bg-blue-50 p-4 rounded-md">
-          <h3 className="text-base font-medium mb-2">Sample GS1 Barcode</h3>
-          <p className="text-sm mb-3">
-            Display this barcode on a separate device and scan it with the camera:
-          </p>
-          <div className="p-4 bg-white border rounded-md text-center">
-            <img 
-              src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAMAAAC8EZcfAAAAM1BMVEX///8AAADMzMxmZmaZmZnMzMyZmZnMzMxmZmaZmZnMzMxmZmaZmZnMzMxmZmaZmZnMzMzZBQG4AAAEVElEQVR4AezBgQAAAACAoP2pF6kCAAAAAAAAAAAAAACAuTkQQjEYgAG4EWgCHf/Ygwp22QCFkEVTQn9YfTqJf/mCIccSQn7fxxv88/frj/0wDuv1Avwq4J8+Fxv9E8D3vxJPpyegfw0+W59Trgm/z10B/X0dYPSjgLEVsID1ggUsoL1gAQtoL1jAAtoLFrCA9oIFLKC9YAELaC9YwALaCxawgPaCBSygveCZAuI+2jtYDR6Rvc8QIM8fuXlY2e9+VmHwSLsKWBiMVh0UJ/snqsMjA/bvwaIUfv0WrMI6ExebEyvMDRZXP3AlnsQ2Yy9YDZ6D/VCVupuXuIkNGBNYFZ48fDe+nz5XaT79yYd0VhjcYJHxctUvdlEfpHL1Vzus7Y9YFZ48fKDhm3+/XLfLdkrpPm8sq8aTh294Y9ql9LzB4t7fhFXjicMnPxrfVLeLlC72Vg2eOHzbrdV9HS628baxqvDk4RPfUK5YdtKaIe1/a1kVnjx8o3mFrHLDL9xg1eKJwwdsNfLQSXvBQu/BqsYThw/YBgzkWK5YUg8WAie1uY+Tnzx85bHAtGP7jlUzZLSCJw9f+Si+qVx0/YrFdGNVj6fvxDfGG6wQ2YqP0OKpw1fqrriAjuWmGYeEz/7k4YPTi/hCJ+3l3i+2/aGqx1OHD45l+KTYXfvFthcrDE4avkX9tMqh3BaZ0Yt9xQqDk4ZveB7C+Lztm7Gi4KThG98XY3xL+z6sKDhp+JbXBVe6oXxbHONnbDlWfPLwgWt5Hnrc5vO+VrR1WGFwwvD162Jsw3l79B6sODhh+NiAs7qr3GIbH6ssVhicMHzDxQbMiYt9VrR1WGFwwvCNn/cFv7EbzHisaKo9Yfjk873V3UO+LR7jXaUWKwpOGD7wjc9bG262LR7js8pjhcEJwwcXKN14s93xDis+efjEd1Wef8UXWv1RxcGJw6drwgbrXn/xHTbYvVbxycNXLnKYFXe+L/Z6HnqscDhp+PYL1m2dW26wvV6oMDh5+OD0JvlM6jtf7HWDhcGJwwfH5xVrN9iA1WBFwcnDB6dny+fv+5Ov/c8qHncL2PtHtR4rCk4cvq1cxO5irLiN1lY1VhycNHxj6cbYDQbu7oLV4snDdztpdRcfb+xerdZxJ06eNHzl8cZSHh6s4ja+0LpXqzW/4YOnDJ/44NQfbqxvbtZztaaGTxi+W7l8XB6xik23VzxWaPh04bu9L46v+6tN99i9WKHhE4YPXI/HxXq+2HTftFjx1OG7vfG5XMbH7XF7tXutRuGTha98XuyXxxtL3B9vrFf7L1g8cfjuo7XNY7T62Fm6V6s1PnH4ykXu5vkRK9rkq1XX+MTh2996oLvcvS/Yvd1jxcfjycP3fNziIx+tXc4EvPv2iuef//rkBY8AAAAAgCDAX6mHAAAAAAAAAAAAAACwADDVZoT1g/C+AAAAAElFTkSuQmCC"
-              alt="GS1 DataMatrix Barcode"
-              className="mx-auto border border-gray-200 rounded-md"
-              style={{ height: "180px", width: "180px" }}
-            />
-            <div className="mt-2 text-sm font-medium">
-              GS1 DataMatrix Sample
+          
+          {/* Scanned data display */}
+          {rawData && rawData !== "Scanning..." && rawData !== "Scanner stopped" && (
+            <div className="mt-4 p-2 border rounded-md bg-gray-50">
+              <pre className="text-xs overflow-x-auto">{rawData}</pre>
             </div>
-            <div className="mt-1 text-xs text-gray-500">
-              Contains: (01)04012345678901(17)250331(10)ABCD1234
-            </div>
+          )}
+          
+          <div className="mt-4 text-xs text-gray-500 text-center">
+            Position the code in the center of the frame with good lighting.
           </div>
         </div>
         
-        <div className="mt-4 text-xs text-muted-foreground text-center">
-          Position the barcode within the green frame and hold steady with good lighting.
+        <div className="px-4 py-3 flex gap-2 justify-between border-t">
+          {isScanning ? (
+            <button 
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" 
+              onClick={stopScanning}
+            >
+              Stop Camera
+            </button>
+          ) : (
+            <button 
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" 
+              onClick={startScanning}
+            >
+              Start Camera
+            </button>
+          )}
+          <button 
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50" 
+            onClick={onClose}
+          >
+            Cancel
+          </button>
         </div>
-      </CardContent>
-      
-      <CardFooter className="flex gap-2 justify-between">
-        {isScanning ? (
-          <Button variant="destructive" onClick={stopScanning}>Stop Camera</Button>
-        ) : (
-          <Button onClick={startScanning}>Start Camera</Button>
-        )}
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
