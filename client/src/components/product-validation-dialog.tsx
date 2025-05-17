@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera, Info } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Camera, Info, KeyboardIcon } from "lucide-react";
 import HTML5Scanner from "@/components/html5-scanner";
+import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -50,6 +51,7 @@ export default function ProductValidationDialog({
   fileMetadata
 }: ProductValidationDialogProps) {
   const [showScanner, setShowScanner] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -70,6 +72,7 @@ export default function ProductValidationDialog({
     if (!isOpen) {
       setScanResult(null);
       setShowScanner(false);
+      setShowManualEntry(false);
     }
   }, [isOpen]);
 
@@ -161,6 +164,15 @@ export default function ProductValidationDialog({
         <HTML5Scanner 
           onScanSuccess={handleScanSuccess}
           onClose={() => setShowScanner(false)}
+        />
+      );
+    }
+    
+    if (showManualEntry) {
+      return (
+        <ManualBarcodeEntry
+          onSubmit={handleScanSuccess}
+          onCancel={() => setShowManualEntry(false)}
         />
       );
     }
