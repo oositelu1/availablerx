@@ -15,6 +15,7 @@
 export interface ParsedQRData {
   raw: string;
   gtin?: string;
+  normalizedGtin?: string;  // For handling CASE vs ITEM level GTIN conversions
   lotNumber?: string;
   expirationDate?: string;
   serialNumber?: string;
@@ -35,37 +36,89 @@ export function parseQRCode(qrData: string): ParsedQRData {
     console.log('Detected iPhone scanner app output format');
     
     // Extract GTIN
-    const gtinMatch = qrData.match(/GTIN:\s*([0-9]+)/);
+    const gtinMatch = qrData.match(/GTIN:?\s*([0-9]+)/i);
     if (gtinMatch && gtinMatch[1]) {
-      result.gtin = gtinMatch[1];
+      // Store the GTIN from the scanner, but note that the scanner may give us the CASE GTIN (50...)
+      // while our database has item-level GTIN (00...)
+      let extractedGtin = gtinMatch[1];
+      
+      // Handle CASE vs ITEM GTIN - if indicator digit at position 7 is 5, it's a case
+      // We need to normalize CASE GTINs for comparison
+      if (extractedGtin.length >= 14) {
+        // For direct comparison with database, store the original
+        result.gtin = extractedGtin;
+        
+        // For special case matching, check if we need to convert CASE <-> ITEM
+        if (extractedGtin.charAt(7) === '5') {
+          console.log("Detected CASE GTIN, will match with corresponding ITEM GTIN");
+          // This is a CASE GTIN (with 5 at position 7)
+          // Create item-level GTIN for matching by replacing '5' with '0'
+          const itemLevelGtin = extractedGtin.substring(0, 7) + '0' + extractedGtin.substring(8);
+          // For matching purposes, we'll use this normalized version
+          result.normalizedGtin = itemLevelGtin;
+          console.log("CASE GTIN:", extractedGtin, "-> Normalized to ITEM GTIN:", itemLevelGtin);
+        } else if (extractedGtin.charAt(7) === '0') {
+          // This is an ITEM GTIN (with 0 at position 7)
+          // Create case-level GTIN for matching by replacing '0' with '5'
+          const caseLevelGtin = extractedGtin.substring(0, 7) + '5' + extractedGtin.substring(8);
+          // For matching purposes, we'll use both versions
+          result.normalizedGtin = caseLevelGtin;
+          console.log("ITEM GTIN:", extractedGtin, "-> Also check CASE GTIN:", caseLevelGtin);
+        }
+      }
+      
       result.isGS1Format = true;
       console.log("Extracted GTIN:", result.gtin);
     }
     
     // Extract Lot Number
-    const lotMatch = qrData.match(/Lot Number:\s*([A-Za-z0-9]+)/);
+    const lotMatch = qrData.match(/Lot\s*Number:?\s*([A-Za-z0-9]+)/i);
     if (lotMatch && lotMatch[1]) {
       result.lotNumber = lotMatch[1];
       console.log("Extracted Lot Number:", result.lotNumber);
     }
     
-    // Extract Expiration Date
-    const expMatch = qrData.match(/Expiration Date:\s*([0-9\/]+)/);
+    // Extract Expiration Date - more flexible matching
+    const expMatch = qrData.match(/Expiration\s*Date:?\s*([0-9\/\-\.]+)/i);
     if (expMatch && expMatch[1]) {
-      // Try to handle MM/DD/YY format
-      const dateParts = expMatch[1].split('/');
-      if (dateParts.length === 3) {
-        const month = dateParts[0].padStart(2, '0');
-        const day = dateParts[1].padStart(2, '0');
-        let year = dateParts[2];
-        
-        // Convert 2-digit year to 4-digit
-        if (year.length === 2) {
-          year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+      let dateStr = expMatch[1];
+      console.log("Found expiration date string:", dateStr);
+      
+      // Try to handle various date formats
+      if (dateStr.includes('/')) {
+        // MM/DD/YY format
+        const dateParts = dateStr.split('/');
+        if (dateParts.length === 3) {
+          const month = dateParts[0].padStart(2, '0');
+          const day = dateParts[1].padStart(2, '0');
+          let year = dateParts[2];
+          
+          // Convert 2-digit year to 4-digit
+          if (year.length === 2) {
+            year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+          }
+          
+          result.expirationDate = `${year}-${month}-${day}`;
+          console.log("Extracted Expiration Date (MM/DD/YY):", result.expirationDate);
         }
-        
-        result.expirationDate = `${year}-${month}-${day}`;
-        console.log("Extracted Expiration Date:", result.expirationDate);
+      } else if (dateStr.includes('-')) {
+        // YYYY-MM-DD format
+        const dateParts = dateStr.split('-');
+        if (dateParts.length === 3) {
+          result.expirationDate = dateStr;
+          console.log("Extracted Expiration Date (YYYY-MM-DD):", result.expirationDate);
+        }
+      } else {
+        // Try to parse as YYMMDD
+        if (dateStr.length === 6 && /^\d{6}$/.test(dateStr)) {
+          const yy = dateStr.substring(0, 2);
+          const mm = dateStr.substring(2, 4);
+          const dd = dateStr.substring(4, 6);
+          const year = parseInt(yy) < 50 ? `20${yy}` : `19${yy}`;
+          
+          result.expirationDate = `${year}-${mm}-${dd}`;
+          console.log("Extracted Expiration Date (YYMMDD):", result.expirationDate);
+        }
       }
     }
     
@@ -241,6 +294,7 @@ export function parseQRCode(qrData: string): ParsedQRData {
 
 /**
  * Compare scanned QR data with EPCIS product data
+ * Enhanced to handle CASE vs ITEM level GTIN matching
  */
 export function compareWithEPCISData(
   qrData: ParsedQRData, 
@@ -266,9 +320,41 @@ export function compareWithEPCISData(
     serialMatch: false
   };
   
-  // Check GTIN match
+  // Check GTIN match with case/item handling
   if (qrData.gtin && epcisData.gtin) {
-    result.gtinMatch = qrData.gtin === epcisData.gtin;
+    // First try direct match
+    if (qrData.gtin === epcisData.gtin) {
+      result.gtinMatch = true;
+      console.log("Direct GTIN match found:", qrData.gtin);
+    } 
+    // Then try normalized match if we have a normalized GTIN
+    else if (qrData.normalizedGtin && qrData.normalizedGtin === epcisData.gtin) {
+      result.gtinMatch = true;
+      console.log("Normalized GTIN match found:", qrData.normalizedGtin);
+    }
+    // Special case handling for indicator digit (position 7)
+    else {
+      // Check if they differ only by the indicator digit at position 7
+      if (qrData.gtin.length >= 14 && epcisData.gtin.length >= 14) {
+        const qrPrefix = qrData.gtin.substring(0, 7);
+        const qrSuffix = qrData.gtin.substring(8);
+        const epcisPrefix = epcisData.gtin.substring(0, 7);
+        const epcisSuffix = epcisData.gtin.substring(8);
+        
+        // If the prefix and suffix match, and only the indicator digit differs
+        if (qrPrefix === epcisPrefix && qrSuffix === epcisSuffix) {
+          const qrIndicator = qrData.gtin.charAt(7);
+          const epcisIndicator = epcisData.gtin.charAt(7);
+          
+          // If one is '0' (item) and one is '5' (case), it's a match
+          if ((qrIndicator === '0' && epcisIndicator === '5') || 
+              (qrIndicator === '5' && epcisIndicator === '0')) {
+            result.gtinMatch = true;
+            console.log("CASE/ITEM GTIN match found! Scanned:", qrData.gtin, "EPCIS:", epcisData.gtin);
+          }
+        }
+      }
+    }
   }
   
   // Check Lot Number match
