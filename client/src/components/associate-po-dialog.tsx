@@ -146,7 +146,7 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
                   <FormLabel>Purchase Order</FormLabel>
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    defaultValue={field.value.toString()}
+                    defaultValue={field.value > 0 ? field.value.toString() : undefined}
                   >
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -190,7 +190,7 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
                   <FormLabel>Association Method</FormLabel>
                   <Select 
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="w-full">
