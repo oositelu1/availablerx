@@ -511,12 +511,21 @@ export class DatabaseStorage implements IStorage {
     let protocol = 'https';
     let host = requestHost || 'localhost:3000';
     
-    // Handle Replit environment specifically
-    if (process.env.REPLIT_SLUG) {
+    console.log("Generating presigned URL with environment:");
+    console.log(`REPLIT_DOMAINS: ${process.env.REPLIT_DOMAINS}`);
+    
+    // Force Replit domain for all URLs if in Replit environment
+    if (process.env.REPLIT_DOMAINS) {
       protocol = 'https';
-      host = `${process.env.REPLIT_SLUG}.replit.dev`;
+      host = process.env.REPLIT_DOMAINS;
+      console.log(`Using REPLIT_DOMAINS: ${host}`);
+    } else if (process.env.REPLIT_DEV_DOMAIN) {
+      protocol = 'https';
+      host = process.env.REPLIT_DEV_DOMAIN;
+      console.log(`Using REPLIT_DEV_DOMAIN: ${host}`);
     } else if (host.includes('localhost')) {
       protocol = 'http';
+      console.log(`Using localhost URL`);
     }
     
     const downloadUrl = `${protocol}://${host}/api/download/${uuid}`;
