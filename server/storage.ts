@@ -654,8 +654,32 @@ export class MemStorage implements IStorage {
   
   async generatePresignedUrl(fileId: number, expirationSeconds: number = 172800): Promise<string> {
     const uuid = uuidv4();
-    // Generate a download URL with the UUID
-    return `${this.baseDownloadUrl}/api/download/${uuid}`;
+    
+    // Generate a download URL with the correct domain based on environment
+    let protocol = 'https';
+    let host = 'localhost:3000';
+    
+    console.log("Generating download URL with environment variables:");
+    console.log(`REPLIT_DOMAINS: ${process.env.REPLIT_DOMAINS}`);
+    
+    // Force Replit domain for all URLs if in Replit environment
+    if (process.env.REPLIT_DOMAINS) {
+      protocol = 'https';
+      host = process.env.REPLIT_DOMAINS;
+      console.log(`Using REPLIT_DOMAINS: ${host}`);
+    } else if (process.env.REPLIT_DEV_DOMAIN) {
+      protocol = 'https';
+      host = process.env.REPLIT_DEV_DOMAIN;
+      console.log(`Using REPLIT_DEV_DOMAIN: ${host}`);
+    } else {
+      // Local development fallback
+      protocol = 'http';
+      console.log(`Using local development URL: ${protocol}://${host}`);
+    }
+    
+    const url = `${protocol}://${host}/api/download/${uuid}`;
+    console.log(`Generated pre-signed URL: ${url}`);
+    return url;
   }
   
   // Purchase Order Item methods
