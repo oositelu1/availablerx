@@ -767,7 +767,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Retrieve the file data
-      const fileData = await storage.retrieveFileData(file.id);
+      let fileData = await storage.retrieveFileData(file.id);
+      
+      // If the file data is not in memory, try to load it directly from attached_assets
+      if (!fileData && file.originalName.startsWith('shipment_')) {
+        try {
+          console.log(`Attempting to load file directly from attached_assets: ${file.originalName}`);
+          const filePath = path.join(process.cwd(), 'attached_assets', file.originalName);
+          fileData = await fs.readFile(filePath);
+          console.log(`Successfully loaded file from disk: ${filePath}`);
+          
+          // Store for future use
+          await storage.storeFileData(fileData, file.id);
+        } catch (err) {
+          console.error(`Failed to load file from attached_assets: ${err.message}`);
+        }
+      }
+      
       if (!fileData) {
         return res.status(404).json({ message: 'File data not found' });
       }
