@@ -295,27 +295,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
           </pre>
         </div>
         
-        {/* Sample barcode section - clearly visible */}
-        <div className="mt-6 border border-blue-200 bg-blue-50 p-4 rounded-md">
-          <h3 className="text-base font-medium mb-2">Sample Barcode for Testing</h3>
-          <p className="text-sm mb-3">
-            Display this barcode on a separate device and scan it with the camera:
-          </p>
-          <div className="p-4 bg-white border rounded-md text-center">
-            <img 
-              src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAMAAAC8EZcfAAAAM1BMVEX///8AAADMzMxmZmaZmZnMzMyZmZnMzMxmZmaZmZnMzMxmZmaZmZnMzMxmZmaZmZnMzMzZBQG4AAAEVElEQVR4AezBgQAAAACAoP2pF6kCAAAAAAAAAAAAAACAuTkQQjEYgAG4EWgCHf/Ygwp22QCFkEVTQn9YfTqJf/mCIccSQn7fxxv88/frj/0wDuv1Avwq4J8+Fxv9E8D3vxJPpyegfw0+W59Trgm/z10B/X0dYPSjgLEVsID1ggUsoL1gAQtoL1jAAtoLFrCA9oIFLKC9YAELaC9YwALaCxawgPaCBSygveCZAuI+2jtYDR6Rvc8QIM8fuXlY2e9+VmHwSLsKWBiMVh0UJ/snqsMjA/bvwaIUfv0WrMI6ExebEyvMDRZXP3AlnsQ2Yy9YDZ6D/VCVupuXuIkNGBNYFZ48fDe+nz5XaT79yYd0VhjcYJHxctUvdlEfpHL1Vzus7Y9YFZ48fKDhm3+/XLfLdkrpPm8sq8aTh294Y9ql9LzB4t7fhFXjicMnPxrfVLeLlC72Vg2eOHzbrdV9HS628baxqvDk4RPfUK5YdtKaIe1/a1kVnjx8o3mFrHLDL9xg1eKJwwdsNfLQSXvBQu/BqsYThw/YBgzkWK5YUg8WAie1uY+Tnzx85bHAtGP7jlUzZLSCJw9f+Si+qVx0/YrFdGNVj6fvxDfGG6wQ2YqP0OKpw1fqrriAjuWmGYeEz/7k4YPTi/hCJ+3l3i+2/aGqx1OHD45l+KTYXfvFthcrDE4avkX9tMqh3BaZ0Yt9xQqDk4ZveB7C+Lztm7Gi4KThG98XY3xL+z6sKDhp+JbXBVe6oXxbHONnbDlWfPLwgWt5Hnrc5vO+VrR1WGFwwvD162Jsw3l79B6sODhh+NiAs7qr3GIbH6ssVhicMHzDxQbMiYt9VrR1WGFwwvCNn/cFv7EbzHisaKo9Yfjk873V3UO+LR7jXaUWKwpOGD7wjc9bG262LR7js8pjhcEJwwcXKN14s93xDis+efjEd1Wef8UXWv1RxcGJw6drwgbrXn/xHTbYvVbxycNXLnKYFXe+L/Z6HnqscDhp+PYL1m2dW26wvV6oMDh5+OD0JvlM6jtf7HWDhcGJwwfH5xVrN9iA1WBFwcnDB6dny+fv+5Ov/c8qHncL2PtHtR4rCk4cvq1cxO5irLiN1lY1VhycNHxj6cbYDQbu7oLV4snDdztpdRcfb+xerdZxJ06eNHzl8cZSHh6s4ja+0LpXqzW/4YOnDJ/44NQfbqxvbtZztaaGTxi+W7l8XB6xik23VzxWaPh04bu9L46v+6tN99i9WKHhE4YPXI/HxXq+2HTftFjx1OG7vfG5XMbH7XF7tXutRuGTha98XuyXxxtL3B9vrFf7L1g8cfjuo7XNY7T62Fm6V6s1PnH4ykXu5vkRK9rkq1XX+MTh2996oLvcvS/Yvd1jxcfjycP3fNziIx+tXc4EvPv2iuef//rkBY8AAAAAgCDAX6mHAAAAAAAAAAAAAACwADDVZoT1g/C+AAAAAElFTkSuQmCC"
-              alt="GS1 DataMatrix Barcode"
-              className="mx-auto border border-gray-200 rounded-md"
-              style={{ height: "200px", width: "200px" }}
-            />
-            <div className="mt-3 text-sm font-medium">
-              GS1 DataMatrix Barcode
-            </div>
-            <div className="mt-1 text-xs text-gray-500 max-w-md mx-auto">
-              Contains: (01)04012345678901(17)250331(10)ABCD1234
-            </div>
-          </div>
-        </div>
+
         
         <div className="mt-4 text-xs text-muted-foreground text-center">
           Position product barcode within the frame for scanning.
