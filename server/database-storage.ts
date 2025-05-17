@@ -41,8 +41,8 @@ export class DatabaseStorage implements IStorage {
     this.fileDataStorage = new Map();
     
     // Set the base URL for downloads
-    // In production, this would come from environment variables
-    this.baseDownloadUrl = process.env.BASE_DOWNLOAD_URL || 'http://localhost:5000';
+    // This will be overridden by the actual host in the request when generating URLs
+    this.baseDownloadUrl = process.env.BASE_DOWNLOAD_URL || '';
     
     // Create a default admin user if none exists
     this.ensureAdminUser();
@@ -484,7 +484,7 @@ export class DatabaseStorage implements IStorage {
    * For simplicity, we're just creating a URL with a UUID that our server will validate
    * In production, you would use S3 pre-signed URLs or similar technology
    */
-  async generatePresignedUrl(fileId: number, expirationSeconds: number = 172800): Promise<string> {
+  async generatePresignedUrl(fileId: number, expirationSeconds: number = 172800, requestHost?: string): Promise<string> {
     const uuid = uuidv4();
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + expirationSeconds);
@@ -494,8 +494,28 @@ export class DatabaseStorage implements IStorage {
     hash.update(uuid);
     const urlHash = hash.digest('hex');
     
-    // Generate the URL
-    const downloadUrl = `${this.baseDownloadUrl}/api/download/${uuid}`;
+    // Create the pre-signed link in the database
+    await this.createPresignedLink({
+      fileId,
+      partnerId: 0, // This will be updated later when sending to a specific partner
+      uuid,
+      urlHash,
+      expiresAt,
+      createdBy: 1, // Default to admin user for system-generated URLs
+      isOneTimeUse: false,
+      ipRestriction: null
+    });
+    
+    // Generate the URL using the host from the request if available
+    // This ensures the URL will work in any environment (localhost, Replit, etc.)
+    let baseUrl = this.baseDownloadUrl;
+    if (requestHost) {
+      const protocol = requestHost.includes('localhost') ? 'http' : 'https';
+      baseUrl = `${protocol}://${requestHost}`;
+    }
+    
+    const downloadUrl = `${baseUrl}/api/download/${uuid}`;
+    console.log(`Generated pre-signed URL: ${downloadUrl}`);
     
     return downloadUrl;
   }
