@@ -377,7 +377,45 @@ export class DatabaseStorage implements IStorage {
   }
   
   async retrieveFileData(fileId: number): Promise<Buffer | undefined> {
-    return this.fileDataStorage.get(fileId);
+    // First try to get from memory
+    const fileDataFromMemory = this.fileDataStorage.get(fileId);
+    if (fileDataFromMemory) {
+      return fileDataFromMemory;
+    }
+    
+    // If not in memory, try to load from the file system
+    try {
+      // Get file info to determine original name
+      const file = await this.getFile(fileId);
+      if (!file) {
+        return undefined;
+      }
+      
+      // Check if this is one of our sample files in attached_assets
+      if (file.originalName.startsWith('shipment_')) {
+        const fs = require('fs/promises');
+        const path = require('path');
+        const samplePath = path.join(process.cwd(), 'attached_assets', file.originalName);
+        console.log(`File data not in memory, trying to load from: ${samplePath}`);
+        
+        try {
+          // Try to read the file
+          const fileContent = await fs.readFile(samplePath);
+          console.log(`Successfully loaded file data for ${file.originalName} from disk`);
+          
+          // Store in memory for future use
+          this.fileDataStorage.set(fileId, fileContent);
+          return fileContent;
+        } catch (err) {
+          console.error(`Error loading file from ${samplePath}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error(`Error in retrieveFileData fallback for fileId ${fileId}:`, err);
+    }
+    
+    // If we get here, we couldn't find the file data
+    return undefined;
   }
   
   // Pre-signed URL management
