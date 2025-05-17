@@ -91,9 +91,12 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       return;
     }
     
+    // Increment scan attempts counter
     setScanAttempts(prev => prev + 1);
-    if (scanAttempts % 30 === 0) {
-      console.log(`Scanning attempt ${scanAttempts} - Camera is active`);
+    
+    // Log every 10 attempts to show scanner is working
+    if (scanAttempts % 10 === 0) {
+      console.log(`Active scanning - attempt ${scanAttempts}`);
     }
     
     const canvas = canvasRef.current;
@@ -112,11 +115,41 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         canvas.height = video.videoHeight;
       }
       
+      // Clear the canvas
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      
       // Draw the current video frame to the canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
+      // Add visible scan line that moves to show user the scanning is active
+      // This is the red line that moves up and down
+      const scanLineY = (scanAttempts % 100) / 100 * canvas.height;
+      context.beginPath();
+      context.moveTo(0, scanLineY);
+      context.lineTo(canvas.width, scanLineY);
+      context.lineWidth = 2;
+      context.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+      context.stroke();
+      
+      // Draw scanning region indicators
+      context.strokeStyle = '#25D366';  // WhatsApp green color
+      context.lineWidth = 2;
+      
+      // Draw full scan region
+      context.setLineDash([5, 5]); // Dashed line
+      context.strokeRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw center region where we look more carefully
+      const centerX = Math.floor(canvas.width / 4);
+      const centerY = Math.floor(canvas.height / 4);
+      const centerWidth = Math.floor(canvas.width / 2);
+      const centerHeight = Math.floor(canvas.height / 2);
+      
+      context.strokeStyle = '#FF3B58'; // Red-pink
+      context.setLineDash([]); // Solid line
+      context.strokeRect(centerX, centerY, centerWidth, centerHeight);
+      
       // Multi-scan approach - scan different regions and scales of the image
-      // This increases chance of reading codes that are at an angle or partially visible
       
       // Full frame scan
       const fullImageData = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -125,22 +158,19 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       });
       
       if (fullCode) {
+        console.log("Found code in full image");
         handleDetectedCode(fullCode, context);
         return;
       }
       
       // Center region scan (where most users hold the barcode)
-      const centerX = Math.floor(canvas.width / 4);
-      const centerY = Math.floor(canvas.height / 4);
-      const centerWidth = Math.floor(canvas.width / 2);
-      const centerHeight = Math.floor(canvas.height / 2);
-      
       const centerImageData = context.getImageData(centerX, centerY, centerWidth, centerHeight);
       const centerCode = jsQR(centerImageData.data, centerImageData.width, centerImageData.height, {
         inversionAttempts: "attemptBoth"
       });
       
       if (centerCode) {
+        console.log("Found code in center region");
         // Adjust location coordinates to match the full canvas
         centerCode.location.topLeftCorner.x += centerX;
         centerCode.location.topLeftCorner.y += centerY;
@@ -155,8 +185,19 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         return;
       }
       
-      // If this is a frequent scan attempt (every 5 attempts), try grayscale conversion to improve contrast
+      // Every 5th frame, try additional image processing techniques
       if (scanAttempts % 5 === 0) {
+        // Indicate we're doing special processing
+        const indicator = document.createElement('div');
+        indicator.textContent = "Enhanced scanning...";
+        indicator.style.position = 'absolute';
+        indicator.style.bottom = '10px';
+        indicator.style.left = '10px';
+        indicator.style.color = 'white';
+        indicator.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        indicator.style.padding = '5px';
+        indicator.style.borderRadius = '3px';
+        
         // Convert to grayscale for better contrast
         const grayImageData = new ImageData(
           new Uint8ClampedArray(fullImageData.data),
@@ -177,10 +218,19 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         });
         
         if (grayCode) {
+          console.log("Found code with grayscale processing");
           handleDetectedCode(grayCode, context);
           return;
         }
       }
+      
+      // Add scan attempt counter to the screen
+      context.font = '12px Arial';
+      context.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      context.fillRect(5, 5, 120, 20);
+      context.fillStyle = 'black';
+      context.fillText(`Scanning: ${scanAttempts} frames`, 10, 20);
+      
     } catch (err) {
       console.error("Error processing video frame:", err);
     }
@@ -339,57 +389,44 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         )}
         
         <div className="w-full h-64 bg-muted relative rounded-md overflow-hidden flex items-center justify-center">
-          {/* Camera video element (always present but toggle display) */}
-          <video
-            ref={videoRef}
-            className={`w-full h-full object-cover ${isScanning ? 'block' : 'hidden'}`}
-            autoPlay
-            playsInline
-            muted
-          />
-          
-          {/* Hidden canvas for image processing */}
-          <canvas 
-            ref={canvasRef} 
-            className="hidden"
-          />
-          
-          {/* Scanning indicator overlay with scan line animation */}
-          {isScanning && scanningActive && (
+          {/* When active, only show the canvas with visual indicators */}
+          {isScanning ? (
             <>
-              {/* Red scan line that moves up and down */}
-              <div className="absolute left-0 right-0 h-0.5 bg-red-500 z-10" 
-                   style={{
-                     animation: 'scan 1.5s infinite ease-in-out',
-                   }}
+              {/* Video element is always present but not displayed directly */}
+              <video
+                ref={videoRef}
+                className="hidden"
+                autoPlay
+                playsInline
+                muted
               />
               
-              {/* Rectangular frame to show scan area */}
-              <div className="absolute inset-0 border-2 border-primary/70 rounded-md pointer-events-none"></div>
-              
-              {/* Corner indicators */}
-              <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-primary"></div>
-              <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-primary"></div>
-              <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-primary"></div>
-              <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-primary"></div>
+              {/* Canvas for processing and display - now visible */}
+              <canvas 
+                ref={canvasRef} 
+                className="w-full h-full object-cover"
+              />
               
               {/* Status indicator */}
-              <div className="absolute top-2 right-2 bg-black/50 rounded-lg px-2 py-1 flex items-center gap-1">
+              <div className="absolute top-2 right-2 bg-black/70 rounded-lg px-2 py-1 flex items-center gap-1 z-20">
                 <Loader2 className="h-3 w-3 animate-spin text-white" />
-                <span className="text-white text-xs font-medium">Active</span>
+                <span className="text-white text-xs font-medium">Scanning...</span>
               </div>
               
-              {/* Instruction overlay */}
-              <div className="absolute bottom-2 left-0 right-0 text-center">
-                <div className="bg-black/50 mx-auto inline-block px-3 py-1 rounded-full">
-                  <p className="text-white text-xs">Position barcode in frame</p>
+              {/* Counter display to show active scanning */}
+              <div className="absolute top-2 left-2 bg-black/70 rounded-lg px-2 py-1 z-20">
+                <span className="text-white text-xs">Frames: {scanAttempts}</span>
+              </div>
+              
+              {/* Instruction overlay with larger text for visibility */}
+              <div className="absolute bottom-2 left-0 right-0 text-center z-20">
+                <div className="bg-black/70 mx-auto inline-block px-4 py-2 rounded-lg">
+                  <p className="text-white text-sm font-medium">Position barcode in frame</p>
                 </div>
               </div>
             </>
-          )}
-          
-          {/* Placeholder when camera is not active */}
-          {!isScanning && (
+          ) : (
+            /* Placeholder when camera is not active */
             <div className="text-center p-4">
               <Camera className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
               <p className="text-muted-foreground">Click "Start Camera" to begin scanning</p>
