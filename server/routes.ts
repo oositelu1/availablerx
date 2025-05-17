@@ -577,8 +577,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         downloadedAt: null
       });
       
-      // Generate the shareable URL
-      const downloadUrl = `${req.protocol}://${req.get('host')}/api/download/${uuid}`;
+      // Generate the shareable URL that works in Replit environment
+      let protocol = 'https';
+      let host = req.get('host') || 'localhost:3000';
+      
+      // Special handling for Replit environment
+      if (process.env.REPLIT_SLUG) {
+        protocol = 'https';
+        host = `${process.env.REPLIT_SLUG}.replit.dev`;
+      } else if (host.includes('localhost')) {
+        protocol = 'http';
+      }
+      
+      const downloadUrl = `${protocol}://${host}/api/download/${uuid}`;
       
       res.json({
         ...presignedLink,
@@ -610,10 +621,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const links = await storage.listPresignedLinksForFile(fileId);
       
       // Add the download URL to each link
-      const linksWithUrls = links.map(link => ({
-        ...link,
-        downloadUrl: `${req.protocol}://${req.get('host')}/api/download/${link.uuid}`
-      }));
+      const linksWithUrls = links.map(link => {
+        // Create proper URLs that work in Replit environment
+        let protocol = 'https';
+        let host = req.get('host') || 'localhost:3000';
+        
+        // Special handling for Replit environment
+        if (process.env.REPLIT_SLUG) {
+          protocol = 'https';
+          host = `${process.env.REPLIT_SLUG}.replit.dev`;
+        } else if (host.includes('localhost')) {
+          protocol = 'http';
+        }
+        
+        return {
+          ...link,
+          downloadUrl: `${protocol}://${host}/api/download/${link.uuid}`
+        };
+      });
       
       res.json(linksWithUrls);
     } catch (error) {
@@ -645,10 +670,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const links = await storage.listPresignedLinksForPartner(partnerId, includeExpired);
       
       // Add the download URL to each link
-      const linksWithUrls = links.map(link => ({
-        ...link,
-        downloadUrl: `${req.protocol}://${req.get('host')}/api/download/${link.uuid}`
-      }));
+      const linksWithUrls = links.map(link => {
+        // Create proper URLs that work in Replit environment
+        let protocol = 'https';
+        let host = req.get('host') || 'localhost:3000';
+        
+        // Special handling for Replit environment
+        if (process.env.REPLIT_SLUG) {
+          protocol = 'https';
+          host = `${process.env.REPLIT_SLUG}.replit.dev`;
+        } else if (host.includes('localhost')) {
+          protocol = 'http';
+        }
+        
+        return {
+          ...link,
+          downloadUrl: `${protocol}://${host}/api/download/${link.uuid}`
+        };
+      });
       
       res.json(linksWithUrls);
     } catch (error) {
