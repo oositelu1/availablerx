@@ -49,17 +49,18 @@ type AssociationFormValues = z.infer<typeof associationSchema>;
 
 interface AssociatePODialogProps {
   fileId: number;
-  children: React.ReactNode;
+  onClose: () => void;
+  children?: React.ReactNode;
 }
 
-export function AssociatePODialog({ fileId, children }: AssociatePODialogProps) {
+export function AssociatePODialog({ fileId, onClose, children }: AssociatePODialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch all purchase orders for the dropdown
-  const { data: purchaseOrdersResponse, isLoading: isLoadingPOs } = useQuery({
+  const { data: purchaseOrdersResponse, isLoading: isLoadingPOs } = useQuery<any>({
     queryKey: ['/api/purchase-orders'],
-    enabled: open, // Only load when dialog is open
+    enabled: true, // Always load when component is mounted
   });
 
   // Extract the purchase orders array from the response
@@ -88,7 +89,7 @@ export function AssociatePODialog({ fileId, children }: AssociatePODialogProps) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/associations/file/${fileId}`] });
-      setOpen(false);
+      onClose();
       form.reset();
       toast({
         title: "Purchase Order Associated",
@@ -112,10 +113,12 @@ export function AssociatePODialog({ fileId, children }: AssociatePODialogProps) 
   // This would require fetching current associations, which we could add if needed
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+    <Dialog open={true} onOpenChange={() => onClose()}>
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Associate with Purchase Order</DialogTitle>
@@ -149,7 +152,7 @@ export function AssociatePODialog({ fileId, children }: AssociatePODialogProps) 
                       ) : purchaseOrders && purchaseOrders.length > 0 ? (
                         <SelectGroup>
                           <SelectLabel>Purchase Orders</SelectLabel>
-                          {purchaseOrders.map((po) => (
+                          {purchaseOrders.map((po: any) => (
                             <SelectItem key={po.id} value={po.id.toString()}>
                               {po.poNumber} - {po.supplierGln}
                             </SelectItem>
@@ -238,7 +241,7 @@ export function AssociatePODialog({ fileId, children }: AssociatePODialogProps) 
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => setOpen(false)}
+                onClick={() => onClose()}
               >
                 Cancel
               </Button>
