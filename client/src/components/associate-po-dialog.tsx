@@ -80,9 +80,18 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
   // Mutation for associating a PO with this file
   const associateMutation = useMutation({
     mutationFn: async (values: AssociationFormValues) => {
+      // Get user info to include createdBy field
+      const userResponse = await fetch('/api/user');
+      if (!userResponse.ok) {
+        throw new Error("You must be logged in to associate purchase orders");
+      }
+      const userData = await userResponse.json();
+      
+      // Include the user ID as createdBy 
       const response = await apiRequest("POST", "/api/associations", {
         ...values,
-        fileId
+        fileId,
+        createdBy: userData.id
       });
       
       return await response.json();
