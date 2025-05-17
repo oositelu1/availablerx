@@ -47,36 +47,46 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         throw new Error("Video element not found");
       }
       
-      // Request camera access with environment facing mode (back camera)
+      // Request camera access with simple constraints
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" }
+        video: true, 
+        audio: false 
       });
+      
+      console.log("Camera access granted!");
       
       // Store stream reference for cleanup
       streamRef.current = stream;
       
       // Set video source
       videoRef.current.srcObject = stream;
+      videoRef.current.autoplay = true;
+      videoRef.current.playsInline = true;
       
-      // When video is ready, set up canvas and start scanning
-      videoRef.current.onloadedmetadata = () => {
+      try {
+        // Explicitly start playing (some browsers need this)
+        await videoRef.current.play();
+        console.log("Video is now playing!");
+        
+        // When video is ready, set up canvas and start scanning
         if (videoRef.current && canvasRef.current) {
           // Set canvas dimensions to match video
-          canvasRef.current.height = videoRef.current.videoHeight;
-          canvasRef.current.width = videoRef.current.videoWidth;
+          canvasRef.current.height = videoRef.current.videoHeight || 480;
+          canvasRef.current.width = videoRef.current.videoWidth || 640;
           
-          // Ensure video is playing
-          if (videoRef.current.paused) {
-            videoRef.current.play().catch(err => {
-              console.error("Error playing video:", err);
-              setError("Could not play video: " + err.message);
-            });
-          }
-          
+          console.log("Starting scan frame loop");
           // Start scanning loop
           scanFrame();
         }
-      };
+      } catch (playErr) {
+        console.error("Error playing video:", playErr);
+        setError("Could not start video: " + playErr.message);
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setError("Camera access failed: " + (err instanceof Error ? err.message : String(err)));
+      setIsScanning(false);
+    }
       
     } catch (err) {
       console.error("Error setting up camera:", err);
