@@ -494,11 +494,15 @@ export async function sendFile(
         let downloadHost = hostName || 'localhost:3000';
         
         // Always use Replit domain structure if in Replit environment
-        if (process.env.REPL_ID) {
+        if (process.env.REPLIT_DOMAINS) {
           downloadProtocol = 'https';
-          downloadHost = process.env.REPLIT_SLUG 
-            ? `${process.env.REPLIT_SLUG}.replit.dev`
-            : `${process.env.REPL_ID}.id.repl.co`;
+          const domains = process.env.REPLIT_DOMAINS.split(',');
+          if (domains.length > 0) {
+            downloadHost = domains[0];
+          }
+        } else if (process.env.REPLIT_DEV_DOMAIN) {
+          downloadProtocol = 'https';
+          downloadHost = process.env.REPLIT_DEV_DOMAIN;
         } else if (downloadHost.includes('localhost')) {
           downloadProtocol = 'http';
         }

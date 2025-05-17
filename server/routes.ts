@@ -24,13 +24,18 @@ function generateDownloadUrl(uuid: string, req?: Request): string {
   let protocol = 'https';
   let host = 'localhost:3000';
   
-  // For Replit environment, always use the Replit domain
-  if (process.env.REPL_ID) {
-    host = process.env.REPLIT_SLUG 
-      ? `${process.env.REPLIT_SLUG}.replit.dev`
-      : `${process.env.REPL_ID}.id.repl.co`;
+  // Use the REPLIT_DOMAINS env var which contains actual Replit domain
+  if (process.env.REPLIT_DOMAINS) {
+    const domains = process.env.REPLIT_DOMAINS.split(',');
+    if (domains.length > 0) {
+      host = domains[0];
+    }
+  } 
+  // Fallback to REPLIT_DEV_DOMAIN env var
+  else if (process.env.REPLIT_DEV_DOMAIN) {
+    host = process.env.REPLIT_DEV_DOMAIN;
   }
-  // Otherwise, use request info if available
+  // If not in Replit, use request info if available
   else if (req) {
     host = req.get('host') || host;
     
@@ -38,11 +43,16 @@ function generateDownloadUrl(uuid: string, req?: Request): string {
     if (req.protocol) {
       protocol = req.protocol;
     }
-    
-    // For localhost, use http protocol
-    if (host.includes('localhost')) {
-      protocol = 'http';
-    }
+  }
+  
+  // For localhost, use http protocol
+  if (host.includes('localhost')) {
+    protocol = 'http';
+  }
+  
+  // Hard-coded domain for production environment
+  if (process.env.NODE_ENV === 'production') {
+    host = 'availablerx.com';
   }
   
   return `${protocol}://${host}/api/download/${uuid}`;
@@ -590,19 +600,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         downloadedAt: null
       });
       
-      // Generate the shareable URL that works in Replit environment
-      let protocol = 'https';
-      let host = req.get('host') || 'localhost:3000';
-      
-      // Special handling for Replit environment
-      if (process.env.REPLIT_SLUG) {
-        protocol = 'https';
-        host = `${process.env.REPLIT_SLUG}.replit.dev`;
-      } else if (host.includes('localhost')) {
-        protocol = 'http';
-      }
-      
-      const downloadUrl = `${protocol}://${host}/api/download/${uuid}`;
+      // Generate the shareable URL using our helper function
+      const downloadUrl = generateDownloadUrl(uuid, req);
       
       res.json({
         ...presignedLink,
@@ -707,6 +706,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error listing partner pre-signed links:', error);
       res.status(500).json({ message: 'Failed to list partner pre-signed links' });
     }
+  });
+  
+  // Add a route to handle legacy/localhost URLs and redirect them to the proper domain
+  app.get('/download/:uuid', async (req, res) => {
+    // Get the correct host for the current environment
+    let protocol = 'https';
+    let host = process.env.REPLIT_DOMAINS
+      ? process.env.REPLIT_DOMAINS.split(',')[0]
+      : process.env.REPLIT_DEV_DOMAIN || req.get('host') || 'localhost:3000';
+    
+    // For localhost, use http protocol
+    if (host.includes('localhost')) {
+      protocol = 'http';
+    }
+    
+    // Redirect to the proper API endpoint
+    res.redirect(`${protocol}://${host}/api/download/${req.params.uuid}`);
   });
   
   // Download a file using a pre-signed URL (public endpoint, no authentication required)

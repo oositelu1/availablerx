@@ -170,6 +170,17 @@ export async function sendFileShareNotification(
   presignedUrl: string,
   expiresAt: Date
 ): Promise<boolean> {
+  // Ensure the presignedUrl is using the correct domain for Replit environment
+  let finalUrl = presignedUrl;
+  
+  // If the URL contains localhost but we're in Replit, fix it
+  if (presignedUrl.includes('localhost') && process.env.REPLIT_DOMAINS) {
+    const protocol = 'https';
+    const host = process.env.REPLIT_DOMAINS.split(',')[0];
+    const uuid = presignedUrl.split('/').pop(); // Extract the UUID from the URL
+    finalUrl = `${protocol}://${host}/api/download/${uuid}`;
+    console.log(`Converting localhost URL to Replit domain: ${finalUrl}`);
+  }
   // Format the expiration date for display
   const expirationDate = expiresAt.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -205,7 +216,7 @@ Hello ${partner.name},
 An EPCIS file has been shared with you: ${fileName}
 
 You can download this file using the secure link below:
-${presignedUrl}
+${finalUrl}
 
 IMPORTANT: This link will expire in ${timeUntilExpiry} (on ${expirationDate}).
 
