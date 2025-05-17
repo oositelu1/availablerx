@@ -486,9 +486,11 @@ export async function sendFile(
           ipRestriction: null
         });
         
-        // Generate the full download URL using the host from the request if available
-        // This ensures the URL will work in any environment (Replit, localhost, etc.)
-        const downloadUrl = await storage.generatePresignedUrl(fileId, 172800, hostName);
+        // Generate the full download URL with the correct domain for Replit
+        // Make sure we use a host that will always work, even in email links
+        const downloadUrl = await storage.generatePresignedUrl(fileId, 172800, 
+          // If we're in the Replit environment, force the correct domain
+          process.env.REPLIT_SLUG ? `${process.env.REPLIT_SLUG}.replit.dev` : hostName);
         
         // Send email notification to the partner
         try {
