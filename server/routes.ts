@@ -18,6 +18,22 @@ import { productItemRouter } from './product-item-routes';
 import { validationRouter } from './validation-routes';
 import { auditLogRouter } from './audit-log-routes';
 import { partnerLocationRouter } from './partner-location-routes';
+
+// Helper function to generate proper download URLs for the current environment
+function generateDownloadUrl(req: Request, uuid: string): string {
+  let protocol = 'https';
+  let host = req.get('host') || 'localhost:3000';
+  
+  // Special handling for Replit environment
+  if (process.env.REPLIT_SLUG) {
+    protocol = 'https';
+    host = `${process.env.REPLIT_SLUG}.replit.dev`;
+  } else if (host.includes('localhost')) {
+    protocol = 'http';
+  }
+  
+  return `${protocol}://${host}/api/download/${uuid}`;
+}
 import { poItemRouter } from './po-item-routes';
 import { inventoryRouter } from './inventory-routes';
 import { inventoryTransactionRouter } from './inventory-transaction-routes';
