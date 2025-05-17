@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Camera } from 'lucide-react';
+import { Camera, RefreshCw } from 'lucide-react';
 import jsQR from 'jsqr';
+import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat, Result } from '@zxing/library';
 
 interface QRScannerProps {
   onScanSuccess: (decodedText: string, decodedResult: any) => void;
@@ -15,27 +16,118 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rawData, setRawData] = useState<string>("Scanning...");
+  const [scanCount, setScanCount] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
 
-  // Clean up on unmount
+  // Initialize ZXing reader on component mount
   useEffect(() => {
+    try {
+      // Configure ZXing hints for better detection
+      const hints = new Map();
+      
+      // Include both QR and Data Matrix formats with higher priority
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.QR_CODE,
+        BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.EAN_13,
+      ]);
+      
+      // Try harder for better detection
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      
+      // Create reader with our custom configuration
+      const reader = new BrowserMultiFormatReader(hints);
+      zxingReaderRef.current = reader;
+      
+      console.log("ZXing barcode reader initialized");
+    } catch (err) {
+      console.error("Failed to initialize ZXing reader:", err);
+    }
+    
+    // Clean up on unmount
     return () => {
-      stopCamera();
+      stopScanning();
+      
+      // Reset ZXing reader
+      if (zxingReaderRef.current) {
+        zxingReaderRef.current.reset();
+        zxingReaderRef.current = null;
+      }
     };
   }, []);
 
-  async function startCamera() {
+  async function startScanning() {
+    setIsScanning(true);
+    setError(null);
+    setRawData("Scanning...");
+    setScanCount(0);
+    
     try {
-      // Clean up existing camera stream if any
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+      // Clean up any existing scanning session
+      stopScanning();
+      
+      console.log("Starting camera for barcode scanning...");
+      
+      // Check for video element
+      if (!videoRef.current) {
+        throw new Error("Video element not found");
       }
       
-      // Request camera access with environment facing mode
+      // Try ZXing decoding first (better for DataMatrix)
+      if (zxingReaderRef.current) {
+        try {
+          console.log("Starting ZXing barcode reader...");
+          
+          // Decode continuously from video stream
+          await zxingReaderRef.current.decodeFromConstraints(
+            { video: { facingMode: "environment" } },
+            videoRef.current,
+            (result: Result | undefined, error: Exception | undefined) => {
+              if (result) {
+                // Successfully decoded a barcode
+                console.log("ZXing decoded:", result);
+                
+                // Display and return the result
+                setRawData(result.getText());
+                onScanSuccess(result.getText(), { result });
+                
+                // Stop scanning after success
+                stopScanning();
+              }
+              
+              if (error) {
+                // Only log errors, don't stop scanning on transient errors
+                console.log("ZXing decode error:", error);
+                setScanCount(count => count + 1);
+              }
+            }
+          );
+          
+          // Store the stream for cleanup
+          if (videoRef.current.srcObject instanceof MediaStream) {
+            streamRef.current = videoRef.current.srcObject;
+          }
+          
+          // Set flags to show scanning is active
+          setIsScanning(true);
+          
+          return; // ZXing reader started successfully
+        } catch (zxingError) {
+          console.error("Error starting ZXing reader:", zxingError);
+          // Fall back to jsQR if ZXing fails
+        }
+      }
+      
+      // Fallback to jsQR if ZXing failed or isn't available
+      console.log("Falling back to jsQR scanner...");
+      
+      // Request camera access with environment facing mode (back camera)
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: "environment" }
       });
@@ -44,43 +136,48 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       streamRef.current = stream;
       
       // Set video source
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        
-        // When video metadata loaded, setup canvas and start scanning
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current && canvasRef.current) {
-            // Set canvas dimensions to match video
-            canvasRef.current.height = videoRef.current.videoHeight;
-            canvasRef.current.width = videoRef.current.videoWidth;
-            
-            // Ensure video is playing
-            if (videoRef.current.paused) {
-              videoRef.current.play().catch(err => {
-                console.error("Error playing video:", err);
-                setError("Could not play video: " + err.message);
-              });
-            }
-            
-            // Start scanning loop
-            animationFrameIdRef.current = requestAnimationFrame(scanFrame);
-            setIsScanning(true);
-            setRawData("Scanning...");
-            setError(null);
+      videoRef.current.srcObject = stream;
+      
+      // When video is ready, set up canvas and start scanning
+      videoRef.current.onloadedmetadata = () => {
+        if (videoRef.current && canvasRef.current) {
+          // Set canvas dimensions to match video
+          canvasRef.current.height = videoRef.current.videoHeight;
+          canvasRef.current.width = videoRef.current.videoWidth;
+          
+          // Ensure video is playing
+          if (videoRef.current.paused) {
+            videoRef.current.play().catch(err => {
+              console.error("Error playing video:", err);
+              setError("Could not play video: " + err.message);
+            });
           }
-        };
-      } else {
-        throw new Error("Video element not found");
-      }
+          
+          // Start scanning loop
+          scanJsQrFrame();
+        }
+      };
+      
     } catch (err) {
-      console.error("Error accessing camera:", err);
-      setError("Camera access denied or no camera found: " + 
+      console.error("Error setting up camera:", err);
+      setError("Camera access failed: " + 
                (err instanceof Error ? err.message : String(err)));
       setIsScanning(false);
     }
   }
 
-  function stopCamera() {
+  function stopScanning() {
+    console.log("Stopping scanner...");
+    
+    // Stop ZXing reader if active
+    if (zxingReaderRef.current) {
+      try {
+        zxingReaderRef.current.reset();
+      } catch (e) {
+        console.log("Error resetting ZXing reader:", e);
+      }
+    }
+    
     // Stop animation frame loop
     if (animationFrameIdRef.current) {
       cancelAnimationFrame(animationFrameIdRef.current);
@@ -89,7 +186,10 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     
     // Stop and release camera stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        console.log("Stopping track:", track.kind, track.label);
+        track.stop();
+      });
       streamRef.current = null;
     }
     
@@ -102,14 +202,14 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     setRawData("Scanner stopped");
   }
 
-  function scanFrame() {
+  function scanJsQrFrame() {
     if (!videoRef.current || !canvasRef.current) return;
     
     // Only process video if it has enough data and is playing
     if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA || 
         videoRef.current.paused) {
       // Keep trying if not ready yet
-      animationFrameIdRef.current = requestAnimationFrame(scanFrame);
+      animationFrameIdRef.current = requestAnimationFrame(scanJsQrFrame);
       return;
     }
     
@@ -119,6 +219,8 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       console.error("Could not get canvas context");
       return;
     }
+    
+    setScanCount(count => count + 1);
     
     try {
       // Draw current video frame to canvas for processing
@@ -146,7 +248,7 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       
       // If code found, process it
       if (code) {
-        console.log("QR Code found:", code.data);
+        console.log("jsQR Code found:", code.data);
         setRawData(code.data);
         
         // Draw a highlight around the detected code
@@ -165,18 +267,52 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         canvas.fill();
         
         // Stop scanning and call success handler
-        stopCamera();
+        stopScanning();
         onScanSuccess(code.data, { result: code });
+        return;
       }
+      
+      // Draw scan line and scanning overlay
+      drawScanOverlay(canvas, canvasRef.current.width, canvasRef.current.height);
+      
     } catch (err) {
-      console.error("Error in scanning loop:", err);
-      // Continue scanning despite errors
+      console.error("Error in jsQR scanning loop:", err);
     }
     
     // Continue scanning loop
     if (isScanning) {
-      animationFrameIdRef.current = requestAnimationFrame(scanFrame);
+      animationFrameIdRef.current = requestAnimationFrame(scanJsQrFrame);
     }
+  }
+  
+  function drawScanOverlay(ctx: CanvasRenderingContext2D, width: number, height: number) {
+    // Draw a scan line that moves up and down
+    const scanLineY = Math.sin(Date.now() / 500) * (height * 0.4) + (height * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(0, scanLineY);
+    ctx.lineTo(width, scanLineY);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+    ctx.stroke();
+    
+    // Draw a center targeting rectangle
+    const centerX = width * 0.25;
+    const centerY = height * 0.25;
+    const centerWidth = width * 0.5;
+    const centerHeight = height * 0.5;
+    
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(centerX, centerY, centerWidth, centerHeight);
+    ctx.setLineDash([]);
+    
+    // Add scan count
+    ctx.font = '14px Arial';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.fillRect(5, 5, 70, 20);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillText(`Scan: ${scanCount}`, 10, 20);
   }
 
   return (
