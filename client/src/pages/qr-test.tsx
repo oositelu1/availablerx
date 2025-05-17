@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import jsQR from 'jsqr';
-import { Link } from 'wouter';
 
 export default function QrTest() {
   const [scanning, setScanning] = useState(false);
@@ -10,28 +9,36 @@ export default function QrTest() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const animationFrame = useRef<number | null>(null);
 
+  // Auto-start camera when component loads
+  useEffect(() => {
+    startScan();
+    return () => stopScan();
+  }, []);
+
   const startScan = async () => {
     try {
       setResult(null);
       
-      // Get the user's camera
+      // Get the camera
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
       });
       
-      // Save the stream
       setStream(mediaStream);
       
-      // Connect it to the video element
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        await videoRef.current.play();
       }
       
       setScanning(true);
       scanCode();
     } catch (err) {
-      console.error('Error accessing camera:', err);
+      console.error('Camera access error:', err);
       alert('Could not access camera. Please allow camera access and try again.');
     }
   };
@@ -39,30 +46,20 @@ export default function QrTest() {
   const stopScan = () => {
     setScanning(false);
     
-    // Stop the animation frame
     if (animationFrame.current) {
       cancelAnimationFrame(animationFrame.current);
       animationFrame.current = null;
     }
     
-    // Stop all camera tracks
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
     
-    // Clear video source
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
   };
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      stopScan();
-    };
-  }, []);
 
   const scanCode = () => {
     if (!scanning) return;
@@ -71,33 +68,32 @@ export default function QrTest() {
     const canvas = canvasRef.current;
     
     if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-      // Get the canvas 2D context
       const context = canvas.getContext('2d', { willReadFrequently: true });
       
       if (context) {
-        // Set canvas size to video size
+        // Set canvas size to match video
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         
-        // Draw current video frame to canvas
+        // Draw video frame to canvas
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Get the image data for QR scanning
+        // Get image data for processing
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
         
-        // Scan for QR code
+        // Try to detect QR code
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: "attemptBoth"
         });
         
-        // If we found a QR code
+        // If code found
         if (code) {
-          console.log("QR code detected:", code.data);
+          console.log("Code detected:", code.data);
           
-          // Highlight the detected code
+          // Highlight the code
           context.beginPath();
-          context.lineWidth = 4;
-          context.strokeStyle = "red";
+          context.lineWidth = 5;
+          context.strokeStyle = "#00FF00";
           context.moveTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
           context.lineTo(code.location.topRightCorner.x, code.location.topRightCorner.y);
           context.lineTo(code.location.bottomRightCorner.x, code.location.bottomRightCorner.y);
@@ -105,7 +101,7 @@ export default function QrTest() {
           context.lineTo(code.location.topLeftCorner.x, code.location.topLeftCorner.y);
           context.stroke();
           
-          // Store result and stop scanning
+          // Show result and stop scanning
           setResult(code.data);
           stopScan();
           return;
@@ -113,30 +109,35 @@ export default function QrTest() {
       }
     }
     
-    // Continue scanning if no code found
+    // Continue scanning
     animationFrame.current = requestAnimationFrame(scanCode);
   };
 
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', padding: '1rem' }}>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link href="/">
-          <a style={{ color: '#0066cc', textDecoration: 'none' }}>← Back</a>
-        </Link>
-      </div>
-      
-      <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>QR Code Scanner</h1>
-      
-      <div style={{ position: 'relative', marginBottom: '1rem', background: '#f0f0f0', minHeight: '250px' }}>
+    <div style={{ 
+      maxWidth: '100%', 
+      margin: '0 auto', 
+      padding: '0',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <div style={{ 
+        position: 'relative',
+        flex: '1',
+        backgroundColor: '#000',
+        overflow: 'hidden'
+      }}>
         <video 
           ref={videoRef}
           style={{ 
             width: '100%', 
-            height: 'auto',
-            display: scanning ? 'block' : 'none',
-            backgroundColor: '#000'
+            height: '100%',
+            objectFit: 'cover'
           }}
-          playsInline 
+          playsInline
+          muted
+          autoPlay
         />
         
         <canvas 
@@ -146,80 +147,61 @@ export default function QrTest() {
             top: 0,
             left: 0,
             width: '100%',
-            height: '100%',
-            display: scanning ? 'block' : 'none'
+            height: '100%'
           }}
         />
         
         {!scanning && !result && (
           <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
-            height: '250px',
-            color: '#666',
-            flexDirection: 'column'
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            color: '#fff'
           }}>
-            <div style={{ marginBottom: '1rem' }}>Click Start Camera to scan</div>
+            <div>Starting camera...</div>
           </div>
         )}
         
-        {result && (
-          <div style={{ 
-            padding: '1rem', 
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            background: '#fff'
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Result:</div>
-            <div style={{ 
-              wordBreak: 'break-all', 
-              fontFamily: 'monospace',
-              padding: '0.5rem',
-              background: '#f7f7f7',
-              borderRadius: '4px',
-              fontSize: '0.875rem'
-            }}>
-              {result}
-            </div>
-          </div>
-        )}
+        {/* Targeting rectangle */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: '70%',
+          height: '50%',
+          transform: 'translate(-50%, -50%)',
+          border: '2px dashed rgba(255,255,255,0.5)',
+          boxSizing: 'border-box',
+          pointerEvents: 'none'
+        }} />
       </div>
       
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        {!scanning ? (
-          <button 
-            onClick={startScan}
-            style={{
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              padding: '0.75rem 1rem',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              flex: 1
-            }}
-          >
-            Start Camera
-          </button>
-        ) : (
-          <button 
-            onClick={stopScan}
-            style={{
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              padding: '0.75rem 1rem',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              flex: 1
-            }}
-          >
-            Stop Camera
-          </button>
-        )}
-        
-        {result && (
+      {result && (
+        <div style={{ 
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderTop: '1px solid #ddd'
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>Scanned Code:</div>
+          <div style={{ 
+            wordBreak: 'break-all', 
+            fontFamily: 'monospace',
+            padding: '0.5rem',
+            background: '#f7f7f7',
+            borderRadius: '4px',
+            fontSize: '0.875rem',
+            maxHeight: '100px',
+            overflow: 'auto'
+          }}>
+            {result}
+          </div>
+          
           <button 
             onClick={() => {
               setResult(null);
@@ -232,13 +214,37 @@ export default function QrTest() {
               padding: '0.75rem 1rem',
               borderRadius: '4px',
               cursor: 'pointer',
-              flex: 1
+              marginTop: '1rem',
+              width: '100%'
             }}
           >
             Scan Again
           </button>
-        )}
-      </div>
+        </div>
+      )}
+      
+      {!result && (
+        <div style={{
+          padding: '1rem',
+          backgroundColor: '#fff',
+          display: 'flex'
+        }}>
+          <button 
+            onClick={scanning ? stopScan : startScan}
+            style={{
+              backgroundColor: scanning ? '#f44336' : '#4CAF50',
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem 1rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              flex: 1
+            }}
+          >
+            {scanning ? 'Stop Camera' : 'Start Camera'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
