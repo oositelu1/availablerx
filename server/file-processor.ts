@@ -486,11 +486,24 @@ export async function sendFile(
           ipRestriction: null
         });
         
-        // Generate the full download URL with the correct domain for Replit
-        // Make sure we use a host that will always work, even in email links
-        const downloadUrl = await storage.generatePresignedUrl(fileId, 172800, 
-          // If we're in the Replit environment, force the correct domain
-          process.env.REPLIT_SLUG ? `${process.env.REPLIT_SLUG}.replit.dev` : hostName);
+        // Generate the UUID for the pre-signed link
+        const uuid = presignedLink.uuid;
+        
+        // Create a URL that will work in emails (hardcoded Replit domain if in Replit environment)
+        let downloadProtocol = 'https';
+        let downloadHost = hostName || 'localhost:3000';
+        
+        // Always use Replit domain structure if in Replit environment
+        if (process.env.REPL_ID) {
+          downloadProtocol = 'https';
+          downloadHost = process.env.REPLIT_SLUG 
+            ? `${process.env.REPLIT_SLUG}.replit.dev`
+            : `${process.env.REPL_ID}.id.repl.co`;
+        } else if (downloadHost.includes('localhost')) {
+          downloadProtocol = 'http';
+        }
+        
+        const downloadUrl = `${downloadProtocol}://${downloadHost}/api/download/${uuid}`;
         
         // Send email notification to the partner
         try {
