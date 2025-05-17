@@ -382,7 +382,8 @@ export async function sendFile(
   fileId: number,
   partnerId: number,
   userId: number,
-  transportType: 'AS2' | 'HTTPS' | 'PRESIGNED' = 'AS2'
+  transportType: 'AS2' | 'HTTPS' | 'PRESIGNED' = 'AS2',
+  hostName?: string
 ): Promise<{
   success: boolean;
   transmission?: any;
@@ -485,9 +486,9 @@ export async function sendFile(
           ipRestriction: null
         });
         
-        // Generate the full download URL using the current request context (will be included in context when function is called from routes.ts)
-        // This is handled by storage.generatePresignedUrl in sendFile, no need to manually create it here
-        const downloadUrl = await storage.generatePresignedUrl(fileId);
+        // Generate the full download URL using the host from the request if available
+        // This ensures the URL will work in any environment (Replit, localhost, etc.)
+        const downloadUrl = await storage.generatePresignedUrl(fileId, 172800, hostName);
         
         // Send email notification to the partner
         try {
