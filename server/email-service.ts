@@ -264,7 +264,7 @@ EPCIS Portal Team
       <p>You can download this file by clicking the button below:</p>
       
       <p style="text-align: center;">
-        <a href="${presignedUrl}" class="button">Download EPCIS File</a>
+        <a href="${finalUrl}" class="button">Download EPCIS File</a>
       </p>
       
       <div class="expiration">
