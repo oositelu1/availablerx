@@ -30,8 +30,8 @@ export function parseQRCode(qrData: string): ParsedQRData {
 
   console.log("Parsing QR code data:", qrData);
 
-  // Check if this is iPhone scanner app output
-  if (qrData.includes('GTIN:') || qrData.includes('Lot Number:') || qrData.includes('Expiration Date:')) {
+  // Check if this is iPhone scanner app output - with very flexible matching
+  if (qrData.includes('GTIN') || qrData.includes('Lot') || qrData.includes('Expiration') || qrData.includes('Serial')) {
     console.log('Detected iPhone scanner app output format');
     
     // Extract GTIN

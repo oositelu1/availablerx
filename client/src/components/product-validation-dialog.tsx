@@ -172,7 +172,11 @@ export default function ProductValidationDialog({
     if (showManualEntry) {
       return (
         <ManualBarcodeEntry
-          onSubmit={handleScanSuccess}
+          onSubmit={(data) => {
+            console.log("Manual entry submit received:", data);
+            setShowManualEntry(false);
+            handleScanSuccess(data);
+          }}
           onCancel={() => setShowManualEntry(false)}
         />
       );
@@ -196,10 +200,10 @@ export default function ProductValidationDialog({
                   <span>This product matches an item in the EPCIS data.</span>
                   
                   {/* Show PO information more prominently if available */}
-                  {(poId || (bestMatch.productItem.bizTransactionList?.length > 0)) && (
+                  {poId && (
                     <Badge variant="outline" className="mt-1 bg-primary/5 text-primary border-primary/20 flex items-center gap-1 w-fit">
                       <ShoppingCart className="h-3 w-3" />
-                      PO: {poId || (bestMatch.productItem.bizTransactionList?.[0] || 'Unknown')}
+                      PO: {poId}
                     </Badge>
                   )}
                 </AlertDescription>
