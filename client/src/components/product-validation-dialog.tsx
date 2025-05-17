@@ -162,7 +162,8 @@ export default function ProductValidationDialog({
     if (showScanner) {
       return (
         <HTML5Scanner 
-          onScanSuccess={handleScanSuccess}
+          onScanSuccess={handleScanSuccess} 
+          onDetected={handleScanSuccess}
           onClose={() => setShowScanner(false)}
         />
       );

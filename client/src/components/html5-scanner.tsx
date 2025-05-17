@@ -6,11 +6,12 @@ import { Camera, X } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeScannerState, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 interface HTML5ScannerProps {
-  onScanSuccess: (decodedText: string) => void;
+  onScanSuccess?: (decodedText: string) => void;
+  onDetected?: (decodedText: string) => void;
   onClose?: () => void;
 }
 
-export default function HTML5Scanner({ onScanSuccess, onClose }: HTML5ScannerProps) {
+export default function HTML5Scanner({ onScanSuccess, onDetected, onClose }: HTML5ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('Ready to scan');
@@ -43,7 +44,15 @@ export default function HTML5Scanner({ onScanSuccess, onClose }: HTML5ScannerPro
         console.log('Code scanned:', decodedText);
         setMessage(`Code found: ${decodedText.substring(0, 20)}...`);
         stopScanner();
-        onScanSuccess(decodedText);
+        
+        // Use whichever callback is provided
+        if (onScanSuccess) {
+          onScanSuccess(decodedText);
+        }
+        
+        if (onDetected) {
+          onDetected(decodedText);
+        }
       };
       
       const qrCodeErrorCallback = (error: unknown) => {
