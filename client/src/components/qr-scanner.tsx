@@ -263,10 +263,11 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
     onScanSuccess(parsedCode, { result: code });
   };
   
-  // Start camera and scanning function - adapted from the provided example
+  // Start camera and scanning function - simplified approach
   const startScanning = async () => {
     setIsScanning(true);
     setError(null);
+    setScanAttempts(0); // Reset scan attempts counter
     
     try {
       // Cleanup any existing scanning/camera
@@ -274,97 +275,77 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
       
       console.log("Starting camera for barcode scanning...");
       
+      // Make sure we have the video element reference
+      if (!videoRef.current) {
+        throw new Error("Camera initialization failed - video element not available");
+      }
+      
       // Check camera support
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error("Your browser doesn't support camera access");
       }
       
-      // Log available cameras to help debug
+      // Request camera access with simple constraints
+      const constraints = { video: true };
+      
+      console.log("Requesting camera access...");
+      
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(device => device.kind === 'videoinput');
-        console.log(`Found ${cameras.length} cameras:`, cameras.map(c => c.label || 'unlabeled camera'));
-      } catch (e) {
-        console.warn("Could not enumerate devices:", e);
-      }
-      
-      // Request camera access - try environment facing camera first (back camera on phones)
-      console.log("Requesting camera access with environment facing mode...");
-      const constraints = {
-        video: { 
-          facingMode: "environment" 
-        }
-      };
-      
-      // This approach is from the working example provided
-      console.log("Calling getUserMedia with constraints:", constraints);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log("Camera access granted! Stream tracks:", stream.getTracks().map(t => `${t.kind}:${t.label}`));
-      
-      streamRef.current = stream;
-      
-      // Set the stream to the video element
-      if (videoRef.current) {
-        console.log("Setting video source...");
+        // Get the media stream
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log("Camera access granted! Got stream with tracks:", stream.getTracks().length);
+        
+        // Store the stream reference
+        streamRef.current = stream;
+        
+        // Set the stream to the video element
         videoRef.current.srcObject = stream;
         
-        // Add event listeners to debug video element state
+        // Wait for the video to be ready
         videoRef.current.onloadedmetadata = () => {
-          console.log("Video loadedmetadata event fired");
-          console.log("Video dimensions:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight);
-        };
-        
-        videoRef.current.onplaying = () => {
-          console.log("Video playing event fired - video is now actively playing");
-        };
-        
-        // Make sure the video element is visible with styling
-        videoRef.current.style.display = "block";
-        videoRef.current.style.width = "100%";
-        videoRef.current.style.height = "100%";
-        
-        // Directly play the video as in the working example
-        console.log("Attempting to play video...");
-        await videoRef.current.play();
-        console.log("Video play() method completed successfully");
-        
-        // Set up canvas once video is playing
-        if (canvasRef.current) {
+          console.log("Video metadata loaded");
+          
+          // Set default canvas dimensions if video doesn't have dimensions yet
           const canvas = canvasRef.current;
-          canvas.height = videoRef.current.videoHeight || 480;
-          canvas.width = videoRef.current.videoWidth || 640;
-          console.log("Canvas set up with dimensions:", canvas.width, "x", canvas.height);
-        }
-        
-        // Start the scanning loop using requestAnimationFrame instead of setInterval
-        // This is more efficient and syncs better with the browser's rendering
-        setCameraReady(true);
-        setScanningActive(true);
-        
-        // Use the technique from the example (requestAnimationFrame)
-        const tick = () => {
-          scanVideoForCode(); // Scan the current frame
-          if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA) {
-            // Video has enough data and is playing, continue scanning
-            scanIntervalRef.current = requestAnimationFrame(tick);
-          } else {
-            // Video not ready yet, check again in a moment
-            console.log("Video not ready in scanning loop, waiting...");
-            setTimeout(() => {
-              scanIntervalRef.current = requestAnimationFrame(tick);
-            }, 100);
+          if (canvas) {
+            canvas.width = videoRef.current?.videoWidth || 640;
+            canvas.height = videoRef.current?.videoHeight || 480;
+            console.log("Canvas dimensions set:", canvas.width, "x", canvas.height);
           }
         };
         
-        scanIntervalRef.current = requestAnimationFrame(tick);
-        console.log("Scanning loop started");
-      } else {
-        throw new Error("Video element not found");
+        // Handle video playing successfully
+        videoRef.current.onplaying = () => {
+          console.log("Video is now playing");
+          setCameraReady(true);
+          setScanningActive(true);
+          
+          // Start the scanning process once the video is playing
+          const tick = () => {
+            if (videoRef.current && videoRef.current.readyState >= 2) {
+              scanVideoForCode();
+            }
+            scanIntervalRef.current = requestAnimationFrame(tick);
+          };
+          
+          scanIntervalRef.current = requestAnimationFrame(tick);
+          console.log("Scanning process started");
+        };
+        
+        // Try to start playing the video
+        videoRef.current.play().catch((e: Error) => {
+          console.error("Error playing video:", e);
+          throw new Error("Could not play video: " + e.message);
+        });
+        
+      } catch (error) {
+        console.error("Error accessing camera:", error);
+        throw new Error("Camera access failed: " + (error instanceof Error ? error.message : String(error)));
       }
-      
     } catch (err) {
+      // Handle any errors during camera setup
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error("Camera error:", err);
+      console.error("Camera error:", errorMsg);
       
       setError(`Camera issue: ${errorMsg}`);
       if (onScanError) onScanError(`Camera issue: ${errorMsg}`);
@@ -389,22 +370,22 @@ export default function QRScanner({ onScanSuccess, onScanError, onClose }: QRSca
         )}
         
         <div className="w-full h-64 bg-muted relative rounded-md overflow-hidden flex items-center justify-center">
-          {/* When active, only show the canvas with visual indicators */}
+          {/* We need both video and canvas visible for this to work properly */}
           {isScanning ? (
             <>
-              {/* Video element is always present but not displayed directly */}
+              {/* Video element needs to be visible for mobile browsers */}
               <video
                 ref={videoRef}
-                className="hidden"
+                className="absolute inset-0 w-full h-full object-cover"
                 autoPlay
                 playsInline
                 muted
               />
               
-              {/* Canvas for processing and display - now visible */}
+              {/* Canvas overlays on top of the video */}
               <canvas 
                 ref={canvasRef} 
-                className="w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover z-10"
               />
               
               {/* Status indicator */}
