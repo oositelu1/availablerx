@@ -27,11 +27,49 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
     
     console.log("Processing barcode data:", barcodeData);
     
-    // Try to format the data as GS1 if it doesn't already have parentheses
+    // Extract relevant data based on format
     let formattedData = barcodeData.trim();
     
-    if (!formattedData.includes('(')) {
-      // Very basic attempt to format as GS1 - assumes first 14 chars are GTIN
+    // If this looks like the output from the iPhone scanner app
+    if (formattedData.includes("Content") || formattedData.includes("GTIN:") || formattedData.includes("Lot Number:")) {
+      // Extract just the content line
+      const contentMatch = formattedData.match(/Content\s*\n([0-9]+)/);
+      if (contentMatch && contentMatch[1]) {
+        formattedData = contentMatch[1].trim();
+        console.log("Extracted content from scanner output:", formattedData);
+      }
+      
+      // Or try to get the parsed values
+      const gtinMatch = formattedData.match(/GTIN:\s*([0-9]+)/);
+      const lotMatch = formattedData.match(/Lot Number:\s*([A-Za-z0-9]+)/);
+      const serialMatch = formattedData.match(/Serial Number:\s*([0-9]+)/);
+      const expirationMatch = formattedData.match(/Expiration Date:\s*([0-9/]+)/);
+      
+      if (gtinMatch && gtinMatch[1]) {
+        // We have parsed data, construct a GS1 format string
+        let parsedFormat = `(01)${gtinMatch[1]}`;
+        
+        if (lotMatch && lotMatch[1]) {
+          parsedFormat += `(10)${lotMatch[1]}`;
+        }
+        
+        if (expirationMatch && expirationMatch[1]) {
+          // Convert MM/DD/YY to YYMMDD
+          const parts = expirationMatch[1].split('/');
+          if (parts.length === 3) {
+            parsedFormat += `(17)${parts[2]}${parts[0]}${parts[1]}`;
+          }
+        }
+        
+        if (serialMatch && serialMatch[1]) {
+          parsedFormat += `(21)${serialMatch[1]}`;
+        }
+        
+        formattedData = parsedFormat;
+        console.log("Constructed GS1 from parsed output:", formattedData);
+      }
+    } else if (!formattedData.includes('(')) {
+      // Raw data format - tries to format as GS1
       if (formattedData.length >= 14) {
         const gtin = formattedData.substring(0, 14);
         let remainder = formattedData.substring(14);
@@ -39,23 +77,31 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
         // Try to identify lot number and serial number
         let formatted = `(01)${gtin}`;
         
-        // If we have more data, try to parse lot and serial
-        if (remainder.length > 0) {
-          // Assume first non-numeric part might be lot number
-          const lotMatch = remainder.match(/[A-Za-z0-9]{1,20}/);
-          if (lotMatch) {
-            formatted += `(10)${lotMatch[0]}`;
-            remainder = remainder.substring(lotMatch[0].length);
-          }
-          
-          // Anything else might be a serial number
-          if (remainder.length > 0) {
-            formatted += `(21)${remainder}`;
+        // Identify a date pattern (YYMMDD) - 6 digits after GTIN
+        if (remainder.length >= 6) {
+          const dateMatch = remainder.substring(0, 6).match(/^\d{6}$/);
+          if (dateMatch) {
+            formatted += `(17)${dateMatch[0]}`;
+            remainder = remainder.substring(6);
           }
         }
         
+        // Lot number might be next
+        if (remainder.length > 0) {
+          const lotMatch = remainder.match(/^([A-Za-z0-9]{1,20})/);
+          if (lotMatch) {
+            formatted += `(10)${lotMatch[1]}`;
+            remainder = remainder.substring(lotMatch[1].length);
+          }
+        }
+        
+        // Serial number is usually last
+        if (remainder.length > 0) {
+          formatted += `(21)${remainder}`;
+        }
+        
         formattedData = formatted;
-        console.log("Formatted as GS1:", formattedData);
+        console.log("Formatted raw data as GS1:", formattedData);
       }
     }
     
@@ -67,12 +113,19 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
   // Example codes to help users
   const exampleCodes = [
     {
-      label: "GS1 DataMatrix Format",
-      example: "(01)00312345678906(17)220615(10)ABC123(21)XYZ987"
+      label: "iPhone Scanner App Output",
+      example: `Content
+01503014395701082110000005921417260930102405
+
+Parsed GS1
+GTIN: 0150301439570
+Lot Number: 08211
+Expiration Date: 02/60/93
+Serial Number: 0102405`
     },
     {
-      label: "Non-GS1 Format",
-      example: "00312345678906220615ABC123XYZ987"
+      label: "Standard GS1 Format",
+      example: "(01)00301430957010(10)24052241(17)260930(21)10018521666433"
     }
   ];
 
