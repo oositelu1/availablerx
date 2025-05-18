@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { sendFileShareNotification } from './email-service';
 import { parseStringPromise } from 'xml2js';
+import { as2Service } from './as2-service';
 
 const exec = promisify(execCb);
 
@@ -435,11 +436,31 @@ export async function sendFile(
       let deliveryConfirmation = '';
       
       if (transportType === 'AS2') {
-        // In a real implementation, this would use a proper AS2 library
-        // For now, we'll simulate it with a success message
+        // Check if partner has required AS2 configuration
+        if (!partner.as2To || !partner.as2Url) {
+          throw new Error('Partner is missing required AS2 configuration (AS2 ID or URL)');
+        }
         
-        // TODO: Implement AS2 sending with node-as2 or similar library
-        deliveryConfirmation = `AS2-MDN: ${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+        // Check if AS2 service is properly configured
+        const as2Config = await as2Service.checkAS2Configuration();
+        if (!as2Config.isConfigured) {
+          throw new Error(`AS2 service is not properly configured: ${as2Config.message}`);
+        }
+        
+        // Ensure partner is configured in AS2 service
+        const partnerConfigured = await as2Service.configurePartner(partner);
+        if (!partnerConfigured) {
+          throw new Error('Failed to configure partner for AS2 transmission');
+        }
+        
+        // Send file via AS2
+        const result = await as2Service.sendFile(fileId, partnerId);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to send file via AS2');
+        }
+        
+        // Record the message ID for tracking
+        deliveryConfirmation = `AS2 Message ID: ${result.messageId}`;
       } else if (transportType === 'HTTPS') {
         // For HTTPS, try to send via HTTP POST
         if (!partner.endpointUrl) {
