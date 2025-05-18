@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -17,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -26,9 +24,7 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -36,6 +32,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
+
+// Define the association method options
+const associationMethods = [
+  { value: "direct", label: "Direct (In EPCIS File)" },
+  { value: "inferred_date", label: "Inferred by Date" },
+  { value: "inferred_gtin", label: "Inferred by Product" },
+  { value: "manual", label: "Manual Association" },
+];
 
 // Define the form schema
 const associationSchema = z.object({
@@ -57,19 +61,18 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
   const { toast } = useToast();
 
   // Fetch user data
-  const { data: userData } = useQuery({
+  const { data: user } = useQuery<{ id: number; username: string }>({
     queryKey: ['/api/user'],
-    retry: false,
   });
 
-  // Fetch all purchase orders for the dropdown
-  const { data: purchaseOrdersData, isLoading: isLoadingPOs } = useQuery({
+  // Fetch purchase orders for dropdown
+  const { data: purchaseOrdersData } = useQuery<{ orders: Array<{ id: number; poNumber: string }> }>({
     queryKey: ['/api/purchase-orders'],
   });
   
   const purchaseOrders = purchaseOrdersData?.orders || [];
 
-  // Set up form for associating purchase orders
+  // Set up form
   const form = useForm<AssociationFormValues>({
     resolver: zodResolver(associationSchema),
     defaultValues: {
@@ -90,33 +93,28 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
     });
   }, [form]);
 
-  // Mutation for associating a PO with this file
+  // Mutation for associating a PO with the file
   const associateMutation = useMutation({
     mutationFn: async (values: AssociationFormValues) => {
-      if (!userData?.id) {
+      if (!user?.id) {
         throw new Error("You must be logged in to associate purchase orders");
       }
       
-      console.log("Making POST request to /api/associations", {
+      const payload = {
         ...values,
         fileId,
-        createdBy: userData.id
-      });
-
-      const response = await apiRequest("POST", "/api/associations", {
-        ...values,
-        fileId,
-        createdBy: userData.id
-      });
+        createdBy: user.id
+      };
       
+      const response = await apiRequest("POST", "/api/associations", payload);
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/associations/file/${fileId}`] });
       onClose();
       toast({
-        title: "Purchase Order Associated",
-        description: "The purchase order has been successfully associated with this file.",
+        title: "Success",
+        description: "Purchase order successfully associated with this file.",
       });
     },
     onError: (error: Error) => {
@@ -135,140 +133,124 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[500px]">
+      
+      <DialogContent className="w-full max-w-md overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Associate with Purchase Order</DialogTitle>
-          <DialogDescription>
-            Link this EPCIS file to an existing purchase order to track product items.
-          </DialogDescription>
+          <DialogTitle className="text-xl">Associate with Purchase Order</DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="poId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Purchase Order</FormLabel>
-                  <Select 
-                    onValueChange={(value) => field.onChange(parseInt(value))}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a purchase order" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {isLoadingPOs ? (
-                        <div className="flex items-center justify-center p-4">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : purchaseOrders && purchaseOrders.length > 0 ? (
-                        purchaseOrders.map((po: any) => (
-                          <SelectItem key={po.id} value={po.id.toString()}>
-                            {po.poNumber}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="py-2 px-4 text-sm text-muted-foreground">
-                          No purchase orders found
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Select an existing purchase order to associate with this file.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="associationMethod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Association Method</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select method" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="direct">Direct (In EPCIS File)</SelectItem>
-                      <SelectItem value="inferred_date">Inferred by Date</SelectItem>
-                      <SelectItem value="inferred_gtin">Inferred by Product</SelectItem>
-                      <SelectItem value="manual">Manual Association</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    How this file is related to the purchase order.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="confidence"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confidence Score (0-100)</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} min="0" max="100" />
-                  </FormControl>
-                  <FormDescription>
-                    How confident are you about this association?
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Optional notes about this association" />
-                  </FormControl>
-                  <FormDescription>
-                    Additional context or details about this association.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={onClose}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit"
-                disabled={associateMutation.isPending}
-              >
-                {associateMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
+          <Form {...form}>
+            <form id="associate-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <FormField
+                control={form.control}
+                name="poId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Purchase Order</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a purchase order" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {purchaseOrders.length > 0 ? (
+                          purchaseOrders.map((po) => (
+                            <SelectItem key={po.id} value={po.id.toString()}>
+                              {po.poNumber}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No purchase orders found</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )}
-                Associate
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              />
+
+              <FormField
+                control={form.control}
+                name="associationMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Association Method</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {associationMethods.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confidence"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confidence Score (0-100)</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} min="0" max="100" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Optional notes about this association" rows={3} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </div>
+
+        <DialogFooter className="pt-4 border-t">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit"
+            form="associate-form"
+            disabled={associateMutation.isPending}
+          >
+            {associateMutation.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Associate
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
