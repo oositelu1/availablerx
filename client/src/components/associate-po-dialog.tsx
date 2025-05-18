@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -35,13 +34,14 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, LinkIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 // Define the form schema
 const associationSchema = z.object({
   poId: z.coerce.number().min(1, "Please select a purchase order"),
-  associationMethod: z.enum(["direct", "inferred_date", "inferred_gtin", "manual"]).default("manual"),
-  confidence: z.coerce.number().min(0).max(100).default(100),
+  associationMethod: z.enum(["direct", "inferred_date", "inferred_gtin", "manual"]),
+  confidence: z.coerce.number().min(0).max(100),
   notes: z.string().optional(),
 });
 
@@ -54,40 +54,55 @@ interface AssociatePODialogProps {
 }
 
 export function AssociatePODialog({ fileId, onClose, children }: AssociatePODialogProps) {
-  const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
-  // Fetch all purchase orders for the dropdown
-  const { data: purchaseOrdersResponse, isLoading: isLoadingPOs } = useQuery<any>({
-    queryKey: ['/api/purchase-orders'],
-    enabled: true, // Always load when component is mounted
+  // Fetch user data
+  const { data: userData } = useQuery({
+    queryKey: ['/api/user'],
+    retry: false,
   });
 
-  // Extract the purchase orders array from the response
-  const purchaseOrders = purchaseOrdersResponse?.orders || [];
+  // Fetch all purchase orders for the dropdown
+  const { data: purchaseOrdersData, isLoading: isLoadingPOs } = useQuery({
+    queryKey: ['/api/purchase-orders'],
+  });
+  
+  const purchaseOrders = purchaseOrdersData?.orders || [];
 
   // Set up form for associating purchase orders
   const form = useForm<AssociationFormValues>({
     resolver: zodResolver(associationSchema),
     defaultValues: {
-      poId: undefined as unknown as number, // This will ensure the select is empty initially
+      poId: 0,
       associationMethod: "manual",
       confidence: 100,
       notes: "",
     },
   });
 
+  // Reset form when dialog opens
+  useEffect(() => {
+    form.reset({
+      poId: 0,
+      associationMethod: "manual", 
+      confidence: 100,
+      notes: ""
+    });
+  }, [form]);
+
   // Mutation for associating a PO with this file
   const associateMutation = useMutation({
     mutationFn: async (values: AssociationFormValues) => {
-      // Get user info to include createdBy field
-      const userResponse = await fetch('/api/user');
-      if (!userResponse.ok) {
+      if (!userData?.id) {
         throw new Error("You must be logged in to associate purchase orders");
       }
-      const userData = await userResponse.json();
       
-      // Include the user ID as createdBy 
+      console.log("Making POST request to /api/associations", {
+        ...values,
+        fileId,
+        createdBy: userData.id
+      });
+
       const response = await apiRequest("POST", "/api/associations", {
         ...values,
         fileId,
@@ -99,7 +114,6 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/associations/file/${fileId}`] });
       onClose();
-      form.reset();
       toast({
         title: "Purchase Order Associated",
         description: "The purchase order has been successfully associated with this file.",
@@ -118,16 +132,9 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
     associateMutation.mutate(values);
   };
 
-  // Filter out purchase orders that have already been associated with this file
-  // This would require fetching current associations, which we could add if needed
-
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      {children && (
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
-      )}
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Associate with Purchase Order</DialogTitle>
@@ -146,11 +153,10 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
                   <FormLabel>Purchase Order</FormLabel>
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    value={field.value > 0 ? field.value.toString() : ""}
                   >
                     <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select purchase order" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a purchase order" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -159,14 +165,11 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
                           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         </div>
                       ) : purchaseOrders && purchaseOrders.length > 0 ? (
-                        <SelectGroup>
-                          <SelectLabel>Purchase Orders</SelectLabel>
-                          {purchaseOrders.map((po: any) => (
-                            <SelectItem key={po.id} value={po.id.toString()}>
-                              {po.poNumber} - {po.supplierGln}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
+                        purchaseOrders.map((po: any) => (
+                          <SelectItem key={po.id} value={po.id.toString()}>
+                            {po.poNumber}
+                          </SelectItem>
+                        ))
                       ) : (
                         <div className="py-2 px-4 text-sm text-muted-foreground">
                           No purchase orders found
@@ -189,11 +192,11 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
                 <FormItem>
                   <FormLabel>Association Method</FormLabel>
                   <Select 
-                    onValueChange={field.onChange}
-                    value={field.value}
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select method" />
                       </SelectTrigger>
                     </FormControl>
@@ -250,7 +253,7 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => onClose()}
+                onClick={onClose}
               >
                 Cancel
               </Button>
