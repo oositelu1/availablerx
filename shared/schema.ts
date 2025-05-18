@@ -26,9 +26,21 @@ export const partners = pgTable("partners", {
   notes: text("notes"),
   endpointUrl: text("endpoint_url"),
   as2Id: text("as2_id"),
-  certificate: text("certificate"),
+  as2From: text("as2_from"), // Your AS2 identity when sending to this partner
+  as2To: text("as2_to"),     // Partner's AS2 identity
+  as2Url: text("as2_url"),   // Partner's AS2 endpoint URL
+  signingCertificate: text("signing_certificate"), // Certificate for signing outgoing messages
+  encryptionCertificate: text("encryption_certificate"), // Certificate for encrypting outgoing messages
+  partnerSigningCertificate: text("partner_signing_certificate"), // Partner's certificate for verifying their signatures
+  partnerEncryptionCertificate: text("partner_encryption_certificate"), // Partner's certificate for encrypting messages to them
+  enableEncryption: boolean("enable_encryption").default(true),
+  enableSigning: boolean("enable_signing").default(true),
+  enableCompression: boolean("enable_compression").default(false),
+  mdn: text("mdn").default("sync"), // 'sync', 'async', or 'none'
+  mdnOptions: jsonb("mdn_options"), // Additional MDN options
+  certificate: text("certificate"), // Legacy field
   authToken: text("auth_token"),
-  transportType: text("transport_type").default("AS2"), // AS2 or HTTPS
+  transportType: text("transport_type").default("AS2"), // AS2, HTTPS, or PRESIGNED
   isActive: boolean("is_active").default(true),
   gln: varchar("gln", { length: 50 }), // Global Location Number
   licenseNumber: varchar("license_number", { length: 100 }),
