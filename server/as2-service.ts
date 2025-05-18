@@ -5,6 +5,8 @@ import * as os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { storage } from './storage';
 import { Partner } from '@shared/schema';
+import AWS from 'aws-sdk';
+import axios from 'axios';
 
 // Enum for AS2 message status
 export enum AS2Status {
@@ -30,23 +32,54 @@ export interface AS2Message {
 }
 
 /**
- * This service provides an interface to OpenAS2 for sending and receiving AS2 messages.
- * It requires OpenAS2 to be installed and properly configured on the server.
+ * This service provides an interface for sending and receiving AS2 messages.
+ * It can work with either AWS Transfer for AS2 or a local OpenAS2 server.
  */
 export class AS2Service {
   private static instance: AS2Service;
   private messages: Map<string, AS2Message> = new Map();
   private tmpDir: string;
   private as2ConfigDir: string;
-
+  private useAwsTransfer: boolean;
+  private transfer: AWS.Transfer;
+  private s3: AWS.S3;
+  private awsRegion: string;
+  private awsServerId: string;
+  private awsBucket: string;
+  
   private constructor() {
     // Create temp directory for AS2 operations
     this.tmpDir = path.join(os.tmpdir(), 'epcis-as2');
     this.as2ConfigDir = process.env.AS2_CONFIG_DIR || './as2-config';
-
-    // Ensure directories exist
-    if (!fs.existsSync(this.tmpDir)) {
-      fs.mkdirSync(this.tmpDir, { recursive: true });
+    
+    // Determine if we should use AWS Transfer for AS2
+    this.useAwsTransfer = process.env.USE_AWS_TRANSFER === 'true';
+    
+    // If using AWS Transfer, initialize AWS SDK
+    if (this.useAwsTransfer) {
+      // Check for required AWS environment variables
+      if (!process.env.AWS_REGION || !process.env.AWS_TRANSFER_SERVER_ID || !process.env.AWS_S3_BUCKET) {
+        console.error('AWS Transfer for AS2 is enabled but required environment variables are missing');
+        console.error('Required: AWS_REGION, AWS_TRANSFER_SERVER_ID, AWS_S3_BUCKET');
+        throw new Error('AWS Transfer configuration incomplete');
+      }
+      
+      this.awsRegion = process.env.AWS_REGION;
+      this.awsServerId = process.env.AWS_TRANSFER_SERVER_ID;
+      this.awsBucket = process.env.AWS_S3_BUCKET;
+      
+      // Initialize AWS services
+      AWS.config.update({ region: this.awsRegion });
+      this.transfer = new AWS.Transfer();
+      this.s3 = new AWS.S3();
+      
+      console.log('Initialized AWS Transfer for AS2 service');
+    } else {
+      // Ensure directories exist for local OpenAS2
+      if (!fs.existsSync(this.tmpDir)) {
+        fs.mkdirSync(this.tmpDir, { recursive: true });
+      }
+      console.log('Initialized local OpenAS2 service');
     }
     
     if (!fs.existsSync(this.as2ConfigDir)) {
