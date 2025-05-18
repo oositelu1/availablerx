@@ -510,33 +510,201 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
         return (
           <>
             {form.watch("transportType") === "AS2" && (
-              <FormField
-                control={form.control}
-                name="certificate"
-                render={({ field }) => (
-                  <FormItem className="mb-4">
-                    <FormLabel>AS2 Certificate</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="file" 
-                        accept=".pem,.cert,.crt"
-                        onChange={(e) => {
-                          // In a real implementation, this would upload the certificate 
-                          // and store the certificate path/content
-                          if (e.target.files && e.target.files[0]) {
-                            const fileName = e.target.files[0].name;
-                            field.onChange(fileName);
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Upload the partner's public certificate for secure AS2 communication
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+              <>
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-2">AS2 Security Configuration</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Configure how messages will be secured during AS2 transmission
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <FormField
+                    control={form.control}
+                    name="enableSigning"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1">
+                          <FormLabel>Enable Message Signing</FormLabel>
+                          <FormDescription>
+                            Sign messages to verify sender authenticity
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="enableEncryption"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1">
+                          <FormLabel>Enable Encryption</FormLabel>
+                          <FormDescription>
+                            Encrypt messages for secure transmission
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <FormField
+                    control={form.control}
+                    name="enableCompression"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1">
+                          <FormLabel>Enable Compression</FormLabel>
+                          <FormDescription>
+                            Compress data before transmission
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="mdn"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>MDN (Receipt) Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select MDN type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="sync">Synchronous</SelectItem>
+                            <SelectItem value="async">Asynchronous</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          How to receive Message Disposition Notifications
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                {form.watch("enableSigning") && (
+                  <FormField
+                    control={form.control}
+                    name="signingCertificate"
+                    render={({ field }) => (
+                      <FormItem className="mb-4">
+                        <FormLabel>Your Signing Certificate</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Paste your PEM-encoded signing certificate"
+                            className="font-mono text-xs h-32"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Certificate used to sign outgoing messages
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+                
+                {form.watch("enableEncryption") && (
+                  <FormField
+                    control={form.control}
+                    name="encryptionCertificate"
+                    render={({ field }) => (
+                      <FormItem className="mb-4">
+                        <FormLabel>Your Encryption Certificate</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Paste your PEM-encoded encryption certificate"
+                            className="font-mono text-xs h-32"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Certificate used to decrypt incoming messages
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
+                <FormField
+                  control={form.control}
+                  name="partnerSigningCertificate"
+                  render={({ field }) => (
+                    <FormItem className="mb-4">
+                      <FormLabel>Partner's Signing Certificate</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Paste your partner's PEM-encoded signing certificate"
+                          className="font-mono text-xs h-32"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Certificate to verify signatures from partner
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="partnerEncryptionCertificate"
+                  render={({ field }) => (
+                    <FormItem className="mb-4">
+                      <FormLabel>Partner's Encryption Certificate</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Paste your partner's PEM-encoded encryption certificate"
+                          className="font-mono text-xs h-32"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Certificate to encrypt messages to partner
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
             
             {form.watch("transportType") === "HTTPS" && (
