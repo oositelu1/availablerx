@@ -451,13 +451,13 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
               )}
             />
             
-            {form.watch("transportType") !== "PRESIGNED" && (
+            {form.watch("transportType") === "HTTPS" && (
               <FormField
                 control={form.control}
                 name="endpointUrl"
                 render={({ field }) => (
                   <FormItem className="mb-4">
-                    <FormLabel>Endpoint URL</FormLabel>
+                    <FormLabel>HTTPS Endpoint URL</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="https://partner-endpoint.example.com" 
@@ -465,12 +465,104 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
                       />
                     </FormControl>
                     <FormDescription>
-                      The URL where files will be sent to this partner
+                      The URL where files will be sent via HTTPS POST
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
+            
+            {form.watch("transportType") === "AS2" && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <FormField
+                    control={form.control}
+                    name="as2Url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>AS2 Endpoint URL</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="https://partner-as2.example.com:8080/as2" 
+                            {...field} 
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Partner's AS2 receiving endpoint
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="gln"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GLN (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Global Location Number" 
+                            {...field} 
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Partner's Global Location Number
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <FormField
+                    control={form.control}
+                    name="as2From"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>AS2 From ID</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Your AS2 identifier" 
+                            {...field} 
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Your company's AS2 identifier
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="as2To"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>AS2 To ID</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Partner's AS2 identifier" 
+                            {...field} 
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Partner's AS2 identifier
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </>
             )}
             
             {form.watch("transportType") === "PRESIGNED" && (
