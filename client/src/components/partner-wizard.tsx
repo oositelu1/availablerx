@@ -57,34 +57,82 @@ const step2Schema = z.object({
   }),
   endpointUrl: z.string().optional(),
   as2Id: z.string().optional(),
+  as2From: z.string().optional(),
+  as2To: z.string().optional(),
+  as2Url: z.string().optional(),
+  gln: z.string().optional(),
 });
 
-// Step 3 schema
-const step3Schema = z.object({
-  certificate: z.string().optional(),
+// Step 3 schema for AS2
+const step3AS2Schema = z.object({
+  signingCertificate: z.string().optional(),
+  encryptionCertificate: z.string().optional(),
+  partnerSigningCertificate: z.string().optional(),
+  partnerEncryptionCertificate: z.string().optional(),
+  enableEncryption: z.boolean().default(true),
+  enableSigning: z.boolean().default(true),
+  enableCompression: z.boolean().default(false),
+  mdn: z.enum(["sync", "async", "none"]).default("sync"),
+});
+
+// Step 3 schema for HTTPS
+const step3HTTPSSchema = z.object({
   authToken: z.string().optional(),
+  certificate: z.string().optional(),
 });
 
 // Combined schema for final validation
 const partnerSchema = z.object({
+  // Basic info fields
   name: step1Schema.shape.name,
   partnerType: step1Schema.shape.partnerType,
   contactEmail: step1Schema.shape.contactEmail,
   notes: step1Schema.shape.notes,
+  
+  // Connection fields
   transportType: step2Schema.shape.transportType,
   endpointUrl: step2Schema.shape.endpointUrl,
   as2Id: step2Schema.shape.as2Id,
-  certificate: step3Schema.shape.certificate,
-  authToken: step3Schema.shape.authToken,
+  as2From: step2Schema.shape.as2From,
+  as2To: step2Schema.shape.as2To,
+  as2Url: step2Schema.shape.as2Url,
+  gln: step2Schema.shape.gln,
+  
+  // Security fields - AS2
+  signingCertificate: step3AS2Schema.shape.signingCertificate,
+  encryptionCertificate: step3AS2Schema.shape.encryptionCertificate,
+  partnerSigningCertificate: step3AS2Schema.shape.partnerSigningCertificate,
+  partnerEncryptionCertificate: step3AS2Schema.shape.partnerEncryptionCertificate,
+  enableEncryption: step3AS2Schema.shape.enableEncryption,
+  enableSigning: step3AS2Schema.shape.enableSigning,
+  enableCompression: step3AS2Schema.shape.enableCompression,
+  mdn: step3AS2Schema.shape.mdn,
+  
+  // Security fields - HTTPS
+  certificate: step3HTTPSSchema.shape.certificate,
+  authToken: step3HTTPSSchema.shape.authToken,
 }).refine((data) => {
   // If transport type is not PRESIGNED, endpoint URL is required
-  if (data.transportType !== "PRESIGNED") {
+  if (data.transportType === "HTTPS") {
     return !!data.endpointUrl && data.endpointUrl.length > 0;
   }
   return true;
 }, {
-  message: "Endpoint URL is required for AS2 and HTTPS transport methods",
+  message: "Endpoint URL is required for HTTPS transport method",
   path: ["endpointUrl"]
+}).refine((data) => {
+  // If transport type is AS2, validate required AS2 fields
+  if (data.transportType === "AS2") {
+    return (
+      !!data.as2From && data.as2From.length > 0 &&
+      !!data.as2To && data.as2To.length > 0 &&
+      !!data.as2Url && data.as2Url.length > 0
+    );
+  }
+  return true;
+}, {
+  message: "AS2 From ID, AS2 To ID, and AS2 URL are required for AS2 transport method",
+  path: ["as2To"]
 });
 
 type PartnerWizardFormValues = z.infer<typeof partnerSchema>;
@@ -105,13 +153,32 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
   const form = useForm<PartnerWizardFormValues>({
     resolver: zodResolver(partnerSchema),
     defaultValues: {
+      // Basic Info
       name: "",
       partnerType: "",
       contactEmail: "",
       notes: "",
-      endpointUrl: "",
+      
+      // Connection
       transportType: "PRESIGNED", // Default to Pre-Signed URLs
+      endpointUrl: "",
       as2Id: "",
+      as2From: "",
+      as2To: "",
+      as2Url: "",
+      gln: "",
+      
+      // Security - AS2
+      signingCertificate: "",
+      encryptionCertificate: "",
+      partnerSigningCertificate: "",
+      partnerEncryptionCertificate: "",
+      enableEncryption: true,
+      enableSigning: true,
+      enableCompression: false,
+      mdn: "sync" as const,
+      
+      // Security - HTTPS
       certificate: "",
       authToken: "",
     },
@@ -144,13 +211,44 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
   
   // Handle next button click
   const handleNext = () => {
-    const fields = step === 1 
-      ? ["name", "partnerType", "contactEmail"] as const
-      : step === 2 
-        ? ["transportType", ...(transportType !== "PRESIGNED" ? ["endpointUrl" as const] : [])]
-        : ["certificate", "authToken"] as const;
-        
-    form.trigger(fields).then((isValid) => {
+    // Define fields to validate based on current step and selected transport type
+    let fieldsToValidate: any[] = [];
+    
+    if (step === 1) {
+      // Basic info validation
+      fieldsToValidate = ["name", "partnerType", "contactEmail"];
+    } 
+    else if (step === 2) {
+      // Connection settings validation - different fields based on transport type
+      fieldsToValidate = ["transportType"];
+      
+      if (transportType === "HTTPS") {
+        fieldsToValidate.push("endpointUrl");
+      } 
+      else if (transportType === "AS2") {
+        fieldsToValidate.push("as2From", "as2To", "as2Url");
+      }
+    } 
+    else if (step === 3) {
+      // Security settings validation - different fields based on transport type
+      if (transportType === "HTTPS") {
+        fieldsToValidate = ["authToken", "certificate"];
+      } 
+      else if (transportType === "AS2") {
+        fieldsToValidate = ["partnerSigningCertificate", "partnerEncryptionCertificate", "mdn"];
+        // Only validate signing certificate if signing is enabled
+        if (form.watch("enableSigning")) {
+          fieldsToValidate.push("signingCertificate");
+        }
+        // Only validate encryption certificate if encryption is enabled
+        if (form.watch("enableEncryption")) {
+          fieldsToValidate.push("encryptionCertificate");
+        }
+      }
+    }
+    
+    // Trigger validation for the selected fields
+    form.trigger(fieldsToValidate as any).then((isValid) => {
       if (isValid) {
         if (step < STEPS.length) {
           setStep(step + 1);
