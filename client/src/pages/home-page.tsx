@@ -1,15 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Send, CheckCircle, ArrowUp, ShoppingCart } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Upload, Send, CheckCircle, ArrowUp } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { FilesTable } from "@/components/files-table";
-import { RecentPurchaseOrders } from "@/components/recent-purchase-orders";
 import { Link } from "wouter";
 
+interface Stats {
+  filesReceived: number;
+  filesSent: number;
+  validationRate: number;
+}
+
 export default function HomePage() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
   });
 
@@ -112,31 +117,13 @@ export default function HomePage() {
         </Card>
       </div>
 
-      {/* Recent Purchase Orders */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Purchase Orders</h2>
-          <Link href="/purchase-orders">
-            <Button variant="outline" size="sm">
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              View All
-            </Button>
-          </Link>
-        </div>
-        <Card>
-          <CardContent className="p-0">
-            <RecentPurchaseOrders limit={5} />
-          </CardContent>
-        </Card>
-      </div>
-
       {/* File Upload Section */}
       <FileUploader />
 
       {/* Recent Files Table */}
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-4">Recent Files</h2>
-        <FilesTable limit={5} showPagination={false} />
+        <FilesTable limit={5} />
       </div>
     </Layout>
   );
