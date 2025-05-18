@@ -70,7 +70,7 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
   const form = useForm<AssociationFormValues>({
     resolver: zodResolver(associationSchema),
     defaultValues: {
-      poId: 0,
+      poId: undefined as unknown as number, // This will ensure the select is empty initially
       associationMethod: "manual",
       confidence: 100,
       notes: "",
@@ -146,7 +146,7 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
                   <FormLabel>Purchase Order</FormLabel>
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    defaultValue={field.value > 0 ? field.value.toString() : undefined}
+                    value={field.value > 0 ? field.value.toString() : ""}
                   >
                     <FormControl>
                       <SelectTrigger className="w-full">
