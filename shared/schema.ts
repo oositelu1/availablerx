@@ -29,6 +29,7 @@ export const partners = pgTable("partners", {
   as2From: text("as2_from"), // Your AS2 identity when sending to this partner
   as2To: text("as2_to"),     // Partner's AS2 identity
   as2Url: text("as2_url"),   // Partner's AS2 endpoint URL
+  as2ConnectorId: text("as2_connector_id"),   // AWS Transfer for AS2 connector ID
   signingCertificate: text("signing_certificate"), // Certificate for signing outgoing messages
   encryptionCertificate: text("encryption_certificate"), // Certificate for encrypting outgoing messages
   partnerSigningCertificate: text("partner_signing_certificate"), // Partner's certificate for verifying their signatures

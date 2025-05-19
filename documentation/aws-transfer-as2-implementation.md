@@ -1,102 +1,69 @@
-# Implementing AWS Transfer for AS2 in the Application
+# AWS Transfer for AS2 Implementation Guide
 
-This guide explains how to modify the existing application code to work with AWS Transfer for AS2 instead of OpenAS2.
+## Overview
+This document describes the implementation of AWS Transfer for AS2 in the EPCIS compliance platform.
 
-## Code Integration Overview
+## Configuration
 
-The application has been updated to support both deployment options:
-1. Self-hosted OpenAS2 server (original implementation)
-2. AWS Transfer for AS2 (managed service implementation)
+### Environment Variables
+The following environment variables control the AWS Transfer for AS2 integration:
 
-## Environment Variables
+- `USE_AWS_TRANSFER`: Set to "true" to use AWS Transfer for AS2, "false" to use local OpenAS2
+- `AWS_REGION`: AWS region where the Transfer server is deployed (e.g., "us-east-1")
+- `AWS_TRANSFER_SERVER_ID`: ID of the AWS Transfer server (e.g., "s-7eb939c89a5c49e98")
+- `AWS_S3_BUCKET`: S3 bucket used for file storage (e.g., "elasticbeanstalk-us-east-1-308357913539")
 
-Add these environment variables to your application:
+### AWS Resources
+The following AWS resources have been created:
 
-```
-# Set to 'true' to use AWS Transfer, 'false' for OpenAS2
-USE_AWS_TRANSFER=true
+1. **AS2 Transfer Server**: A fully managed AS2 server that handles secure file transfers
+2. **Local Profile**: Represents our organization's AS2 identity
+3. **Partner Profiles**: Represents each trading partner's AS2 identity
+4. **Agreements**: Defines the rules for receiving files from partners
+5. **Connectors**: Defines the connections for sending files to partners
 
-# Required for AWS Transfer
-AWS_REGION=us-east-1
-AWS_TRANSFER_SERVER_ID=s-abc123xyz
-AWS_S3_BUCKET=your-as2-bucket
+## Receiving Files from Partners
 
-# Optional AWS configuration
-AWS_CONNECTOR_ID_PREFIX=as2-connector-
-AWS_LOCAL_AS2_ID=your-company-as2-id
-```
+For partners sending files to our platform:
+1. Partners send files to our AWS Transfer for AS2 endpoint
+2. Files are delivered to the configured S3 bucket
+3. Our application processes the files from the S3 bucket
 
-## Partner Configuration
+## Sending Files to Partners
 
-When using AWS Transfer for AS2, the following partner fields are essential:
+For sending files to partners:
+1. Our application uploads the file to S3 in the outbound directory
+2. The application calls the AWS Transfer API to initiate the transfer
+3. AWS Transfer sends the file to the partner's AS2 endpoint
+4. AWS Transfer handles MDNs and notifies our application of the status
 
-- **as2From**: Your organization's AS2 identifier
-- **as2To**: Your partner's AS2 identifier
-- **as2Url**: Your partner's AS2 endpoint (where AWS will send the files)
-- **partnerSigningCertificate**: Certificate to verify messages from partner
-- **partnerEncryptionCertificate**: Certificate to encrypt messages to partner
-- **signingCertificate**: Your certificate for signing outgoing messages
-- **encryptionCertificate**: Your certificate for decrypting incoming messages
+## Implementing Partner Onboarding
 
-## AWS Transfer Connector Management
+To onboard a new partner:
+1. Create a Partner Profile in AWS Transfer for AS2
+2. Exchange certificates with the partner
+3. Create an Agreement to receive files
+4. Create a Connector to send files
+5. Update the partner record in our database with the AS2 details
 
-For each partner in the system, the application:
+## API Usage
 
-1. Checks if an AWS connector exists for this partnership
-2. Creates or updates the connector if needed
-3. Maps connector statuses to application transmission statuses
+The AS2Service in our application has been updated to use AWS Transfer for AS2.
+When `USE_AWS_TRANSFER` is set to "true", the service will:
 
-Each AWS Connector represents a unique sender-receiver relationship with specific security settings.
+1. Upload files to S3 instead of local filesystem
+2. Use AWS Transfer API to send files
+3. Monitor transfer status via AWS Transfer API
 
-## File Transfer Process with AWS Transfer for AS2
+## Troubleshooting
 
-### Sending Files:
+Common issues:
+- **Connection failures**: Check that the partner's AS2 endpoint is correctly configured
+- **Certificate errors**: Verify that certificates are properly imported and not expired
+- **File not delivered**: Check the S3 bucket for failed transfers
+- **MDN issues**: Verify the MDN settings in the agreement or connector
 
-1. Application identifies the file to send and trading partner
-2. Application uploads the file to the designated S3 bucket
-3. Application triggers file transfer through AWS Transfer API
-4. AWS Transfer handles encryption, signing, and delivery
-5. AWS Transfer processes the MDN response
-6. Application queries transfer status and updates transmission records
+## Reference
 
-### Receiving Files:
-
-1. Partner sends AS2 file to AWS Transfer endpoint
-2. AWS Transfer decrypts, verifies the file signature, and sends MDN
-3. AWS Transfer stores the file in the S3 bucket
-4. Application processes the file from S3
-5. Application creates appropriate file and transmission records
-
-## Error Handling
-
-The application handles several types of errors:
-
-- **Configuration errors**: Missing certificates, incorrect AS2 IDs
-- **Connection errors**: Unreachable partner endpoints
-- **Security errors**: Certificate validation failures, encryption issues
-- **MDN errors**: Missing or invalid receipts
-
-All errors are logged in the application and can be viewed in the transmission details.
-
-## Logging and Monitoring
-
-The application integrates with:
-
-1. Application logs for file processing and transmission status
-2. AWS CloudWatch for AWS Transfer operations
-3. AWS CloudTrail for security and configuration auditing
-
-## Testing Your Integration
-
-1. Configure a test partner with valid AS2 credentials
-2. Send a test file using the application
-3. Monitor the progress in both application logs and AWS console
-4. Verify file delivery and MDN receipt
-
-## Troubleshooting Common Issues
-
-- **Connection failures**: Verify partner endpoints are correct and accessible
-- **Certificate problems**: Ensure certificates are properly formatted and not expired
-- **Permission errors**: Check AWS IAM roles and policies
-- **S3 access issues**: Verify bucket policies allow Transfer service access
-- **MDN configuration**: Ensure MDN settings match between partners
+- [AWS Transfer for AS2 Documentation](https://docs.aws.amazon.com/transfer/latest/userguide/what-is-aws-transfer-for-as2.html)
+- [AS2 Protocol Specification](https://datatracker.ietf.org/doc/html/rfc4130)
