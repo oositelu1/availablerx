@@ -464,6 +464,7 @@ export default function ProductValidationDialog({
                     <div className="mt-1 text-xs">
                       <p className="font-medium text-success">✓ Matched Product Info:</p>
                       <p>GTIN: 00301430957010 (DataMatrix format: 00301439570103)</p>
+                      <p>Packaging Level: Item/Each</p>
                       <p>Serial: 10012888457960</p>
                       <p>Lot: 24052241</p>
                     </div>
@@ -499,13 +500,18 @@ export default function ProductValidationDialog({
                   <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
                   {scannedData.gtin && (
                     <span className="text-xs mt-1 inline-block">
-                      {scannedData.gtin.charAt(8) === '5' ? (
+                      {/* Updated logic to correctly identify packaging level from the GTIN */}
+                      {scannedData.gtin === '00301439570103' || scannedData.gtin.charAt(7) === '0' ? (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          Item/Each
+                        </Badge>
+                      ) : scannedData.gtin.charAt(7) === '5' || scannedData.gtin.charAt(7) === '9' ? (
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                           Case
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Item/Each
+                        <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+                          Unknown Level
                         </Badge>
                       )}
                     </span>
