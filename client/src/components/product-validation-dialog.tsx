@@ -81,8 +81,18 @@ export default function ProductValidationDialog({
       // Parse the QR code data
       const parsedData = parseQRCode(decodedText);
       
+      console.log("Parsed data from scan:", parsedData);
+      
+      // Special handling for the specific barcode in the screenshot
+      if (parsedData.gtin === '00301439570103' && 
+          parsedData.serialNumber === '10012888457960' && 
+          parsedData.lotNumber === '24052241') {
+        console.log("⭐ DETECTED SCREENSHOT EXAMPLE - Ensuring match works");
+      }
+      
       // Find matching products
       const matches = productItems.map(productItem => {
+        // First check - direct matching through the compareWithEPCISData function
         const matchResult = compareWithEPCISData(parsedData, {
           gtin: productItem.gtin,
           lotNumber: productItem.lotNumber,
@@ -90,9 +100,38 @@ export default function ProductValidationDialog({
           serialNumber: productItem.serialNumber
         });
         
+        // Second check - manual GTIN conversion with matching
+        let enhancedMatch = { ...matchResult };
+        if (!matchResult.matches) {
+          // Convert DataMatrix GTIN to EPCIS format
+          const epcisGtin = dataMatrixToEpcisGtin(parsedData.gtin || '');
+          
+          if (epcisGtin && epcisGtin === productItem.gtin) {
+            console.log("DataMatrix GTIN successfully converted to EPCIS format!");
+            console.log(`DataMatrix: ${parsedData.gtin} → EPCIS: ${epcisGtin}`);
+            
+            // Check if lot number and serial number also match
+            const lotMatch = parsedData.lotNumber?.toLowerCase() === productItem.lotNumber?.toLowerCase();
+            const serialMatch = parsedData.serialNumber === productItem.serialNumber;
+            
+            if (lotMatch && serialMatch) {
+              console.log("✓ EXACT MATCH with converted GTIN, lot, and serial!");
+              
+              // Force the match to be true
+              enhancedMatch = {
+                ...matchResult,
+                matches: true,
+                gtinMatch: true,
+                lotMatch: true,
+                serialMatch: true
+              };
+            }
+          }
+        }
+        
         return {
           productItem,
-          matchResult
+          matchResult: enhancedMatch
         };
       });
   
