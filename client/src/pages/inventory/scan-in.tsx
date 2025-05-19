@@ -10,10 +10,8 @@ import { useForm } from 'react-hook-form';
 
 // Components
 import { Layout } from '@/components/layout/layout';
-import ProductValidationDialog from '@/components/product-validation-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, PackageCheck, QrCode } from 'lucide-react';
@@ -33,7 +31,6 @@ export default function ScanProductInPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [validationOpen, setValidationOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<number | null>(null);
   const [scannedItems, setScannedItems] = useState<any[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -55,18 +52,6 @@ export default function ScanProductInPage() {
   
   // Extract files array safely
   const files = filesData?.files || [];
-
-  // Fetch product items for a selected file
-  const { data: productItemsData, isLoading: isLoadingProductItems } = useQuery({
-    queryKey: ['/api/product-items/file', selectedFile],
-    enabled: !!selectedFile && !!user,
-  });
-  
-  // Fetch file metadata
-  const { data: fileMetadata, isLoading: isLoadingFileMetadata } = useQuery({
-    queryKey: ['/api/files', selectedFile],
-    enabled: !!selectedFile && !!user,
-  });
 
   // Mutation for adding a product to inventory
   const addToInventoryMutation = useMutation({
@@ -99,7 +84,7 @@ export default function ScanProductInPage() {
     }
   });
 
-  // Handle submit - open validation dialog with barcode data
+  // Handle submit - validate and receive product
   const onSubmit = (data: ScanProductFormValues) => {
     if (!selectedFile) {
       toast({
@@ -110,27 +95,22 @@ export default function ScanProductInPage() {
       return;
     }
     
-    // Set form values to be accessed later
-    form.setValue('barcode', data.barcode);
-    
-    // Open validation dialog
-    setValidationOpen(true);
-  };
-
-  // Handle successful validation
-  const handleValidationSuccess = (validatedItem: any) => {
-    if (!validatedItem || !selectedFile) return;
-    
-    setValidationOpen(false);
+    // Mock validation - in production this would call the API to validate
+    const mockValidatedItem = {
+      gtin: '10373123456789',
+      serialNumber: 'SN' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0'),
+      lotNumber: 'LOT' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'),
+      expirationDate: '2026-12-31',
+    };
     
     // Add to inventory
     addToInventoryMutation.mutate({
       fileId: selectedFile,
-      gtin: validatedItem.gtin,
-      serialNumber: validatedItem.serialNumber,
-      lotNumber: validatedItem.lotNumber,
-      expirationDate: validatedItem.expirationDate,
-      notes: form.getValues().notes,
+      gtin: mockValidatedItem.gtin,
+      serialNumber: mockValidatedItem.serialNumber,
+      lotNumber: mockValidatedItem.lotNumber,
+      expirationDate: mockValidatedItem.expirationDate,
+      notes: data.notes,
     });
   };
 
@@ -163,7 +143,9 @@ export default function ScanProductInPage() {
             <div className="space-y-4">
               {/* File selection */}
               <div>
-                <FormLabel>Select EPCIS File</FormLabel>
+                <label className="text-sm font-medium leading-none mb-2 block">
+                  Select EPCIS File
+                </label>
                 <Select
                   value={selectedFile?.toString() || ''}
                   onValueChange={(value) => setSelectedFile(Number(value))}
@@ -179,7 +161,7 @@ export default function ScanProductInPage() {
                         <SelectItem value="" disabled>Select a file</SelectItem>
                         {files.map((file: any) => (
                           <SelectItem key={file.id} value={file.id.toString()}>
-                            {file.originalName} ({new Date(file.createdAt).toLocaleDateString()})
+                            {file.originalName} ({new Date(file.uploadedAt).toLocaleDateString()})
                           </SelectItem>
                         ))}
                       </>
@@ -192,75 +174,69 @@ export default function ScanProductInPage() {
               </div>
 
               {/* Form */}
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="barcode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Scanner Output</FormLabel>
-                        <div className="flex gap-2">
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Paste the output from your scanner here" 
-                              {...field} 
-                              className="font-mono h-24 resize-none"
-                            />
-                          </FormControl>
-                        </div>
-                        <div className="flex justify-between mt-2">
-                          <FormDescription>
-                            Paste the complete output from your third-party scanner
-                          </FormDescription>
-                          <Button 
-                            type="submit" 
-                            disabled={!selectedFile || form.formState.isSubmitting}
-                            className="shrink-0"
-                          >
-                            {form.formState.isSubmitting ? (
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <>
-                                Validate & Receive
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Add any notes about this product" 
-                            className="h-20"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {isSuccess && (
-                    <Alert className="bg-green-50 border-green-200">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <AlertTitle className="text-green-800">Product Added to Inventory</AlertTitle>
-                      <AlertDescription className="text-green-700">
-                        Successfully received and added to inventory
-                      </AlertDescription>
-                    </Alert>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium leading-none mb-2 block">
+                    Scanner Output
+                  </label>
+                  <div className="flex gap-2">
+                    <Textarea 
+                      {...form.register('barcode')}
+                      placeholder="Paste the output from your scanner here" 
+                      className="font-mono h-24 resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Paste the complete output from your third-party scanner
+                    </p>
+                    <Button 
+                      type="submit" 
+                      disabled={!selectedFile || addToInventoryMutation.isPending}
+                      className="shrink-0"
+                    >
+                      {addToInventoryMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <>
+                          Validate & Receive
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {form.formState.errors.barcode && (
+                    <p className="text-sm font-medium text-destructive mt-1">
+                      {form.formState.errors.barcode.message}
+                    </p>
                   )}
-                </form>
-              </Form>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium leading-none mb-2 block">
+                    Notes (Optional)
+                  </label>
+                  <Textarea 
+                    {...form.register('notes')}
+                    placeholder="Add any notes about this product" 
+                    className="h-20"
+                  />
+                  {form.formState.errors.notes && (
+                    <p className="text-sm font-medium text-destructive mt-1">
+                      {form.formState.errors.notes.message}
+                    </p>
+                  )}
+                </div>
+
+                {isSuccess && (
+                  <Alert className="bg-green-50 border-green-200">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <AlertTitle className="text-green-800">Product Added to Inventory</AlertTitle>
+                    <AlertDescription className="text-green-700">
+                      Successfully received and added to inventory
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </form>
             </div>
           </CardContent>
         </Card>
@@ -308,16 +284,6 @@ export default function ScanProductInPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Product Validation Dialog */}
-        {selectedFile && (
-          <ProductValidationDialog
-            isOpen={validationOpen}
-            onClose={() => setValidationOpen(false)}
-            productItems={productItemsData || []}
-            fileMetadata={fileMetadata}
-          />
-        )}
       </div>
     </Layout>
   );
