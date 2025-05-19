@@ -352,6 +352,7 @@ export function FilesTable({ status, partnerId, startDate, endDate, limit: limit
           isOpen={sendModalOpen}
           setIsOpen={setSendModalOpen}
           fileId={selectedFile}
+          onClose={() => setSendModalOpen(false)}
         />
       )}
     </div>

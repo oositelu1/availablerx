@@ -84,7 +84,7 @@ export function SendFileModal({ fileId, onClose, setIsOpen, isOpen = true }: Sen
         title: "File sent successfully",
         description: "The file has been queued for transmission to the partner.",
       });
-      onClose();
+      handleCancel();
     },
     onError: (error: any) => {
       toast({
@@ -113,7 +113,11 @@ export function SendFileModal({ fileId, onClose, setIsOpen, isOpen = true }: Sen
   };
 
   const handleCancel = () => {
-    onClose();
+    if (setIsOpen) {
+      setIsOpen(false);
+    } else if (onClose) {
+      onClose();
+    }
   };
 
   // Format file size for display
