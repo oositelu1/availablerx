@@ -84,6 +84,31 @@ export function isItem(gtin: string): boolean {
 export function caseToItemGtin(caseGtin: string): string {
   if (!caseGtin) return '';
   
+  // Handle SGTIN URI format
+  if (caseGtin.startsWith('urn:epc:id:sgtin:') || caseGtin.startsWith('urn:epc:idpat:sgtin:')) {
+    const parts = caseGtin.split(':');
+    const lastPart = parts[parts.length - 1];
+    const sections = lastPart.split('.');
+    
+    if (sections.length >= 2) {
+      const companyPrefix = sections[0];
+      let itemRef = sections[1];
+      const serialPart = sections.length > 2 ? sections[2] : '*';
+      
+      // Replace first digit of item reference with '0'
+      if (itemRef.length > 0) {
+        itemRef = '0' + itemRef.substring(1);
+        
+        // Rebuild the SGTIN
+        const prefix = caseGtin.substring(0, caseGtin.lastIndexOf(':') + 1);
+        return `${prefix}${companyPrefix}.${itemRef}.${serialPart}`;
+      }
+    }
+    
+    return caseGtin; // Return original if we can't process it
+  }
+  
+  // For regular GTIN format (numeric string)
   // Normalize to 14 digits by adding leading zeros if needed
   const normalizedGtin = caseGtin.padStart(14, '0');
   
@@ -97,9 +122,35 @@ export function caseToItemGtin(caseGtin: string): string {
 export function itemToCaseGtin(itemGtin: string): string {
   if (!itemGtin) return '';
   
+  // Handle SGTIN URI format
+  if (itemGtin.startsWith('urn:epc:id:sgtin:') || itemGtin.startsWith('urn:epc:idpat:sgtin:')) {
+    const parts = itemGtin.split(':');
+    const lastPart = parts[parts.length - 1];
+    const sections = lastPart.split('.');
+    
+    if (sections.length >= 2) {
+      const companyPrefix = sections[0];
+      let itemRef = sections[1];
+      const serialPart = sections.length > 2 ? sections[2] : '*';
+      
+      // Replace first digit of item reference with '4' (common case indicator)
+      if (itemRef.length > 0) {
+        itemRef = '4' + itemRef.substring(1);
+        
+        // Rebuild the SGTIN
+        const prefix = itemGtin.substring(0, itemGtin.lastIndexOf(':') + 1);
+        return `${prefix}${companyPrefix}.${itemRef}.${serialPart}`;
+      }
+    }
+    
+    return itemGtin; // Return original if we can't process it
+  }
+  
+  // For regular GTIN format (numeric string)
   // Normalize to 14 digits by adding leading zeros if needed
   const normalizedGtin = itemGtin.padStart(14, '0');
   
-  // Replace the indicator digit (first digit) with '5'
-  return '5' + normalizedGtin.substring(1);
+  // Replace the indicator digit (first digit) with '4' for Case
+  // Using '4' as it appears to be a common case indicator in our EPCIS files
+  return '4' + normalizedGtin.substring(1);
 }

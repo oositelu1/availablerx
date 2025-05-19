@@ -281,8 +281,11 @@ export default function FileDetailPage() {
   if (productItems && productItems.length > 0) {
     console.log("Product Items Sample:", productItems.slice(0, 5));
     
-    console.log("GTIN examples:", productItems.map(item => item.gtin).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5));
-    productItems.forEach((item, idx) => {
+    console.log("GTIN examples:", productItems.map((item: {gtin: string}) => item.gtin)
+      .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+      .slice(0, 5));
+      
+    productItems.forEach((item: {gtin: string}, idx: number) => {
       if (idx < 5) {
         // Use the proper utility function to determine if this is a Case
         console.log(`GTIN ${idx}: ${item.gtin}, Is Case: ${isCase(item.gtin)}`);
@@ -291,7 +294,7 @@ export default function FileDetailPage() {
   }
 
   return (
-    <Layout>
+    <Layout title="File Details">
       {/* Header area */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
