@@ -269,77 +269,10 @@ inventoryRouter.post("/validate", async (req: Request, res: Response) => {
     
     console.log("Received barcode data:", barcodeData);
     
-    // For demo purposes, we'll use hardcoded data instead of API calls
-    // In production this would validate against actual database records
+    // Get product items from the database for this file ID
+    const productItems = await storage.listProductItemsForFile(parseInt(fileId));
     
-    // Mock products for file ID 47
-    const file47Products = [
-      {
-        id: 1001,
-        gtin: '00301430957010',
-        serialNumber: '10016550749981',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        fileId: 47
-      },
-      {
-        id: 1002,
-        gtin: '00301430957010', 
-        serialNumber: '10018521666433',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        fileId: 47
-      },
-      {
-        id: 1003,
-        gtin: '00301430957010',
-        serialNumber: '10015409851063',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        fileId: 47
-      },
-      {
-        id: 1004,
-        gtin: '50301439570108',
-        serialNumber: '100000059214',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        fileId: 47
-      }
-    ];
-    
-    // Mock products for file ID 46
-    const file46Products = [
-      {
-        id: 2001,
-        gtin: '00301435957010',
-        serialNumber: '10000005921',
-        lotNumber: '240522',
-        expirationDate: '2026-09-30',
-        fileId: 46
-      },
-      {
-        id: 2002,
-        gtin: '50301439570108',
-        serialNumber: '100000059214',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        fileId: 46
-      }
-    ];
-    
-    // Select the appropriate product set based on file ID
-    let productItems = [];
-    if (fileId === 47) {
-      productItems = file47Products;
-    } else if (fileId === 46) {
-      productItems = file46Products;
-    } else {
-      // Default empty array for other file IDs
-      productItems = [];
-    }
-    
-    if (productItems.length === 0) {
+    if (!productItems || productItems.length === 0) {
       return res.status(404).json({ message: "No product items found in this file" });
     }
     
@@ -351,17 +284,17 @@ inventoryRouter.post("/validate", async (req: Request, res: Response) => {
     
     // Try to extract values from the barcode string
     if (barcodeData.includes('GTIN:')) {
-      const gtinMatch = barcodeData.match(/GTIN:\s*(\d+)/);
+      const gtinMatch = barcodeData.match(/GTIN:\s*(\d+)/i);
       if (gtinMatch && gtinMatch[1]) gtin = gtinMatch[1];
       
-      const serialMatch = barcodeData.match(/Serial Number:\s*([^\s\n]+)/);
+      const serialMatch = barcodeData.match(/Serial Number:\s*([^\s,\n]+)/i);
       if (serialMatch && serialMatch[1]) serialNumber = serialMatch[1];
       
-      const lotMatch = barcodeData.match(/Lot Number:\s*([^\s\n]+)/);
+      const lotMatch = barcodeData.match(/Lot Number:\s*([^\s,\n]+)/i);
       if (lotMatch && lotMatch[1]) lotNumber = lotMatch[1];
       
       // Match various date formats
-      const expMatch = barcodeData.match(/Expiration Date:\s*([^\s\n]+)/);
+      const expMatch = barcodeData.match(/Expiration Date:\s*([^\s,\n]+)/i);
       if (expMatch && expMatch[1]) {
         // Convert from MM/DD/YY to YYYY-MM-DD if needed
         const expParts = expMatch[1].split('/');
@@ -396,6 +329,40 @@ inventoryRouter.post("/validate", async (req: Request, res: Response) => {
           }
         }
       });
+    } else {
+      // Try to extract from GS1 DataMatrix format (numeric sequence with Application Identifiers)
+      try {
+        // Try to extract from "01" prefix (standard GTIN AI)
+        const gtinAIMatch = barcodeData.match(/01(\d{14})/);
+        if (gtinAIMatch && gtinAIMatch[1]) {
+          gtin = gtinAIMatch[1];
+        }
+        
+        // Try to extract from "21" prefix (standard Serial AI)
+        const snAIMatch = barcodeData.match(/21([^\s,\n]+)/);
+        if (snAIMatch && snAIMatch[1]) {
+          serialNumber = snAIMatch[1];
+        }
+        
+        // Try to extract from "10" prefix (standard Lot AI)
+        const lotAIMatch = barcodeData.match(/10([^\s,\n]+)/);
+        if (lotAIMatch && lotAIMatch[1]) {
+          lotNumber = lotAIMatch[1];
+        }
+        
+        // Try to extract from "17" prefix (standard Expiration AI)
+        const expAIMatch = barcodeData.match(/17(\d{6})/);
+        if (expAIMatch && expAIMatch[1]) {
+          const exp = expAIMatch[1];
+          const yy = exp.substring(0, 2);
+          const mm = exp.substring(2, 4);
+          const dd = exp.substring(4, 6);
+          const year = parseInt(yy) < 50 ? `20${yy}` : `19${yy}`;
+          expirationDate = `${year}-${mm}-${dd}`;
+        }
+      } catch (err) {
+        console.error("Error parsing DataMatrix format:", err);
+      }
     }
     
     console.log("Extracted barcode data:", { gtin, serialNumber, lotNumber, expirationDate });
@@ -427,15 +394,20 @@ inventoryRouter.post("/validate", async (req: Request, res: Response) => {
       });
     }
     
-    // Product found! Return success response
+    // Get additional product info if available
+    const fileInfo = await storage.getFile(parseInt(fileId));
+    let productInfo = null;
+    
+    if (fileInfo && fileInfo.metadata && fileInfo.metadata.productInfo) {
+      productInfo = fileInfo.metadata.productInfo;
+    }
+    
+    // Return the validated product
     res.status(200).json({
       validated: true,
       product: {
         ...matchingProduct,
-        productInfo: {
-          name: "SODIUM FERRIC GLUCONATE",
-          manufacturer: "WEST-WARD PHARMACEUTICALS"
-        }
+        productInfo
       }
     });
     
