@@ -196,10 +196,6 @@ export class AS2Service {
       // Generate a unique message ID
       const messageId = uuidv4();
       
-      // Write file to temp directory
-      const tempFilePath = path.join(this.tmpDir, `${messageId}_${file.originalName}`);
-      fs.writeFileSync(tempFilePath, fileData);
-      
       // Create an AS2 message record
       const message: AS2Message = {
         id: messageId,
@@ -207,24 +203,86 @@ export class AS2Service {
         receiver: partner.as2To,
         subject: `EPCIS File: ${file.originalName}`,
         fileName: file.originalName,
-        filePath: tempFilePath,
+        filePath: '', // Will be updated based on storage method
         status: AS2Status.PENDING,
       };
       
-      // Store the message
-      this.messages.set(messageId, message);
-      
-      // In a production environment, we would call the actual OpenAS2 
-      // command to send the file. For this example, we'll simulate it.
-      console.log(`Simulating AS2 send: ${tempFilePath} to ${partner.name} (${partner.as2To})`);
-      
-      // Update message status
-      message.status = AS2Status.SENT;
-      message.sentAt = new Date();
-      
-      // In a real implementation, we would monitor for MDN receipt
-      
-      return { messageId, success: true };
+      if (this.useAwsTransfer) {
+        // Using AWS Transfer for AS2
+        try {
+          console.log(`Using AWS Transfer for AS2 to send file to ${partner.name} (${partner.as2To})`);
+          
+          // First upload the file to S3
+          const s3Key = `as2-outbound/${messageId}/${file.originalName}`;
+          await this.s3.putObject({
+            Bucket: this.awsBucket,
+            Key: s3Key,
+            Body: fileData
+          }).promise();
+          
+          message.filePath = `s3://${this.awsBucket}/${s3Key}`;
+          
+          // Create a connector if it doesn't exist
+          // In production, you would have this connector pre-configured
+          // This is a simplified example
+          
+          // Start the transfer from the existing connector
+          // You'll need to have created a connector in the AWS console first
+          // with the partner's AS2 endpoint information
+          
+          // Normally you would use AWS SDK to start the transfer
+          // This would be something like:
+          /*
+          const startFileTransfer = await this.transfer.startFileTransfer({
+            connectorId: 'your-connector-id', // Get this from partner configuration
+            sendFilePaths: [s3Key]
+          }).promise();
+          */
+          
+          // For now we'll log that this would happen in production
+          console.log(`AWS Transfer for AS2: Would send file ${s3Key} to partner ${partner.name}`);
+          console.log(`To complete this functionality, create an AWS AS2 connector for ${partner.name}`);
+          console.log(`Then update the code to use the connector ID in the startFileTransfer call`);
+          
+          // Update message status
+          message.status = AS2Status.SENT;
+          message.sentAt = new Date();
+          
+          // Store the message
+          this.messages.set(messageId, message);
+          
+          return { messageId, success: true };
+        } catch (awsError) {
+          console.error('Error sending file via AWS Transfer for AS2:', awsError);
+          return {
+            messageId: '',
+            success: false,
+            error: `AWS Transfer for AS2 error: ${awsError instanceof Error ? awsError.message : String(awsError)}`
+          };
+        }
+      } else {
+        // Using local OpenAS2
+        // Write file to temp directory
+        const tempFilePath = path.join(this.tmpDir, `${messageId}_${file.originalName}`);
+        fs.writeFileSync(tempFilePath, fileData);
+        
+        message.filePath = tempFilePath;
+        
+        // Store the message
+        this.messages.set(messageId, message);
+        
+        // In a production environment, we would call the actual OpenAS2 
+        // command to send the file. For this example, we'll simulate it.
+        console.log(`Simulating OpenAS2 send: ${tempFilePath} to ${partner.name} (${partner.as2To})`);
+        
+        // Update message status
+        message.status = AS2Status.SENT;
+        message.sentAt = new Date();
+        
+        // In a real implementation, we would monitor for MDN receipt
+        
+        return { messageId, success: true };
+      }
     } catch (error) {
       console.error('Error sending file via AS2:', error);
       return { 
