@@ -333,14 +333,19 @@ export function compareWithEPCISData(
   if (qrData.gtin && epcisData.gtin) {
     console.log("Checking GTIN match between:", qrData.gtin, "and", epcisData.gtin);
     
-    // Strip any leading zeros for comparison
-    const strippedQrGtin = qrData.gtin.replace(/^0+/, '');
-    const strippedEpcisGtin = epcisData.gtin.replace(/^0+/, '');
+    // Convert DataMatrix to EPCIS format for proper comparison
+    const epcisGtin = dataMatrixToEpcisGtin(qrData.gtin);
     
     // First try direct match
     if (qrData.gtin === epcisData.gtin) {
       result.gtinMatch = true;
       console.log("Direct GTIN match found:", qrData.gtin);
+    }
+    // Try matching with converted EPCIS format
+    else if (epcisGtin === epcisData.gtin) {
+      result.gtinMatch = true;
+      console.log("✓ DataMatrix GTIN successfully converted to EPCIS format and matched!");
+      console.log(`DataMatrix: ${qrData.gtin} -> EPCIS: ${epcisGtin} = ${epcisData.gtin}`);
     }
     // Try case/item indicator digit conversion - specifically for your data
     // Convert the CASE (5) to ITEM (0) format
