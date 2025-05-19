@@ -20,6 +20,13 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 
+type NavItem = {
+  path: string;
+  label: string;
+  icon: React.ReactNode;
+  indent?: boolean;
+};
+
 export function Sidebar() {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
@@ -55,8 +62,12 @@ export function Sidebar() {
     { path: "/files", label: "File History", icon: <History className="mr-3 h-5 w-5" /> },
     { path: "/partners", label: "Partners", icon: <Users className="mr-3 h-5 w-5" /> },
     { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart className="mr-3 h-5 w-5" /> },
-    { path: "/sales-orders", label: "Sales Orders", icon: <Package className="mr-3 h-5 w-5" /> },
-    { path: "/inventory", label: "Inventory", icon: <Package className="mr-3 h-5 w-5" /> },
+    { path: "/sales-orders", label: "Sales Orders", icon: <Send className="mr-3 h-5 w-5" /> },
+    // Inventory section with improved icons
+    { path: "/inventory", label: "Inventory", icon: <Boxes className="mr-3 h-5 w-5" /> },
+    { path: "/inventory/scan-in", label: "Scan Product In", icon: <PackageCheck className="mr-3 h-5 w-5" />, indent: true },
+    { path: "/inventory/scan-out", label: "Scan Product Out", icon: <PackageX className="mr-3 h-5 w-5" />, indent: true },
+    { path: "/inventory/ledger", label: "Inventory Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, indent: true },
     { path: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
   ];
 
@@ -69,15 +80,17 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4">
         <ul>
           {navItems.map((item) => (
-            <li key={item.path} onClick={() => window.location.href = item.path}>
-              <div
-                className={`nav-item flex items-center px-4 py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
-                  location === item.path ? "active bg-neutral-50 font-medium" : ""
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </div>
+            <li key={item.path}>
+              <Link href={item.path}>
+                <div
+                  className={`nav-item flex items-center ${item.indent ? 'pl-10' : 'px-4'} py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
+                    location === item.path ? "active bg-neutral-50 font-medium" : ""
+                  } ${item.indent ? 'text-sm' : ''}`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>
