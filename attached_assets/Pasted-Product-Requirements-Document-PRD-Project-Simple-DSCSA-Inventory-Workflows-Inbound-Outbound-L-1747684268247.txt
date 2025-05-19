@@ -1,0 +1,179 @@
+Product Requirements Document (PRD)Project: Simple DSCSA Inventory Workflows (Inbound + Outbound + Ledger)Version: 1.0Date: 12 May 2025
+
+1. Purpose
+
+Introduce intuitive inbound and outbound product workflows to support product receiving and product shipping at the serial number level, while keeping an accurate inventory ledger. These workflows must remain simple, frictionless, and suitable for non-technical pharmaceutical distributors.
+
+2. Scope
+
+In Scope:
+
+Inbound (Product Receiving) Workflow
+
+Outbound (Product Shipping) Workflow
+
+Serial-level validation against EPCIS data
+
+Inventory ledger to track available stock
+
+Out of Scope:
+
+Full WMS (warehouse management system) capabilities
+
+Complex user roles, pick/pack/ship logistics
+
+API integrations with ERPs (for now)
+
+3. Target Users
+
+Pharmaceutical Distributors (primary and secondary)
+
+Pharmacies or Clinic Receiving Clerks
+
+Warehouse Managers
+
+These users prefer mobile-first, low-friction tools to manage DSCSA compliance and inventory accuracy.
+
+4. Features & Functional Requirements
+
+4.1 Inbound Workflow: "Scan Product In"
+
+ID
+
+Feature
+
+Description
+
+Acceptance Criteria
+
+IN-01
+
+Scan Interface
+
+User can scan GTIN/NDC + Serial from a 2D barcode (via third-party scanner) and paste it into a field
+
+Field auto-splits GTIN, serial, and lot when pasted correctly
+
+IN-02
+
+EPCIS Lookup
+
+App checks if scanned GTIN + serial exists in most recent EPCIS file for selected partner
+
+Match status = Success / Error with tooltip
+
+IN-03
+
+Add to Inventory
+
+If validated, product is added to inventory with timestamp
+
+Visible in inventory table immediately
+
+IN-04
+
+Duplicate Catch
+
+Prevents same serial number from being received twice
+
+Error message: “Already received on [date/time]”
+
+IN-05
+
+Inventory UI
+
+Simple table view of received products (GTIN, serial, lot, expiry, status)
+
+Loads <2s for 500 items
+
+4.2 Outbound Workflow: "Scan Product Out"
+
+ID
+
+Feature
+
+Description
+
+Acceptance Criteria
+
+OUT-01
+
+Select Sales Order
+
+User can select an existing outbound sales order from dropdown
+
+Order details shown inline (e.g., customer, NDCs)
+
+OUT-02
+
+Scan Interface
+
+Same scan/paste field used to input product ID
+
+Auto-validates format as in IN-01
+
+OUT-03
+
+Match & Consume
+
+If match found in inventory, product is marked as shipped and linked to sales order
+
+Status: "Shipped", inventory qty decremented
+
+OUT-04
+
+Validation
+
+Only products existing in inventory can be scanned out
+
+Error if serial not found or already shipped
+
+OUT-05
+
+Shipment Summary
+
+Shows count of scanned products and match to sales order NDCs
+
+Indicator when sales order is “fully fulfilled”
+
+4.3 Inventory Ledger
+
+ID
+
+Feature
+
+Description
+
+Acceptance Criteria
+
+INV-01
+
+Ledger Table
+
+Central log of all movements: received, shipped, returned
+
+Fields: GTIN, Serial, Direction, Timestamp, Ref (PO/SO)
+
+INV-02
+
+Real-Time Count
+
+Total in-stock per GTIN / NDC auto-updated after each transaction
+
+Accurate within 1s of scan
+
+INV-03
+
+Status Labels
+
+Each serial has 1 of: Available, Received, Allocated, Shipped
+
+Status color-coded in UI
+
+INV-04
+
+Export
+
+CSV export of ledger and current inventory snapshot
+
+File downloads in <3s
