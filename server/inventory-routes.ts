@@ -267,66 +267,101 @@ inventoryRouter.post("/validate", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Barcode data is required" });
     }
     
-    // For this demo implementation, we'll create mock product items based on the file ID
-    // In a production environment, this would query the database
-    
-    // Mock product items for development
-    const productItems: any[] = [];
-    
-    // Add mock items for file ID 47 (as we defined in our client-side test)
-    if (fileId === 47) {
-      for (let i = 0; i < 5; i++) {
-        productItems.push({
-          id: 10000 + i,
-          fileId: 47,
-          gtin: '10373123456789',
-          serialNumber: 'SN' + (902497 + i).toString(),
-          lotNumber: 'LOT5890',
-          expirationDate: '2026-12-31',
-          eventTime: new Date(),
-          sourceGln: 'urn:epc:id:sgln:0373123.00000.0',
-          destinationGln: null,
-          bizTransactionList: ['PO-2025-001'],
-          poId: null,
-          createdAt: new Date()
-        });
+    // Fetch product items for the file from the API
+    // This will use the existing endpoint that provides the real data
+    const response = await fetch(`http://localhost:5000/api/product-items/file/${fileId}`, {
+      headers: {
+        'Cookie': req.headers.cookie || ''
       }
+    });
+    
+    if (!response.ok) {
+      return res.status(response.status).json({ 
+        message: "Error fetching product items for file",
+        errorCode: response.status
+      });
     }
-    // Add mock items for file ID 45
-    else if (fileId === 45) {
-      for (let i = 0; i < 10; i++) {
-        productItems.push({
-          id: 1288 + i,
-          fileId: 45,
-          gtin: '00301430957010',
-          serialNumber: (10016550749981 + i).toString(),
-          lotNumber: '24052241',
-          expirationDate: '2026-09-30',
-          eventTime: new Date('2024-11-11T12:20:34.827Z'),
-          sourceGln: 'urn:epc:id:sgln:56009069.0001.0',
-          destinationGln: null,
-          bizTransactionList: ['41067'],
-          poId: null,
-          createdAt: new Date('2025-05-16T17:36:51.435Z')
-        });
-      }
-    }
+    
+    const productItems = await response.json();
     
     if (!productItems || productItems.length === 0) {
       return res.status(404).json({ message: "No product items found in this file" });
     }
     
-    // Parse barcode data - simple implementation for demo
-    // In production, use a more robust parser based on industry standards
-    // Example format: "GTIN=00301430957010&SN=10016550749981&LOT=24052241&EXP=260930"
+    // Parse barcode data - handle both formats
+    // Format 1: "GTIN=00301430957010&SN=10016550749981&LOT=24052241&EXP=260930"
+    // Format 2: "01503014395701082110000005921417260930102405224, GTIN: 50301439570108..."
+    
     const parsed: any = {};
     
-    barcodeData.split('&').forEach((item: string) => {
-      const [key, value] = item.split('=');
-      if (key && value) {
-        parsed[key.trim()] = value.trim();
+    // Check if the data is in the GS1 DataMatrix format (numeric sequence with Application Identifiers)
+    if (barcodeData.includes('GTIN=')) {
+      // Format 1: Key-value pairs
+      barcodeData.split('&').forEach((item: string) => {
+        const [key, value] = item.split('=');
+        if (key && value) {
+          parsed[key.trim()] = value.trim();
+        }
+      });
+    } else {
+      // Format 2: GS1 DataMatrix with descriptive text
+      // Extract from "01" prefix (GTIN), "21" prefix (Serial), "10" prefix (Lot), "17" prefix (Expiration)
+      
+      try {
+        // Look for GTIN in the data
+        const gtinMatch = barcodeData.match(/GTIN:\s*(\d+)/i);
+        if (gtinMatch && gtinMatch[1]) {
+          parsed.GTIN = gtinMatch[1];
+        } else {
+          // Try to extract from "01" prefix (standard GTIN AI)
+          const gtinAIMatch = barcodeData.match(/01(\d{14})/);
+          if (gtinAIMatch && gtinAIMatch[1]) {
+            parsed.GTIN = gtinAIMatch[1];
+          }
+        }
+        
+        // Look for Serial Number in the data
+        const snMatch = barcodeData.match(/Serial Number:\s*([^\s,\n]+)/i);
+        if (snMatch && snMatch[1]) {
+          parsed.SN = snMatch[1];
+        } else {
+          // Try to extract from "21" prefix (standard Serial AI)
+          const snAIMatch = barcodeData.match(/21([^\s,\n]+)/);
+          if (snAIMatch && snAIMatch[1]) {
+            parsed.SN = snAIMatch[1];
+          }
+        }
+        
+        // Look for Lot Number in the data
+        const lotMatch = barcodeData.match(/Lot Number:\s*([^\s,\n]+)/i);
+        if (lotMatch && lotMatch[1]) {
+          parsed.LOT = lotMatch[1];
+        } else {
+          // Try to extract from "10" prefix (standard Lot AI)
+          const lotAIMatch = barcodeData.match(/10([^\s,\n]+)/);
+          if (lotAIMatch && lotAIMatch[1]) {
+            parsed.LOT = lotAIMatch[1];
+          }
+        }
+        
+        // Look for Expiration Date in the data
+        const expMatch = barcodeData.match(/Expiration Date:\s*([^\s,\n]+)/i);
+        if (expMatch && expMatch[1]) {
+          // Convert various date formats to YYMMDD
+          parsed.EXP = expMatch[1].replace(/\//g, ''); // Remove slashes
+        } else {
+          // Try to extract from "17" prefix (standard Expiration AI)
+          const expAIMatch = barcodeData.match(/17(\d{6})/);
+          if (expAIMatch && expAIMatch[1]) {
+            parsed.EXP = expAIMatch[1];
+          }
+        }
+      } catch (err) {
+        console.error("Error parsing barcode data:", err);
       }
-    });
+    }
+    
+    console.log("Parsed barcode data:", parsed);
     
     // Check if we have the required data
     if (!parsed.GTIN || !parsed.SN) {
