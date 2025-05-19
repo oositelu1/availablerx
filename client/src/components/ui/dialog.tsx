@@ -41,8 +41,36 @@ const DialogContent = React.forwardRef<
   
   // Check if there's a DialogDescription component among children
   const hasDescription = React.Children.toArray(children).some(
-    child => React.isValidElement(child) && child.type === DialogDescription
+    child => React.isValidElement(child) && 
+    (child.type === DialogDescription || 
+     (typeof child.type === 'object' && child.type?.displayName === DialogDescription.displayName))
   );
+  
+  // Check if there's an element with the ID matching describedBy
+  const hasDescribedElement = React.Children.toArray(children).some(child => {
+    if (React.isValidElement(child) && child.props.id === describedBy) {
+      return true;
+    }
+    
+    // Check nested children
+    if (React.isValidElement(child) && child.props.children) {
+      const checkNestedChildren = (children: React.ReactNode): boolean => {
+        return React.Children.toArray(children).some(nestedChild => {
+          if (React.isValidElement(nestedChild) && nestedChild.props.id === describedBy) {
+            return true;
+          }
+          if (React.isValidElement(nestedChild) && nestedChild.props.children) {
+            return checkNestedChildren(nestedChild.props.children);
+          }
+          return false;
+        });
+      };
+      
+      return checkNestedChildren(child.props.children);
+    }
+    
+    return false;
+  });
   
   return (
     <DialogPortal>
@@ -58,8 +86,8 @@ const DialogContent = React.forwardRef<
       >
         {children}
         
-        {/* Add an invisible description if one isn't provided */}
-        {!hasDescription && !props['aria-describedby'] && (
+        {/* Add an invisible description if none is provided */}
+        {!hasDescription && !hasDescribedElement && (
           <div id={descriptionId} className="sr-only">
             Dialog content
           </div>

@@ -712,10 +712,10 @@ export default function ProductValidationDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="product-validation-description">
         <DialogHeader>
           <DialogTitle>Product Validation</DialogTitle>
-          <DialogDescription className="whitespace-normal">
+          <DialogDescription id="product-validation-description" className="whitespace-normal">
             Validate physical products against EPCIS data by scanning product codes.
           </DialogDescription>
         </DialogHeader>
