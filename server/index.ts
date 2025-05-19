@@ -67,5 +67,21 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start the S3 bucket monitor if AWS credentials are configured
+    if (process.env.AWS_REGION && process.env.AWS_S3_BUCKET) {
+      try {
+        const { s3Monitor } = require('./s3-monitor');
+        // Check for monitoring interval from environment or default to 5 minutes
+        const monitorInterval = parseInt(process.env.S3_MONITOR_INTERVAL || '5');
+        log(`Starting S3 bucket monitor with ${monitorInterval} minute interval`);
+        s3Monitor.start(monitorInterval);
+      } catch (err) {
+        const error = err as Error;
+        log(`Error starting S3 monitor: ${error.message}`);
+      }
+    } else {
+      log('AWS credentials not configured - S3 monitor not started');
+    }
   });
 })();

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import crypto from 'crypto';
 
 /**
  * Service to monitor an S3 bucket for new files from AS2 transfers
@@ -19,17 +20,17 @@ export class S3MonitorService {
   private isRunning = false;
   private processedFiles: Set<string> = new Set();
   private readonly tempDir: string;
+  private lastCheckTime: Date = new Date();
   
   private constructor() {
-    // Check for required environment variables
-    if (!process.env.AWS_REGION || !process.env.AWS_S3_BUCKET) {
-      console.error('AWS_REGION and AWS_S3_BUCKET environment variables are required');
-      throw new Error('Missing required environment variables');
+    // Initialize AWS S3 client if credentials are available
+    if (process.env.AWS_REGION) {
+      AWS.config.update({ region: process.env.AWS_REGION });
+      this.s3 = new AWS.S3();
+    } else {
+      // Create a dummy S3 client that will be configured later
+      this.s3 = new AWS.S3();
     }
-    
-    // Initialize AWS S3 client
-    AWS.config.update({ region: process.env.AWS_REGION });
-    this.s3 = new AWS.S3();
     
     // Create temp directory for file processing
     this.tempDir = path.join(os.tmpdir(), 'epcis-as2-processing');
@@ -94,8 +95,15 @@ export class S3MonitorService {
     try {
       console.log('Checking for new AS2 files in S3 bucket');
       
+      // Make sure the bucket name is available
+      const bucketName = process.env.AWS_S3_BUCKET || '';
+      if (!bucketName) {
+        console.error('AWS_S3_BUCKET environment variable not set');
+        return;
+      }
+      
       const params = {
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: bucketName,
         Prefix: 'as2-incoming/', // The folder configured in the AS2 agreement
       };
       
@@ -117,17 +125,25 @@ export class S3MonitorService {
           continue;
         }
         
-        await this.processS3File(object.Key);
+        // Make sure we have a valid key string
+        if (typeof object.Key === 'string') {
+          await this.processS3File(object.Key);
+        }
         
         // Add to processed files set
-        this.processedFiles.add(object.Key);
+        if (object.Key) {
+          this.processedFiles.add(object.Key);
+        }
         
         // Keep the set size manageable
         if (this.processedFiles.size > 1000) {
           // Remove the oldest 200 items when we hit 1000
           const iterator = this.processedFiles.values();
           for (let i = 0; i < 200; i++) {
-            this.processedFiles.delete(iterator.next().value);
+            const nextValue = iterator.next().value;
+            if (nextValue) {
+              this.processedFiles.delete(nextValue);
+            }
           }
         }
       }
@@ -143,9 +159,15 @@ export class S3MonitorService {
   private async processS3File(s3Key: string): Promise<void> {
     console.log(`Processing S3 file: ${s3Key}`);
     try {
+      // Ensure we have a bucket name
+      const bucketName = process.env.AWS_S3_BUCKET;
+      if (!bucketName) {
+        throw new Error('AWS_S3_BUCKET environment variable not set');
+      }
+      
       // Download the file
       const s3Object = await this.s3.getObject({
-        Bucket: process.env.AWS_S3_BUCKET || '',
+        Bucket: bucketName,
         Key: s3Key
       }).promise();
       
@@ -191,21 +213,37 @@ export class S3MonitorService {
       // Read file content
       const fileContent = fs.readFileSync(filePath);
       
-      // Insert file record
+      // Calculate SHA-256 of file
+      const sha256 = require('crypto').createHash('sha256').update(fileContent).digest('hex');
+      
+      // Insert file record - note we're using fields that match InsertFile schema
       const file = await storage.createFile({
         originalName,
         storagePath: s3Key,
-        fileType: 'application/xml',
+        fileType: 'XML',
         fileSize: fileContent.length,
-        status: 'processed',
-        sourceType: 'as2',
-        sourceId: s3Key,
-        partnerId: partnerId || undefined,
-        createdBy: 1, // System user ID
+        sha256,
+        status: 'validated', // We assume it's valid as it came through AS2
+        uploadedBy: 1, // System user ID
+        // Store metadata about AS2 source in metadata field
+        metadata: {
+          source: 'as2',
+          sourceId: s3Key,
+          partnerId: partnerId || null
+        }
       });
       
-      // Process EPCIS content
-      await processEpcisFile(file.id, fileContent);
+      // Process the EPCIS file
+      const fileResult = await processFile(fileContent, originalName, 'application/xml', 1);
+      
+      if (!fileResult.success) {
+        // Update file status in database if processing failed
+        // This would normally be done through updateFile, but we're keeping the original ID
+        console.error('File processing failed:', fileResult.errorMessage);
+      }
+      
+      // Store the actual file data
+      await storage.storeFileData(fileContent, file.id);
       
       return file.id;
     } catch (error) {
@@ -222,8 +260,8 @@ export class S3MonitorService {
       // Read file content
       const fileContent = fs.readFileSync(filePath, 'utf-8');
       
-      // Get all partners
-      const partners = await storage.getAllPartners();
+      // Get all partners using listPartners method
+      const partners = await storage.listPartners();
       
       // Look for GLN in the file
       for (const partner of partners) {

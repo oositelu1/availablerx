@@ -70,6 +70,7 @@ import { inventoryRouter } from './inventory-routes';
 import { inventoryTransactionRouter } from './inventory-transaction-routes';
 import { salesOrderRouter } from './sales-order-routes';
 import { salesOrderItemRouter } from './sales-order-item-routes';
+import { s3Monitor } from './s3-monitor';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -378,6 +379,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       filesSent,
       validationRate
     });
+  });
+  
+  // === AS2 Monitoring Service Control ===
+  app.get("/api/as2/monitor/status", isAdmin, async (req, res) => {
+    // Return the current status of the S3 monitoring service
+    res.json({
+      isRunning: s3Monitor.isRunning(),
+      lastCheckTime: s3Monitor.getLastCheckTime(),
+      processedFileCount: s3Monitor.getProcessedFileCount(),
+      aws: {
+        configured: !!process.env.AWS_REGION && !!process.env.AWS_S3_BUCKET,
+        region: process.env.AWS_REGION || 'not configured',
+        bucket: process.env.AWS_S3_BUCKET ? `${process.env.AWS_S3_BUCKET}/as2-incoming` : 'not configured'
+      }
+    });
+  });
+  
+  app.post("/api/as2/monitor/start", isAdmin, async (req, res) => {
+    // Start the monitoring service
+    try {
+      const intervalMinutes = parseInt(req.body.intervalMinutes || '5');
+      s3Monitor.start(intervalMinutes);
+      res.json({
+        success: true,
+        message: `AS2 file monitoring started with ${intervalMinutes} minute interval`,
+        isRunning: s3Monitor.isRunning()
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to start AS2 file monitoring: ${error.message}`
+      });
+    }
+  });
+  
+  app.post("/api/as2/monitor/stop", isAdmin, async (req, res) => {
+    // Stop the monitoring service
+    try {
+      s3Monitor.stop();
+      res.json({
+        success: true,
+        message: 'AS2 file monitoring stopped',
+        isRunning: s3Monitor.isRunning()
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to stop AS2 file monitoring: ${error.message}`
+      });
+    }
+  });
+  
+  app.post("/api/as2/monitor/check-now", isAdmin, async (req, res) => {
+    // Force an immediate check
+    try {
+      await s3Monitor.checkNow();
+      res.json({
+        success: true,
+        message: 'AS2 file check triggered successfully',
+        lastCheckTime: s3Monitor.getLastCheckTime()
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to check for AS2 files: ${error.message}`
+      });
+    }
   });
   
   // === Export ===
