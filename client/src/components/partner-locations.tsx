@@ -638,9 +638,10 @@ export function PartnerLocations({ partnerId, partnerName }: PartnerLocationsPro
       
       {/* Edit Location Dialog */}
       <Dialog open={editLocationOpen} onOpenChange={setEditLocationOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" aria-describedby="edit-location-description">
           <DialogHeader>
             <DialogTitle>Edit Location</DialogTitle>
+            <div id="edit-location-description" className="sr-only">Edit the details of this partner location</div>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmitEdit)} className="space-y-4">
