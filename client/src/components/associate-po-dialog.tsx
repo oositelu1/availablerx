@@ -134,9 +134,12 @@ export function AssociatePODialog({ fileId, onClose, children }: AssociatePODial
     <Dialog open={true} onOpenChange={() => onClose()}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       
-      <DialogContent className="w-full max-w-md overflow-hidden">
+      <DialogContent className="w-full max-w-md overflow-hidden" aria-describedby="associate-po-description">
         <DialogHeader>
           <DialogTitle className="text-xl">Associate with Purchase Order</DialogTitle>
+          <div id="associate-po-description" className="sr-only">
+            Associate this EPCIS file with a purchase order
+          </div>
         </DialogHeader>
 
         <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
