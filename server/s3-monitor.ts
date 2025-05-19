@@ -17,7 +17,7 @@ export class S3MonitorService {
   private static instance: S3MonitorService;
   private s3: AWS.S3;
   private interval: NodeJS.Timeout | null = null;
-  private isRunning = false;
+  private _isRunning: boolean = false;
   private processedFiles: Set<string> = new Set();
   private readonly tempDir: string;
   private lastCheckTime: Date = new Date();
@@ -56,13 +56,13 @@ export class S3MonitorService {
    * @param intervalMinutes How often to check for new files (in minutes)
    */
   public start(intervalMinutes: number = 5): void {
-    if (this.isRunning) {
+    if (this._isRunning) {
       console.log('S3 Monitor Service is already running');
       return;
     }
     
     console.log(`Starting S3 Monitor Service with ${intervalMinutes} minute interval`);
-    this.isRunning = true;
+    this._isRunning = true;
     
     // Check immediately on start
     this.checkForNewFiles();
@@ -77,15 +77,45 @@ export class S3MonitorService {
    * Stop monitoring the S3 bucket
    */
   public stop(): void {
-    if (!this.isRunning || !this.interval) {
+    if (!this._isRunning || !this.interval) {
       console.log('S3 Monitor Service is not running');
       return;
     }
     
     clearInterval(this.interval);
     this.interval = null;
-    this.isRunning = false;
+    this._isRunning = false;
     console.log('S3 Monitor Service stopped');
+  }
+  
+  /**
+   * Check if the monitoring service is running
+   */
+  public isRunning(): boolean {
+    return this._isRunning;
+  }
+  
+  /**
+   * Get the time of the last S3 bucket check
+   */
+  public getLastCheckTime(): Date {
+    return this.lastCheckTime;
+  }
+  
+  /**
+   * Get the count of processed files
+   */
+  public getProcessedFileCount(): number {
+    return this.processedFiles.size;
+  }
+  
+  /**
+   * Trigger an immediate check for new files
+   */
+  public async checkNow(): Promise<void> {
+    console.log('Manual check for new AS2 files triggered');
+    this.lastCheckTime = new Date();
+    await this.checkForNewFiles();
   }
   
   /**
