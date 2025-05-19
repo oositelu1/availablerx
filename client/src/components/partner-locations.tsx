@@ -435,10 +435,15 @@ export function PartnerLocations({ partnerId, partnerName }: PartnerLocationsPro
       </Card>
       
       {/* Add Location Dialog */}
-      <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <Dialog open={addLocationOpen} onOpenChange={(open) => {
+        if (!open) {
+          setAddLocationOpen(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" aria-describedby="add-location-description">
           <DialogHeader>
             <DialogTitle>Add Location</DialogTitle>
+            <div id="add-location-description" className="sr-only">Add a new location for this partner</div>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmitAdd)} className="space-y-4">

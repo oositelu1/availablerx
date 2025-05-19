@@ -23,11 +23,19 @@ import { useToast } from "@/hooks/use-toast";
 
 interface SendFileModalProps {
   fileId: number;
-  onClose: () => void;
   isOpen?: boolean;
+  setIsOpen?: (isOpen: boolean) => void;
+  onClose?: () => void;
 }
 
-export function SendFileModal({ fileId, onClose, isOpen = true }: SendFileModalProps) {
+export function SendFileModal({ fileId, onClose, setIsOpen, isOpen = true }: SendFileModalProps) {
+  const handleClose = () => {
+    if (setIsOpen) {
+      setIsOpen(false);
+    } else if (onClose) {
+      onClose();
+    }
+  };
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>("");
   const [transportType, setTransportType] = useState<"AS2" | "HTTPS" | "PRESIGNED">("AS2");
   const [priority, setPriority] = useState<string>("normal");
