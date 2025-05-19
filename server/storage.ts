@@ -41,6 +41,27 @@ export interface IStorage {
   listPartners(activeOnly?: boolean): Promise<Partner[]>;
   deletePartner(id: number): Promise<boolean>;
   
+  // Inventory management
+  getInventoryStats(): Promise<{
+    total: number;
+    available: number;
+    allocated: number;
+    shipped: number;
+    expired: number;
+    damaged: number;
+  }>;
+  getInventoryItems(): Promise<Inventory[]>;
+  getInventoryItem(id: number): Promise<Inventory | undefined>;
+  getInventoryItemBySerial(serialNumber: string): Promise<Inventory | undefined>;
+  addInventoryItem(item: InsertInventory): Promise<Inventory>;
+  updateInventoryItem(id: number, updates: Partial<Inventory>): Promise<Inventory | undefined>;
+  deleteInventoryItem(id: number): Promise<boolean>;
+  
+  // Inventory transaction management
+  getInventoryTransactions(): Promise<InventoryTransaction[]>;
+  getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined>;
+  addInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction>;
+  
   // Partner Location management
   createPartnerLocation(location: InsertPartnerLocation): Promise<PartnerLocation>;
   getPartnerLocation(id: number): Promise<PartnerLocation | undefined>;
@@ -182,6 +203,9 @@ export interface IStorage {
   
   // Session store
   sessionStore: session.Store;
+  
+  // Files API
+  getFilesCount(): Promise<number>;
 }
 
 // In-memory storage implementation

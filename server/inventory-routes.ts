@@ -1,289 +1,165 @@
-import { Router } from 'express';
-import { z } from 'zod';
-import { storage } from './storage';
-import { insertInventorySchema } from '@shared/schema';
+import { Router, Request, Response } from "express";
+import { storage } from "./storage";
+import { checkAuthenticated } from "./auth-middleware";
 
 export const inventoryRouter = Router();
 
-// Authentication check is done in each route handler
+// Middleware to check if user is authenticated
+inventoryRouter.use(checkAuthenticated);
 
-// Get inventory list with pagination and filters
-inventoryRouter.get('/', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-  
+// Get inventory stats
+inventoryRouter.get("/stats", async (req: Request, res: Response) => {
   try {
-    const {
-      status,
+    const stats = await storage.getInventoryStats();
+    res.json(stats);
+  } catch (error: any) {
+    console.error("Error fetching inventory stats:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get inventory ledger
+inventoryRouter.get("/ledger", async (req: Request, res: Response) => {
+  try {
+    const transactions = await storage.getInventoryTransactions();
+    res.json({ transactions });
+  } catch (error: any) {
+    console.error("Error fetching inventory ledger:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Add product to inventory (scanning in)
+inventoryRouter.post("/receive", async (req: Request, res: Response) => {
+  try {
+    const { fileId, gtin, serialNumber, lotNumber, expirationDate, notes } = req.body;
+    
+    if (!fileId || !gtin || !serialNumber || !lotNumber) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+    
+    // Check if the product already exists in inventory
+    const existingProduct = await storage.getInventoryItemBySerial(serialNumber);
+    if (existingProduct) {
+      return res.status(400).json({ message: "Product already exists in inventory" });
+    }
+    
+    // Create a new inventory item
+    const inventoryItem = await storage.addInventoryItem({
+      fileId,
       gtin,
+      serialNumber,
       lotNumber,
-      productName,
-      packageType,
-      warehouse,
-      poId,
-      soId,
-      expirationStart,
-      expirationEnd,
-      page = '1',
-      limit = '10'
-    } = req.query;
-
-    const pageNum = parseInt(page as string) || 1;
-    const limitNum = parseInt(limit as string) || 10;
-    const offset = (pageNum - 1) * limitNum;
-
-    // Build filters object
-    const filters: any = {
-      limit: limitNum,
-      offset
-    };
-
-    if (status) filters.status = status;
-    if (gtin) filters.gtin = gtin;
-    if (lotNumber) filters.lotNumber = lotNumber;
-    if (productName) filters.productName = productName;
-    if (packageType) filters.packageType = packageType;
-    if (warehouse) filters.warehouse = warehouse;
-    if (poId) filters.poId = parseInt(poId as string);
-    if (soId) filters.soId = parseInt(soId as string);
-    if (expirationStart) filters.expirationStart = new Date(expirationStart as string);
-    if (expirationEnd) filters.expirationEnd = new Date(expirationEnd as string);
-
-    // Initialize with empty array and total 0 in case storage function fails
-    let result = { items: [], total: 0 };
-    
-    try {
-      result = await storage.listInventory(filters);
-    } catch (error) {
-      console.error('Error in storage.listInventory:', error);
-      // Continue with empty results instead of throwing
-    }
-    
-    res.json({
-      items: result.items || [],
-      total: result.total || 0,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil((result.total || 0) / limitNum)
+      expirationDate,
+      status: "available",
+      notes: notes || "",
+      userId: req.user?.id as number,
     });
-  } catch (error) {
-    console.error('Error fetching inventory:', error);
-    res.status(500).json({ message: 'Failed to fetch inventory items' });
-  }
-});
-
-// Get a specific inventory item by ID
-inventoryRouter.get('/:id', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-  
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: 'Invalid inventory ID' });
-    }
-
-    const item = await storage.getInventoryItem(id);
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
-
-    res.json(item);
-  } catch (error) {
-    console.error('Error fetching inventory item:', error);
-    res.status(500).json({ message: 'Failed to fetch inventory item' });
-  }
-});
-
-// Find inventory item by SGTIN (GTIN + Serial Number)
-inventoryRouter.get('/sgtin/:gtin/:serialNumber', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-  
-  try {
-    const { gtin, serialNumber } = req.params;
-
-    const item = await storage.getInventoryBySGTIN(gtin, serialNumber);
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
-    }
-
-    res.json(item);
-  } catch (error) {
-    console.error('Error fetching inventory item by SGTIN:', error);
-    res.status(500).json({ message: 'Failed to fetch inventory item' });
-  }
-});
-
-// Create a new inventory item
-inventoryRouter.post('/', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-  
-  try {
-    // Pre-process date fields before validation
-    const processedData = {
-      ...req.body,
-      createdBy: req.user.id,
-      // Convert string dates to actual Date objects
-      expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
-      receivedAt: req.body.receivedAt ? new Date(req.body.receivedAt) : new Date()
-    };
     
-    const validatedData = insertInventorySchema.parse(processedData);
+    // Log the transaction
+    await storage.addInventoryTransaction({
+      inventoryId: inventoryItem.id,
+      gtin,
+      serialNumber,
+      lotNumber,
+      expirationDate,
+      transactionType: "receive",
+      fromStatus: null,
+      toStatus: "available",
+      reference: `File #${fileId}`,
+      notes: notes || "",
+      userId: req.user?.id as number,
+    });
     
-    const newItem = await storage.createInventoryItem(validatedData);
-    res.status(201).json(newItem);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: 'Validation error', 
-        errors: error.errors 
-      });
-    }
-    console.error('Error creating inventory item:', error);
-    res.status(500).json({ message: 'Failed to create inventory item' });
+    res.status(201).json(inventoryItem);
+  } catch (error: any) {
+    console.error("Error receiving product:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 
-// Update an inventory item
-inventoryRouter.patch('/:id', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-  
+// Ship product out of inventory
+inventoryRouter.post("/ship", async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: 'Invalid inventory ID' });
+    const { soId, serialNumber, notes } = req.body;
+    
+    if (!soId || !serialNumber) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
-
-    const item = await storage.getInventoryItem(id);
-    if (!item) {
-      return res.status(404).json({ message: 'Inventory item not found' });
+    
+    // Get the inventory item
+    const inventoryItem = await storage.getInventoryItemBySerial(serialNumber);
+    
+    if (!inventoryItem) {
+      return res.status(404).json({ message: "Product not found in inventory" });
     }
-
-    // Add an audit log entry for the status change if status is being updated
-    if (req.body.status && req.body.status !== item.status) {
-      await storage.createAuditLog({
-        action: `Status changed from ${item.status} to ${req.body.status}`,
-        entityType: 'inventory',
-        entityId: id,
-        userId: req.user.id,
-        details: {
-          previousStatus: item.status,
-          newStatus: req.body.status,
-          reason: req.body.notes || 'No reason provided'
-        },
-        ipAddress: req.ip
-      });
-
-      // Create an inventory transaction record for the status change
-      await storage.createInventoryTransaction({
-        inventoryId: id,
-        transactionType: 'status_change',
-        fromStatus: item.status,
-        toStatus: req.body.status,
-        quantity: item.quantity,
-        fromLocationId: item.locationId,
-        toLocationId: item.locationId,
-        createdBy: req.user.id,
-        notes: req.body.notes || `Status updated by ${req.user.username}`
-      });
+    
+    if (inventoryItem.status !== "available") {
+      return res.status(400).json({ message: `Product cannot be shipped (current status: ${inventoryItem.status})` });
     }
-
-    // Update the inventory item
-    const updatedItem = await storage.updateInventoryItem(id, req.body);
+    
+    // Get sales order
+    const salesOrder = await storage.getSalesOrder(soId);
+    if (!salesOrder) {
+      return res.status(404).json({ message: "Sales order not found" });
+    }
+    
+    // Update inventory item status
+    const updatedItem = await storage.updateInventoryItem(inventoryItem.id, {
+      status: "shipped",
+      salesOrderId: soId,
+      notes: (inventoryItem.notes ? inventoryItem.notes + "\n" : "") + (notes || ""),
+    });
+    
+    // Log the transaction
+    await storage.addInventoryTransaction({
+      inventoryId: inventoryItem.id,
+      gtin: inventoryItem.gtin,
+      serialNumber: inventoryItem.serialNumber,
+      lotNumber: inventoryItem.lotNumber,
+      expirationDate: inventoryItem.expirationDate,
+      transactionType: "ship",
+      fromStatus: "available",
+      toStatus: "shipped",
+      reference: `SO #${soId}`,
+      notes: notes || "",
+      userId: req.user?.id as number,
+    });
+    
     res.json(updatedItem);
-  } catch (error) {
-    console.error('Error updating inventory item:', error);
-    res.status(500).json({ message: 'Failed to update inventory item' });
+  } catch (error: any) {
+    console.error("Error shipping product:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 
-// Create inventory items from an EPCIS file
-inventoryRouter.post('/from-epcis/:fileId', async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-  
+// Get all inventory items
+inventoryRouter.get("/", async (req: Request, res: Response) => {
   try {
-    const fileId = parseInt(req.params.fileId);
-    if (isNaN(fileId)) {
-      return res.status(400).json({ message: 'Invalid file ID' });
-    }
-
-    // Check if the file exists
-    const file = await storage.getFile(fileId);
-    if (!file) {
-      return res.status(404).json({ message: 'File not found' });
-    }
-
-    // Create inventory items from the file
-    const createdCount = await storage.createInventoryFromFile(fileId, req.user.id);
-    
-    // Create an audit log entry
-    await storage.createAuditLog({
-      action: 'create_inventory_from_epcis',
-      entityType: 'file',
-      entityId: fileId,
-      userId: req.user.id,
-      details: {
-        fileName: file.originalName,
-        itemsCreated: createdCount
-      },
-      ipAddress: req.ip
-    });
-
-    res.status(201).json({ 
-      success: true, 
-      message: `Created ${createdCount} inventory items from EPCIS file`,
-      itemsCreated: createdCount
-    });
-  } catch (error) {
-    console.error('Error creating inventory from EPCIS file:', error);
-    res.status(500).json({ 
-      message: 'Failed to create inventory items from EPCIS file',
-      error: error instanceof Error ? error.message : String(error)
-    });
+    const items = await storage.getInventoryItems();
+    res.json({ items });
+  } catch (error: any) {
+    console.error("Error fetching inventory:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 
-// Get inventory summary (counts by status, location, etc.)
-inventoryRouter.get('/summary/stats', async (req, res) => {
+// Get a single inventory item
+inventoryRouter.get("/:id", async (req: Request, res: Response) => {
   try {
-    // Initialize with empty items array in case storage function fails
-    let result = { items: [] };
-    
-    try {
-      result = await storage.listInventory();
-    } catch (error) {
-      console.error('Error in storage.listInventory for summary:', error);
-      // Continue with empty results instead of throwing
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid inventory ID" });
     }
     
-    const items = result.items || [];
+    const item = await storage.getInventoryItem(id);
+    if (!item) {
+      return res.status(404).json({ message: "Inventory item not found" });
+    }
     
-    // Count by status
-    const statusCounts = items.reduce((acc, item) => {
-      const status = item.status || 'unknown';
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    // Count by location
-    const locationCounts = items.reduce((acc, item) => {
-      const location = item.locationId?.toString() || 'unknown';
-      acc[location] = (acc[location] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    // Count by product (GTIN)
-    const productCounts = items.reduce((acc, item) => {
-      acc[item.gtin] = (acc[item.gtin] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    res.json({
-      total: items.length,
-      statusCounts,
-      locationCounts,
-      productCounts
-    });
-  } catch (error) {
-    console.error('Error fetching inventory summary:', error);
-    res.status(500).json({ message: 'Failed to fetch inventory summary' });
+    res.json(item);
+  } catch (error: any) {
+    console.error("Error fetching inventory item:", error);
+    res.status(500).json({ message: error.message });
   }
 });
