@@ -846,7 +846,7 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto py-6" aria-describedby="partner-wizard-description">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-semibold">Add New Trading Partner</DialogTitle>
@@ -859,6 +859,9 @@ export function PartnerWizard({ isOpen, setIsOpen, onPartnerAdded }: PartnerWiza
             >
               <X className="h-4 w-4" />
             </Button>
+          </div>
+          <div id="partner-wizard-description" className="sr-only">
+            Form to add a new trading partner with configuration options
           </div>
         </DialogHeader>
         
