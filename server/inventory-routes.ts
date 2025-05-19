@@ -254,6 +254,112 @@ inventoryRouter.get("/", async (req: Request, res: Response) => {
   }
 });
 
+// Validate scanned product against file data
+inventoryRouter.post("/validate", async (req: Request, res: Response) => {
+  try {
+    const { fileId, barcodeData } = req.body;
+    
+    if (!fileId) {
+      return res.status(400).json({ message: "File ID is required" });
+    }
+    
+    if (!barcodeData) {
+      return res.status(400).json({ message: "Barcode data is required" });
+    }
+    
+    // Get the product items for the file
+    const productItems = await storage.getProductItemsByFileId(fileId);
+    
+    if (!productItems || productItems.length === 0) {
+      return res.status(404).json({ message: "No product items found in this file" });
+    }
+    
+    // Parse barcode data - simple implementation for demo
+    // In production, use a more robust parser based on industry standards
+    // Example format: "GTIN=00301430957010&SN=10016550749981&LOT=24052241&EXP=260930"
+    const parsed: any = {};
+    
+    barcodeData.split('&').forEach((item: string) => {
+      const [key, value] = item.split('=');
+      if (key && value) {
+        parsed[key.trim()] = value.trim();
+      }
+    });
+    
+    // Check if we have the required data
+    if (!parsed.GTIN || !parsed.SN) {
+      return res.status(400).json({ 
+        message: "Invalid barcode format. Required format: GTIN=value&SN=value&LOT=value&EXP=value",
+        parsed
+      });
+    }
+    
+    // Format expiration date if present
+    let formattedExpDate = null;
+    if (parsed.EXP) {
+      // Convert from YYMMDD to YYYY-MM-DD
+      const exp = parsed.EXP;
+      if (exp.length === 6) {
+        const yy = exp.substring(0, 2);
+        const mm = exp.substring(2, 4);
+        const dd = exp.substring(4, 6);
+        const year = parseInt(yy) < 50 ? `20${yy}` : `19${yy}`;
+        formattedExpDate = `${year}-${mm}-${dd}`;
+      }
+    }
+    
+    // Look for matching product in the file
+    const matchingProduct = productItems.find((item: any) => {
+      // Check GTIN (required)
+      if (item.gtin !== parsed.GTIN) return false;
+      
+      // Check serial number (required)
+      if (item.serialNumber !== parsed.SN) return false;
+      
+      // Check lot number if provided
+      if (parsed.LOT && item.lotNumber !== parsed.LOT) return false;
+      
+      // Check expiration date if formatted
+      if (formattedExpDate && item.expirationDate !== formattedExpDate) return false;
+      
+      return true;
+    });
+    
+    if (!matchingProduct) {
+      return res.status(404).json({ 
+        message: "Product not found in the selected file", 
+        scannedData: {
+          gtin: parsed.GTIN,
+          serialNumber: parsed.SN,
+          lotNumber: parsed.LOT || null,
+          expirationDate: formattedExpDate || null
+        }
+      });
+    }
+    
+    // Get additional product info if available
+    const fileInfo = await storage.getFile(fileId);
+    let productInfo = null;
+    
+    if (fileInfo && fileInfo.metadata && fileInfo.metadata.productInfo) {
+      productInfo = fileInfo.metadata.productInfo;
+    }
+    
+    // Return the validated product
+    res.status(200).json({
+      validated: true,
+      product: {
+        ...matchingProduct,
+        productInfo
+      }
+    });
+    
+  } catch (error: any) {
+    console.error("Error validating product:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get a single inventory item
 inventoryRouter.get("/:id", async (req: Request, res: Response) => {
   try {

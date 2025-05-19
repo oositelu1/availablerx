@@ -84,6 +84,40 @@ export default function ScanProductInPage() {
     }
   });
 
+  // Validation mutation
+  const validateProductMutation = useMutation({
+    mutationFn: async (data: { fileId: number; barcodeData: string }) => {
+      const response = await apiRequest('POST', '/api/inventory/validate', data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to validate product');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.validated) {
+        // Add to inventory using the validated data
+        const product = data.product;
+        
+        addToInventoryMutation.mutate({
+          fileId: selectedFile as number,
+          gtin: product.gtin,
+          serialNumber: product.serialNumber,
+          lotNumber: product.lotNumber,
+          expirationDate: product.expirationDate,
+          notes: form.getValues('notes'),
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Validation failed',
+        description: error.message || 'Could not validate product against the file',
+        variant: 'destructive',
+      });
+    }
+  });
+  
   // Handle submit - validate and receive product
   const onSubmit = (data: ScanProductFormValues) => {
     if (!selectedFile) {
@@ -95,22 +129,10 @@ export default function ScanProductInPage() {
       return;
     }
     
-    // Mock validation - in production this would call the API to validate
-    const mockValidatedItem = {
-      gtin: '10373123456789',
-      serialNumber: 'SN' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0'),
-      lotNumber: 'LOT' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'),
-      expirationDate: '2026-12-31',
-    };
-    
-    // Add to inventory
-    addToInventoryMutation.mutate({
+    // Parse barcode data and validate against the file
+    validateProductMutation.mutate({
       fileId: selectedFile,
-      gtin: mockValidatedItem.gtin,
-      serialNumber: mockValidatedItem.serialNumber,
-      lotNumber: mockValidatedItem.lotNumber,
-      expirationDate: mockValidatedItem.expirationDate,
-      notes: data.notes,
+      barcodeData: data.barcode
     });
   };
 
