@@ -591,6 +591,79 @@ export class MemStorage implements IStorage {
     return this.fileDataStorage.get(fileId);
   }
   
+  // Get all product items for a file
+  async getProductItemsByFileId(fileId: number): Promise<ProductItem[]> {
+    // Mock product items for development
+    // When actually connected to database, this would query the product_items table
+    // For now, generate mock items based on file ID to simulate different products
+    const mockItems: ProductItem[] = [];
+    
+    // Generate different serial numbers based on the file ID
+    const fileIdOffset = (fileId - 1) * 100;
+    const baseSerialNum = 10000000000000 + fileIdOffset;
+    
+    // Add mock items for file ID 45
+    if (fileId === 45) {
+      // This matches the console log data we saw
+      for (let i = 0; i < 10; i++) {
+        mockItems.push({
+          id: 1288 + i,
+          fileId: 45,
+          gtin: '00301430957010',
+          serialNumber: (10016550749981 + i).toString(),
+          lotNumber: '24052241',
+          expirationDate: '2026-09-30',
+          eventTime: new Date('2024-11-11T12:20:34.827Z'),
+          sourceGln: 'urn:epc:id:sgln:56009069.0001.0',
+          destinationGln: null,
+          bizTransactionList: ['41067'],
+          poId: null,
+          createdAt: new Date('2025-05-16T17:36:51.435Z')
+        });
+      }
+    } 
+    // Add mock items for file ID 47
+    else if (fileId === 47) {
+      for (let i = 0; i < 5; i++) {
+        mockItems.push({
+          id: baseSerialNum + i,
+          fileId: 47,
+          gtin: '10373123456789',
+          serialNumber: 'SN' + (902497 + i).toString(),
+          lotNumber: 'LOT5890',
+          expirationDate: '2026-12-31',
+          eventTime: new Date(),
+          sourceGln: 'urn:epc:id:sgln:0373123.00000.0',
+          destinationGln: null,
+          bizTransactionList: ['PO-2025-001'],
+          poId: null,
+          createdAt: new Date()
+        });
+      }
+    }
+    // Generic mock items for any other file
+    else {
+      for (let i = 0; i < 5; i++) {
+        mockItems.push({
+          id: baseSerialNum + i,
+          fileId: fileId,
+          gtin: '00301430957010',
+          serialNumber: (baseSerialNum + i).toString(),
+          lotNumber: 'LOT' + (1000 + i).toString(),
+          expirationDate: '2026-12-31',
+          eventTime: new Date(),
+          sourceGln: 'urn:epc:id:sgln:0373123.00000.0',
+          destinationGln: null,
+          bizTransactionList: [],
+          poId: null,
+          createdAt: new Date()
+        });
+      }
+    }
+    
+    return mockItems;
+  }
+  
   // Pre-signed URL management implementations
   
   async createPresignedLink(link: InsertPresignedLink): Promise<PresignedLink> {

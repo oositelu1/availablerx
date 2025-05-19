@@ -97,6 +97,37 @@ export default function ScanProductOutPage() {
   });
 
   // Handle submit - validate and ship product
+  // Validation mutation
+  const validateProductMutation = useMutation({
+    mutationFn: async (data: { fileId: number; barcodeData: string }) => {
+      const response = await apiRequest('POST', '/api/inventory/validate', data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to validate product');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.validated && selectedOrder) {
+        // Ship the product using the validated data
+        const product = data.product;
+        
+        shipProductMutation.mutate({
+          soId: selectedOrder,
+          serialNumber: product.serialNumber,
+          notes: form.getValues('notes'),
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Validation failed',
+        description: error.message || 'Could not validate product',
+        variant: 'destructive',
+      });
+    }
+  });
+
   const onSubmit = (data: ScanProductFormValues) => {
     if (!selectedOrder) {
       toast({
@@ -106,18 +137,24 @@ export default function ScanProductOutPage() {
       });
       return;
     }
+
+    // For this demo, we need to get the fileId from the order details
+    // In a real implementation, we would get this from the order or inventory record
+    const orderFileId = orderDetails?.fileId || orderDetails?.items?.[0]?.fileId;
     
-    // Process barcode data - in a real implementation, this would parse the scanner output
-    // For now, we'll assume it provides a serial number
-    const parsedBarcode = {
-      serialNumber: data.barcode.trim(),
-    };
+    if (!orderFileId) {
+      toast({
+        title: 'Error',
+        description: 'Could not determine file ID for validation',
+        variant: 'destructive',
+      });
+      return;
+    }
     
-    // Ship the product
-    shipProductMutation.mutate({
-      soId: selectedOrder,
-      serialNumber: parsedBarcode.serialNumber,
-      notes: data.notes,
+    // Validate the scanned product against the file data
+    validateProductMutation.mutate({
+      fileId: orderFileId,
+      barcodeData: data.barcode
     });
   };
 
