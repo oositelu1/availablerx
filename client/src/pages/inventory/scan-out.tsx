@@ -177,7 +177,7 @@ export default function ScanProductOutPage() {
                       <SelectItem value="loading" disabled>Loading orders...</SelectItem>
                     ) : (
                       <>
-                        <SelectItem value="" disabled>Select an order</SelectItem>
+                        <SelectItem value="none" disabled>Select an order</SelectItem>
                         {salesOrders.map((order: any) => (
                           <SelectItem key={order.id} value={order.id.toString()}>
                             SO-{order.id}: {order.customerName} ({new Date(order.orderDate).toLocaleDateString()})

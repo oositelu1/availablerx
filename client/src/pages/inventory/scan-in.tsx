@@ -158,7 +158,7 @@ export default function ScanProductInPage() {
                       <SelectItem value="loading" disabled>Loading files...</SelectItem>
                     ) : (
                       <>
-                        <SelectItem value="" disabled>Select a file</SelectItem>
+                        <SelectItem value="none" disabled>Select a file</SelectItem>
                         {files.map((file: any) => (
                           <SelectItem key={file.id} value={file.id.toString()}>
                             {file.originalName} ({new Date(file.uploadedAt).toLocaleDateString()})
