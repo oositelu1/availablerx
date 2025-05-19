@@ -9,7 +9,11 @@ import {
   Settings, 
   LogOut,
   ShoppingCart,
-  Package
+  Package,
+  Boxes,
+  PackageCheck,
+  PackageX,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";

@@ -20,6 +20,10 @@ import AddInventoryPage from "@/pages/add-inventory-page";
 import DirectSalesOrderForm from "@/pages/direct-sales-order-form";
 import ScannerTestPage from "@/pages/scanner-test-page";
 import QrTest from "@/pages/qr-test";
+import InventoryDashboard from "@/pages/inventory/index";
+import ScanProductInPage from "@/pages/inventory/scan-in";
+import ScanProductOutPage from "@/pages/inventory/scan-out";
+import InventoryLedgerPage from "@/pages/inventory/ledger";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -41,8 +45,16 @@ function Router() {
       <ProtectedRoute path="/sales-orders" component={SalesOrdersPage} />
       <ProtectedRoute path="/create-sales-order" component={DirectSalesOrderForm} />
       <ProtectedRoute path="/sales-orders/:id" component={SalesOrderDetailPage} />
-      <ProtectedRoute path="/inventory" component={InventoryPage} />
-      <ProtectedRoute path="/inventory/add" component={AddInventoryPage} />
+      
+      {/* Original inventory pages */}
+      <ProtectedRoute path="/inventory-original" component={InventoryPage} />
+      <ProtectedRoute path="/inventory-original/add" component={AddInventoryPage} />
+      
+      {/* New streamlined inventory workflows */}
+      <ProtectedRoute path="/inventory" component={InventoryDashboard} />
+      <ProtectedRoute path="/inventory/scan-in" component={ScanProductInPage} />
+      <ProtectedRoute path="/inventory/scan-out" component={ScanProductOutPage} />
+      <ProtectedRoute path="/inventory/ledger" component={InventoryLedgerPage} />
       <Route path="/qr-test" component={QrTest} />
       <Route component={NotFound} />
     </Switch>
