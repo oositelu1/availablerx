@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { SendFileModal } from "@/components/send-file-modal";
+import { isCase } from "@/lib/gtin-utils";
 import { PresignedLinks } from "@/components/presigned-links";
 import { AssociatePODialog } from "@/components/associate-po-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -279,10 +280,12 @@ export default function FileDetailPage() {
   // Log GTIN and packaging info for debugging
   if (productItems && productItems.length > 0) {
     console.log("Product Items Sample:", productItems.slice(0, 5));
+    
     console.log("GTIN examples:", productItems.map(item => item.gtin).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5));
     productItems.forEach((item, idx) => {
       if (idx < 5) {
-        console.log(`GTIN ${idx}: ${item.gtin}, CharAt 7: ${item.gtin.charAt(7)}, Is Case: ${item.gtin.charAt(7) === '5'}`);
+        // Use the proper utility function to determine if this is a Case
+        console.log(`GTIN ${idx}: ${item.gtin}, Is Case: ${isCase(item.gtin)}`);
       }
     });
   }
