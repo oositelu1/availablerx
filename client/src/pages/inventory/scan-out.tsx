@@ -12,10 +12,9 @@ import { useForm } from 'react-hook-form';
 import { Layout } from '@/components/layout/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, PackageX, QrCode, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, PackageX, QrCode, ShoppingCart } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -163,7 +162,9 @@ export default function ScanProductOutPage() {
             <div className="space-y-4">
               {/* Order selection */}
               <div>
-                <FormLabel>Select Sales Order</FormLabel>
+                <label className="text-sm font-medium leading-none mb-2 block">
+                  Select Sales Order
+                </label>
                 <Select
                   value={selectedOrder?.toString() || ''}
                   onValueChange={(value) => setSelectedOrder(Number(value))}
@@ -179,7 +180,7 @@ export default function ScanProductOutPage() {
                         <SelectItem value="" disabled>Select an order</SelectItem>
                         {salesOrders.map((order: any) => (
                           <SelectItem key={order.id} value={order.id.toString()}>
-                            SO-{order.id}: {order.customerName} ({new Date(order.createdAt).toLocaleDateString()})
+                            SO-{order.id}: {order.customerName} ({new Date(order.orderDate).toLocaleDateString()})
                           </SelectItem>
                         ))}
                       </>
@@ -236,75 +237,69 @@ export default function ScanProductOutPage() {
               )}
 
               {/* Form */}
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="barcode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Scanner Output</FormLabel>
-                        <div className="flex gap-2">
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Paste the output from your scanner here" 
-                              {...field} 
-                              className="font-mono h-24 resize-none"
-                            />
-                          </FormControl>
-                        </div>
-                        <div className="flex justify-between mt-2">
-                          <FormDescription>
-                            Paste the complete output from your third-party scanner
-                          </FormDescription>
-                          <Button 
-                            type="submit" 
-                            disabled={!selectedOrder || form.formState.isSubmitting}
-                            className="shrink-0"
-                          >
-                            {form.formState.isSubmitting ? (
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            ) : (
-                              <>
-                                Validate & Ship
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Add any notes about this shipment" 
-                            className="h-20"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {isSuccess && (
-                    <Alert className="bg-green-50 border-green-200">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <AlertTitle className="text-green-800">Product Shipped</AlertTitle>
-                      <AlertDescription className="text-green-700">
-                        Successfully shipped and linked to sales order
-                      </AlertDescription>
-                    </Alert>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium leading-none mb-2 block">
+                    Scanner Output
+                  </label>
+                  <div className="flex gap-2">
+                    <Textarea 
+                      {...form.register('barcode')}
+                      placeholder="Paste the output from your scanner here" 
+                      className="font-mono h-24 resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Paste the complete output from your third-party scanner
+                    </p>
+                    <Button 
+                      type="submit" 
+                      disabled={!selectedOrder || form.formState.isSubmitting}
+                      className="shrink-0"
+                    >
+                      {form.formState.isSubmitting ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <>
+                          Validate & Ship
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {form.formState.errors.barcode && (
+                    <p className="text-sm font-medium text-destructive mt-1">
+                      {form.formState.errors.barcode.message}
+                    </p>
                   )}
-                </form>
-              </Form>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium leading-none mb-2 block">
+                    Notes (Optional)
+                  </label>
+                  <Textarea 
+                    {...form.register('notes')}
+                    placeholder="Add any notes about this shipment" 
+                    className="h-20"
+                  />
+                  {form.formState.errors.notes && (
+                    <p className="text-sm font-medium text-destructive mt-1">
+                      {form.formState.errors.notes.message}
+                    </p>
+                  )}
+                </div>
+
+                {isSuccess && (
+                  <Alert className="bg-green-50 border-green-200">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <AlertTitle className="text-green-800">Product Shipped</AlertTitle>
+                    <AlertDescription className="text-green-700">
+                      Successfully shipped and linked to sales order
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </form>
             </div>
           </CardContent>
         </Card>
