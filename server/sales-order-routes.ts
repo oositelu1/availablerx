@@ -11,6 +11,17 @@ salesOrderRouter.use((req, res, next) => {
   res.status(401).json({ message: "Unauthorized" });
 });
 
+// Get sales order count
+salesOrderRouter.get("/count", async (req: Request, res: Response) => {
+  try {
+    // For demo, return mock count
+    res.json({ count: 3 });
+  } catch (error: any) {
+    console.error("Error fetching sales order count:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get all sales orders
 salesOrderRouter.get("/", async (req: Request, res: Response) => {
   try {
