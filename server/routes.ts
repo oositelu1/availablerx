@@ -18,6 +18,8 @@ import { productItemRouter } from './product-item-routes';
 import { validationRouter } from './validation-routes';
 import { auditLogRouter } from './audit-log-routes';
 import { partnerLocationRouter } from './partner-location-routes';
+import { salesOrderRouter } from './sales-order-routes';
+import { inventoryRouter } from './inventory-routes';
 
 // Helper function to generate proper download URLs for the current environment
 function generateDownloadUrl(uuid: string, req?: Request): string {
