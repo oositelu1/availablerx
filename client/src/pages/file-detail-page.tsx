@@ -168,7 +168,6 @@ export default function FileDetailPage() {
       toast({
         title: "Inventory Created",
         description: `Successfully created ${data.itemsCreated} inventory items from this EPCIS file.`,
-        variant: "success",
       });
       // Navigate to inventory page to see the newly created items
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
