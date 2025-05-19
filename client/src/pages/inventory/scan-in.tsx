@@ -12,18 +12,16 @@ import { useForm } from 'react-hook-form';
 import { Layout } from '@/components/layout/layout';
 import ProductValidationDialog from '@/components/product-validation-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, ArrowDown, ArrowLeft, ArrowRight, CheckCircle2, Loader2, PackageCheck, QrCode, Scan } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, PackageCheck, QrCode } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-// Form schema for manual entry
+// Form schema for barcode entry
 const scanProductSchema = z.object({
   barcode: z.string().min(1, "Please enter the barcode data"),
   notes: z.string().optional(),
@@ -57,6 +55,18 @@ export default function ScanProductInPage() {
   
   // Extract files array safely
   const files = filesData?.files || [];
+
+  // Fetch product items for a selected file
+  const { data: productItemsData, isLoading: isLoadingProductItems } = useQuery({
+    queryKey: ['/api/product-items/file', selectedFile],
+    enabled: !!selectedFile && !!user,
+  });
+  
+  // Fetch file metadata
+  const { data: fileMetadata, isLoading: isLoadingFileMetadata } = useQuery({
+    queryKey: ['/api/files', selectedFile],
+    enabled: !!selectedFile && !!user,
+  });
 
   // Mutation for adding a product to inventory
   const addToInventoryMutation = useMutation({
@@ -100,26 +110,17 @@ export default function ScanProductInPage() {
       return;
     }
     
+    // Set form values to be accessed later
+    form.setValue('barcode', data.barcode);
+    
+    // Open validation dialog
     setValidationOpen(true);
   };
 
-  // Fetch product items for a selected file
-  const { data: productItemsData, isLoading: isLoadingProductItems } = useQuery({
-    queryKey: ['/api/product-items/file', selectedFile],
-    enabled: !!selectedFile && !!user,
-  });
-  
-  // Fetch file metadata
-  const { data: fileMetadata, isLoading: isLoadingFileMetadata } = useQuery({
-    queryKey: ['/api/files', selectedFile],
-    enabled: !!selectedFile && !!user,
-  });
-  
-  // Handle successful validation and add to inventory
-  const handleValidationComplete = (validatedItem: any) => {
+  // Handle successful validation
+  const handleValidationSuccess = (validatedItem: any) => {
     if (!validatedItem || !selectedFile) return;
     
-    // Close validation dialog
     setValidationOpen(false);
     
     // Add to inventory
@@ -155,7 +156,7 @@ export default function ScanProductInPage() {
               Receive Product
             </CardTitle>
             <CardDescription>
-              Scan products to validate and add to inventory
+              Validate and add products to inventory
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -302,7 +303,7 @@ export default function ScanProductInPage() {
               <div className="py-8 text-center text-muted-foreground">
                 <QrCode className="h-10 w-10 mx-auto mb-3 opacity-20" />
                 <p>No products scanned yet</p>
-                <p className="text-sm">Scan products to see them appear here</p>
+                <p className="text-sm">Paste scanner output to validate and receive products</p>
               </div>
             )}
           </CardContent>
@@ -315,7 +316,6 @@ export default function ScanProductInPage() {
             onClose={() => setValidationOpen(false)}
             productItems={productItemsData || []}
             fileMetadata={fileMetadata}
-            onValidated={handleValidationComplete}
           />
         )}
       </div>
