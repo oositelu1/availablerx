@@ -6,6 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon } from "lucide-react";
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
+import { dataMatrixToEpcisGtin } from "@/lib/gtin-utils";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -121,13 +122,18 @@ export default function ProductValidationDialog({
       return undefined;
     }
     
+    // Convert DataMatrix format to EPCIS format for comparison
+    const dataMatrixGtin = qrData.gtin;
+    const epcisGtin = dataMatrixToEpcisGtin(dataMatrixGtin);
+    console.log(`Converting DataMatrix GTIN ${dataMatrixGtin} to EPCIS format: ${epcisGtin}`);
+    
     // Log a sample of the serial numbers for debugging
     console.log("Checking against all serial numbers:");
     productItems.slice(0, 10).forEach((item, i) => {
       console.log(`Serial ${i}: ${item.serialNumber}`);
     });
     
-    // First check for exact matches but with CASE/ITEM GTIN conversion
+    // First check for exact matches with DataMatrix to EPCIS conversion
     for (const item of productItems) {
       // Check for serial number match first for debugging
       if (item.serialNumber === qrData.serialNumber) {
@@ -137,14 +143,21 @@ export default function ProductValidationDialog({
       // Skip if item has no GTIN
       if (!item.gtin) continue;
       
-      // Check if we have a GTIN match - with CASE/ITEM conversion
+      // Check if we have a GTIN match
       let gtinMatches = false;
       
-      // Direct GTIN match
+      // Direct GTIN match (original format)
       if (item.gtin === qrData.gtin) {
         gtinMatches = true;
+        console.log("Direct GTIN match found:", qrData.gtin);
       } 
-      // Special handling for CASE vs ITEM indicator digit
+      // Try matching with converted EPCIS format
+      else if (item.gtin === epcisGtin) {
+        gtinMatches = true;
+        console.log("✓ DataMatrix GTIN successfully converted to EPCIS format and matched!");
+        console.log(`DataMatrix: ${dataMatrixGtin} -> EPCIS: ${epcisGtin}`);
+      }
+      // Special handling for CASE vs ITEM indicator digit (fallback for backward compatibility)
       else if (qrData.gtin.length >= 14 && item.gtin.length >= 14) {
         // Convert CASE (50301439570) to ITEM (00301430957) format specifically for your data
         if (
