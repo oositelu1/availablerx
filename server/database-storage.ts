@@ -125,10 +125,64 @@ export class DatabaseStorage implements IStorage {
   }
   
   async listPartners(activeOnly: boolean = false): Promise<Partner[]> {
-    if (activeOnly) {
-      return db.select().from(partners).where(eq(partners.isActive, true));
+    // Use a simplified query that doesn't rely on the AS2 fields
+    // This is a temporary workaround until we can sync the database schema
+    try {
+      const query = activeOnly 
+        ? `SELECT id, name, partner_type, contact_email, notes, endpoint_url, 
+            auth_token, transport_type, is_active, gln, license_number, 
+            license_expiration_date, state_of_license, compliance_status, 
+            created_at, created_by 
+          FROM partners 
+          WHERE is_active = true`
+        : `SELECT id, name, partner_type, contact_email, notes, endpoint_url, 
+            auth_token, transport_type, is_active, gln, license_number, 
+            license_expiration_date, state_of_license, compliance_status, 
+            created_at, created_by 
+          FROM partners`;
+            
+      const result = await db.execute(query);
+      
+      // Map the raw results to the Partner type
+      return result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        partnerType: row.partner_type,
+        contactEmail: row.contact_email,
+        notes: row.notes,
+        endpointUrl: row.endpoint_url,
+        authToken: row.auth_token,
+        transportType: row.transport_type || 'PRESIGNED',
+        isActive: row.is_active,
+        gln: row.gln,
+        licenseNumber: row.license_number,
+        licenseExpirationDate: row.license_expiration_date ? new Date(row.license_expiration_date) : null,
+        stateOfLicense: row.state_of_license,
+        complianceStatus: row.compliance_status || 'active',
+        createdAt: new Date(row.created_at),
+        createdBy: row.created_by,
+        // Add empty values for AS2 fields that might not exist in the database yet
+        as2Id: null,
+        as2From: null,
+        as2To: null,
+        as2Url: null,
+        as2ConnectorId: null,
+        signingCertificate: null,
+        encryptionCertificate: null,
+        partnerSigningCertificate: null,
+        partnerEncryptionCertificate: null,
+        enableEncryption: true,
+        enableSigning: true,
+        enableCompression: false,
+        mdn: 'sync',
+        mdnOptions: null,
+        certificate: null
+      }));
+    } catch (error) {
+      console.error('Error in listPartners:', error);
+      // Fallback to an empty array to prevent app crashes
+      return [];
     }
-    return db.select().from(partners);
   }
   
   async deletePartner(id: number): Promise<boolean> {
