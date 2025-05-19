@@ -116,8 +116,8 @@ export function SendFileModal({ fileId, onClose, isOpen = true }: SendFileModalP
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" aria-describedby="send-file-description">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-semibold">Send File to Partner</DialogTitle>
@@ -130,6 +130,9 @@ export function SendFileModal({ fileId, onClose, isOpen = true }: SendFileModalP
             >
               <X className="h-4 w-4" />
             </Button>
+          </div>
+          <div id="send-file-description" className="sr-only">
+            Dialog for sending a file to a trading partner
           </div>
         </DialogHeader>
         
