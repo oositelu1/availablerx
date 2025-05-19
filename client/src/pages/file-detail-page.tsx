@@ -239,7 +239,7 @@ export default function FileDetailPage() {
 
   if (isLoadingFile) {
     return (
-      <Layout>
+      <Layout title="Loading File Details">
         <div className="flex items-center space-x-2 mb-6">
           <Skeleton className="h-8 w-8 rounded-full" />
           <div className="space-y-2">
@@ -254,7 +254,7 @@ export default function FileDetailPage() {
 
   if (!file) {
     return (
-      <Layout>
+      <Layout title="File Not Found">
         <div className="py-20 text-center">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">File Not Found</h1>
