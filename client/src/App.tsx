@@ -29,6 +29,7 @@ import T3Page from "@/pages/t3-page";
 import T3CreatePage from "@/pages/t3-create-page";
 import T3LedgerPage from "@/pages/t3-ledger-page";
 import EnhancedT3Page from "@/pages/enhanced-t3-page";
+import MultiPageT3View from "@/pages/multi-page-t3-view";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -66,6 +67,7 @@ function Router() {
       <ProtectedRoute path="/t3/create" component={T3CreatePage} />
       <ProtectedRoute path="/t3/ledger" component={T3LedgerPage} />
       <ProtectedRoute path="/t3/enhanced/:bundleId" component={EnhancedT3Page} />
+      <ProtectedRoute path="/t3/multi-page/:bundleId" component={MultiPageT3View} />
       <ProtectedRoute path="/t3/:bundleId" component={T3Page} />
       
       <Route path="/qr-test" component={QrTest} />

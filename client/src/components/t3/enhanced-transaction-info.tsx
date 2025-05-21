@@ -43,18 +43,26 @@ interface TransactionDetails {
 }
 
 interface EnhancedTransactionInfoProps {
-  product: ProductInfo;
+  products: ProductInfo[];
   sender: CompanyInfo;
-  receiver: CompanyInfo;
+  recipient: CompanyInfo;
   transaction: TransactionDetails;
+  purchaseOrder?: {
+    poNumber: string;
+    poDate: string;
+    items?: any[];
+  };
 }
 
 export function EnhancedTransactionInfo({ 
-  product, 
+  products, 
   sender, 
-  receiver, 
-  transaction 
+  recipient, 
+  transaction,
+  purchaseOrder
 }: EnhancedTransactionInfoProps) {
+  // Use the first product for display if products array is provided
+  const product = products && products.length > 0 ? products[0] : null;
   
   // Format date for display
   const formatDate = (dateString: string) => {

@@ -76,7 +76,7 @@ export default function MultiPageT3View() {
 
   if (error) {
     return (
-      <Layout>
+      <Layout title="Error | Multi-Page T3 Document">
         <div className="container mx-auto py-6">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             Error loading T3 document: {error.message}
@@ -87,7 +87,7 @@ export default function MultiPageT3View() {
   }
 
   return (
-    <Layout>
+    <Layout title="Multi-Page T3 Document">
       <div className="container mx-auto py-6">
         {/* Breadcrumb navigation */}
         <Breadcrumb className="mb-6">
