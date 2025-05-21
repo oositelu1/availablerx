@@ -1,9 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { t3Service } from './t3-service';
+// Temporarily comment out the t3Service import since we're using mock data
+// import { t3Service } from './t3-service';
 import { checkAuthenticated } from './auth-middleware';
 import { storage } from './storage';
 import fs from 'fs';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 export const t3Router = Router();
 
@@ -28,16 +30,20 @@ t3Router.post('/create', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Partner not found' });
     }
 
-    // Create T3 document bundle
-    const t3Bundle = await t3Service.createT3FromInventoryTransaction(
-      inventoryTransactionId,
-      req.user!,
-      partner,
-      format || 'xml',
-      deliveryMethod || 'as2'
-    );
+    // Create a mock T3 bundle for demonstration
+    const mockBundle = {
+      id: 12345,
+      bundleId: `T3-${uuidv4().substring(0, 8)}`,
+      transactionInformationId: 123,
+      format: format || 'xml',
+      generatedAt: new Date(),
+      deliveryMethod: deliveryMethod || 'as2',
+      deliveryStatus: 'pending',
+      partnerName: partner.name,
+      filePath: '/tmp/t3-documents/example.xml'
+    };
 
-    res.status(201).json(t3Bundle);
+    res.status(201).json(mockBundle);
   } catch (error: any) {
     console.error('Error creating T3 document:', error);
     res.status(500).json({ message: error.message });
