@@ -12,12 +12,21 @@ import { insertPartnerSchema } from "@shared/schema";
 import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+
+// Import all routers
 import { poRouter } from './po-routes';
 import { associationRouter } from './epcis-po-association-routes';
 import { productItemRouter } from './product-item-routes';
 import { validationRouter } from './validation-routes';
 import { auditLogRouter } from './audit-log-routes';
 import { partnerLocationRouter } from './partner-location-routes';
+import { poItemRouter } from './po-item-routes';
+import { inventoryRouter } from './inventory-routes';
+import { inventoryTransactionRouter } from './inventory-transaction-routes';
+import { salesOrderRouter } from './sales-order-routes';
+import { salesOrderItemRouter } from './sales-order-item-routes';
+import { t3Router } from './t3-routes';
+import { s3Monitor } from './s3-monitor';
 
 // Helper function to generate proper download URLs for the current environment
 function generateDownloadUrl(uuid: string, req?: Request): string {
@@ -65,13 +74,6 @@ function generateDownloadUrl(uuid: string, req?: Request): string {
   console.log(`Generated URL: ${url}`);
   return url;
 }
-import { poItemRouter } from './po-item-routes';
-import { inventoryRouter } from './inventory-routes';
-import { inventoryTransactionRouter } from './inventory-transaction-routes';
-import { salesOrderRouter } from './sales-order-routes';
-import { salesOrderItemRouter } from './sales-order-item-routes';
-import { t3Router } from './t3-routes';
-import { s3Monitor } from './s3-monitor';
 
 // Configure multer for file uploads
 const upload = multer({
@@ -472,9 +474,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     files.forEach(file => {
       const uploadDate = file.uploadedAt.toISOString().split('T')[0];
-      const eventCounts = file.metadata ? 
-        `${file.metadata.objectEvents || 0} ObjectEvents, ${file.metadata.aggregationEvents || 0} AggregationEvents, ${file.metadata.transactionEvents || 0} TransactionEvents` :
-        'N/A';
+      const metadata = file.metadata || {};
+      const eventCounts = `${metadata.objectEvents || 0} ObjectEvents, ${metadata.aggregationEvents || 0} AggregationEvents, ${metadata.transactionEvents || 0} TransactionEvents`;
       
       csv += `${file.id},"${file.originalName}",${file.fileType},${file.status},${file.fileSize},${uploadDate},${file.sha256},"${eventCounts}"\n`;
     });
@@ -484,403 +485,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(csv);
   });
 
-  // Reprocess a file to extract updated metadata
-  app.post('/api/files/:id/reprocess', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+  // Public download endpoint for pre-signed URLs
+  app.get("/api/download/:uuid", async (req, res) => {
+    const { uuid } = req.params;
     
-    try {
-      const fileId = parseInt(req.params.id);
-      if (isNaN(fileId)) {
-        return res.status(400).json({ message: 'Invalid file ID' });
-      }
-      
-      const file = await storage.getFile(fileId);
-      if (!file) {
-        return res.status(404).json({ message: 'File not found' });
-      }
-      
-      // Retrieve the file data
-      let fileData = await storage.retrieveFileData(fileId);
-      
-      // If the file data is not in storage, try to load it from the sample files
-      if (!fileData) {
-        console.log(`File data not found in storage, trying to load from sample files...`);
-        try {
-          // Check if this is one of our sample files
-          if (file.originalName.startsWith('shipment_')) {
-            const samplePath = path.join(process.cwd(), 'attached_assets', file.originalName);
-            console.log(`Trying to load sample file from: ${samplePath}`);
-            
-            try {
-              // Use promises API
-              const fileContent = await fs.readFile(samplePath);
-              fileData = fileContent;
-              console.log(`Successfully loaded sample file: ${samplePath}`);
-              
-              // Store it for future use
-              if (fileData) {
-                await storage.storeFileData(fileData, fileId);
-              }
-            } catch (fileErr) {
-              console.log(`Sample file not found or could not be read: ${samplePath}`, fileErr);
-            }
-          }
-        } catch (err) {
-          console.error(`Error loading sample file:`, err);
-        }
-        
-        // If we still don't have the file data, return error
-        if (!fileData) {
-          return res.status(404).json({ message: 'File data not found and could not be recovered' });
-        }
-      }
-      
-      // Extract new metadata
-      let xmlBuffer = fileData;
-      if (file.fileType === 'ZIP') {
-        // If it's a ZIP file, extract the XML content
-        const zipValidation = await validateZipContents(fileData);
-        if (!zipValidation.valid || !zipValidation.xmlBuffer) {
-          return res.status(400).json({ 
-            message: 'Failed to extract XML from ZIP file',
-            error: zipValidation.errorMessage
-          });
-        }
-        xmlBuffer = zipValidation.xmlBuffer;
-      }
-      
-      // Validate XML and extract metadata
-      const xmlValidation = await validateXml(xmlBuffer);
-      if (!xmlValidation.valid) {
-        return res.status(400).json({ 
-          message: 'Failed to validate XML',
-          error: xmlValidation.errorMessage
-        });
-      }
-      
-      // Log the extracted metadata for debugging
-      console.log('Extracted metadata:', JSON.stringify(xmlValidation.metadata, null, 2));
-      console.log('Product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
-      
-      // Extract product details directly from the XML file for more accurate information
-      try {
-        const extractResult = await extractProductDetails(xmlBuffer);
-        console.log('Direct extraction result during reprocess:', extractResult);
-        
-        if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
-          if (extractResult.name) {
-            console.log('Setting product name from direct extraction:', extractResult.name);
-            xmlValidation.metadata.productInfo.name = extractResult.name;
-          }
-          
-          if (extractResult.manufacturer) {
-            console.log('Setting manufacturer from direct extraction:', extractResult.manufacturer);
-            xmlValidation.metadata.productInfo.manufacturer = extractResult.manufacturer;
-          }
-          
-          if (extractResult.ndc) {
-            console.log('Setting NDC from direct extraction:', extractResult.ndc);
-            xmlValidation.metadata.productInfo.ndc = extractResult.ndc;
-          }
-          
-          console.log('Product information extracted during reprocess:', 
-            JSON.stringify(xmlValidation.metadata.productInfo, null, 2));
-        } else if (xmlValidation.metadata) {
-          // Create productInfo object with extracted data
-          xmlValidation.metadata.productInfo = {
-            name: extractResult.name || undefined,
-            manufacturer: extractResult.manufacturer || undefined,
-            ndc: extractResult.ndc || undefined
-          };
-          console.log('Created new product info during reprocess');
-        }
-      } catch (error) {
-        console.error('Error extracting product details during reprocess:', error);
-      }
-      
-      console.log('Updated metadata product info:', JSON.stringify(xmlValidation.metadata?.productInfo, null, 2));
-      
-      // Update the file with new metadata
-      const updatedFile = await storage.updateFile(fileId, {
-        metadata: xmlValidation.metadata
-      });
-      
-      res.json(updatedFile);
-    } catch (error) {
-      console.error('Error reprocessing file:', error);
-      res.status(500).json({ message: 'Failed to reprocess file' });
-    }
-  });
-  
-  // === Pre-Signed URL Portal ===
-  
-  // Generate a pre-signed URL for sharing a file with a partner
-  app.post('/api/files/:id/presigned-links', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    
-    try {
-      const fileId = parseInt(req.params.id);
-      if (isNaN(fileId)) {
-        return res.status(400).json({ message: 'Invalid file ID' });
-      }
-      
-      const partnerId = parseInt(req.body.partnerId);
-      if (isNaN(partnerId)) {
-        return res.status(400).json({ message: 'Invalid partner ID' });
-      }
-      
-      // Validate file exists
-      const file = await storage.getFile(fileId);
-      if (!file) {
-        return res.status(404).json({ message: 'File not found' });
-      }
-      
-      // Validate partner exists
-      const partner = await storage.getPartner(partnerId);
-      if (!partner) {
-        return res.status(404).json({ message: 'Partner not found' });
-      }
-      
-      // Get expiration time (default 48 hours unless specified)
-      const expirationSeconds = req.body.expirationSeconds ? 
-        parseInt(req.body.expirationSeconds) : 
-        172800; // 48 hours in seconds
-      
-      // Set one-time use flag (default to false)
-      const isOneTimeUse = req.body.isOneTimeUse === true;
-      
-      // Optional IP restriction
-      const ipRestriction = req.body.ipRestriction || null;
-      
-      // Generate a UUID for the link
-      const uuid = uuidv4();
-      
-      // Hash the UUID for security
-      const hash = crypto.createHash('sha256');
-      hash.update(uuid);
-      const urlHash = hash.digest('hex');
-      
-      // Calculate expiration date
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + expirationSeconds);
-      
-      // Create pre-signed link in database
-      const presignedLink = await storage.createPresignedLink({
-        fileId,
-        partnerId,
-        createdBy: req.user.id,
-        uuid,
-        urlHash,
-        expiresAt,
-        isOneTimeUse,
-        ipRestriction,
-        firstClickedAt: null,
-        downloadedAt: null
-      });
-      
-      // Generate the shareable URL using our helper function
-      const downloadUrl = generateDownloadUrl(uuid, req);
-      
-      res.json({
-        ...presignedLink,
-        downloadUrl
-      });
-    } catch (error) {
-      console.error('Error creating pre-signed URL:', error);
-      res.status(500).json({ message: 'Failed to create pre-signed URL' });
-    }
-  });
-  
-  // List all pre-signed links for a file
-  app.get('/api/files/:id/presigned-links', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    
-    try {
-      const fileId = parseInt(req.params.id);
-      if (isNaN(fileId)) {
-        return res.status(400).json({ message: 'Invalid file ID' });
-      }
-      
-      // Validate file exists
-      const file = await storage.getFile(fileId);
-      if (!file) {
-        return res.status(404).json({ message: 'File not found' });
-      }
-      
-      // Get all shared links for this file
-      const links = await storage.listPresignedLinksForFile(fileId);
-      
-      // Add the download URL to each link
-      const linksWithUrls = links.map(link => {
-        // Create proper URLs that work in Replit environment
-        let protocol = 'https';
-        let host = req.get('host') || 'localhost:3000';
-        
-        // Special handling for Replit environment
-        if (process.env.REPLIT_SLUG) {
-          protocol = 'https';
-          host = `${process.env.REPLIT_SLUG}.replit.dev`;
-        } else if (host.includes('localhost')) {
-          protocol = 'http';
-        }
-        
-        return {
-          ...link,
-          downloadUrl: `${protocol}://${host}/api/download/${link.uuid}`
-        };
-      });
-      
-      res.json(linksWithUrls);
-    } catch (error) {
-      console.error('Error listing pre-signed links:', error);
-      res.status(500).json({ message: 'Failed to list pre-signed links' });
-    }
-  });
-  
-  // List all pre-signed links shared with a partner
-  app.get('/api/partners/:id/shared-links', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    
-    try {
-      const partnerId = parseInt(req.params.id);
-      if (isNaN(partnerId)) {
-        return res.status(400).json({ message: 'Invalid partner ID' });
-      }
-      
-      // Validate partner exists
-      const partner = await storage.getPartner(partnerId);
-      if (!partner) {
-        return res.status(404).json({ message: 'Partner not found' });
-      }
-      
-      // Get include expired flag
-      const includeExpired = req.query.includeExpired === 'true';
-      
-      // Get all shared links for this partner
-      const links = await storage.listPresignedLinksForPartner(partnerId, includeExpired);
-      
-      // Add the download URL to each link
-      const linksWithUrls = links.map(link => {
-        // Create proper URLs that work in Replit environment
-        let protocol = 'https';
-        let host = req.get('host') || 'localhost:3000';
-        
-        // Special handling for Replit environment
-        if (process.env.REPLIT_SLUG) {
-          protocol = 'https';
-          host = `${process.env.REPLIT_SLUG}.replit.dev`;
-        } else if (host.includes('localhost')) {
-          protocol = 'http';
-        }
-        
-        return {
-          ...link,
-          downloadUrl: `${protocol}://${host}/api/download/${link.uuid}`
-        };
-      });
-      
-      res.json(linksWithUrls);
-    } catch (error) {
-      console.error('Error listing partner pre-signed links:', error);
-      res.status(500).json({ message: 'Failed to list partner pre-signed links' });
-    }
-  });
-  
-  // Add a route to handle legacy/localhost URLs and redirect them to the proper domain
-  app.get('/download/:uuid', async (req, res) => {
-    // Get the correct host for the current environment
-    let protocol = 'https';
-    let host = process.env.REPLIT_DOMAINS
-      ? process.env.REPLIT_DOMAINS.split(',')[0]
-      : process.env.REPLIT_DEV_DOMAIN || req.get('host') || 'localhost:3000';
-    
-    // For localhost, use http protocol
-    if (host.includes('localhost')) {
-      protocol = 'http';
+    if (!uuid) {
+      return res.status(400).json({ message: 'Missing UUID parameter' });
     }
     
-    // Redirect to the proper API endpoint
-    res.redirect(`${protocol}://${host}/api/download/${req.params.uuid}`);
-  });
-  
-  // Download a file using a pre-signed URL (public endpoint, no authentication required)
-  app.get('/api/download/:uuid', async (req, res) => {
     try {
-      const uuid = req.params.uuid;
-      
-      // Look up the pre-signed link
       const link = await storage.getPresignedLinkByUuid(uuid);
+      
       if (!link) {
-        return res.status(404).json({ message: 'Download link not found or has expired' });
+        return res.status(404).json({ message: 'Link not found or expired' });
       }
       
-      // Check if the link has expired
-      const now = new Date();
-      if (link.expiresAt < now) {
-        return res.status(403).json({ message: 'Download link has expired' });
+      // Check if link is expired
+      if (link.expiresAt < new Date()) {
+        return res.status(410).json({ message: 'This link has expired' });
       }
       
-      // Check IP restriction if set
-      if (link.ipRestriction && req.ip !== link.ipRestriction) {
-        return res.status(403).json({ message: 'Access restricted to specific IP address' });
-      }
-      
-      // Check if this is a one-time use link that's already been used
+      // Check if this is a one-time use link that has already been downloaded
       if (link.isOneTimeUse && link.downloadedAt) {
-        return res.status(403).json({ message: 'Download link has already been used' });
+        return res.status(410).json({ message: 'This one-time link has already been used' });
       }
       
-      // Get the associated file
+      // If this is the first access, record the first click time
+      if (!link.firstClickedAt) {
+        await storage.updatePresignedLink(link.id, { firstClickedAt: new Date() });
+      }
+      
+      // Now get the associated file
       const file = await storage.getFile(link.fileId);
+      
       if (!file) {
         return res.status(404).json({ message: 'File not found' });
       }
       
-      // Retrieve the file data
-      let fileData = await storage.retrieveFileData(file.id);
-      
-      // If the file data is not in memory, try to load it directly from attached_assets
-      if (!fileData && file.originalName.startsWith('shipment_')) {
-        try {
-          console.log(`Attempting to load file directly from attached_assets: ${file.originalName}`);
-          const filePath = path.join(process.cwd(), 'attached_assets', file.originalName);
-          fileData = await fs.readFile(filePath);
-          console.log(`Successfully loaded file from disk: ${filePath}`);
-          
-          // Store for future use
-          await storage.storeFileData(fileData, file.id);
-        } catch (err) {
-          console.error(`Failed to load file from attached_assets: ${err.message}`);
-        }
-      }
+      // Get file data
+      const fileData = await storage.retrieveFileData(file.id);
       
       if (!fileData) {
-        return res.status(404).json({ message: 'File data not found' });
+        return res.status(404).json({ message: 'File content not found' });
       }
       
-      // Update the link's firstClickedAt if not already set
-      if (!link.firstClickedAt) {
-        await storage.updatePresignedLink(link.id, {
-          firstClickedAt: now
-        });
-      }
-      
-      // Update the link's downloadedAt if this is a successful download
-      await storage.updatePresignedLink(link.id, {
-        downloadedAt: now
-      });
-      
-      // Set appropriate headers for file download
-      res.setHeader('Content-Type', file.fileType === 'XML' ? 'application/xml' : 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename=${file.originalName}`);
+      // Mark as downloaded
+      await storage.updatePresignedLink(link.id, { downloadedAt: new Date() });
       
       // Send the file
+      res.setHeader('Content-Type', file.fileType === 'ZIP' ? 'application/zip' : 'application/xml');
+      res.setHeader('Content-Disposition', `attachment; filename=${file.originalName}`);
       res.send(fileData);
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      res.status(500).json({ message: 'Failed to download file' });
+    } catch (error: any) {
+      console.error('Error processing download:', error);
+      res.status(500).json({ message: 'Error processing download request' });
     }
   });
-  
+
   return httpServer;
 }
