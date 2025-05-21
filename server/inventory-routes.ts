@@ -30,12 +30,16 @@ inventoryRouter.get("/stats", async (req: Request, res: Response) => {
   }
 });
 
+// Set up a global space for our in-memory transaction storage
+declare global {
+  var inventoryTransactions: any[];
+}
+
 // Get inventory ledger
 inventoryRouter.get("/ledger", async (req: Request, res: Response) => {
   try {
-    // Use the global transactions array (or initialize if doesn't exist)
+    // Initialize if needed
     if (!global.inventoryTransactions) {
-      // Initialize with some transactions
       global.inventoryTransactions = [
         {
           id: 1,
@@ -51,92 +55,39 @@ inventoryRouter.get("/ledger", async (req: Request, res: Response) => {
           transactionDate: new Date('2025-05-15T10:30:00'),
           performedBy: 2,
         },
-      {
-        id: 2,
-        inventoryId: 102,
-        gtin: '00301430957010',
-        serialNumber: '10018521666433',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        transactionType: 'receive',
-        fromStatus: null,
-        toStatus: 'available',
-        reference: 'File #47',
-        transactionDate: new Date('2025-05-15T10:35:00'),
-        performedBy: 2,
-      },
-      {
-        id: 3,
-        inventoryId: 103,
-        gtin: '00301430957010',
-        serialNumber: '10015409851063',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        transactionType: 'receive',
-        fromStatus: null,
-        toStatus: 'available',
-        reference: 'File #47',
-        transactionDate: new Date('2025-05-15T10:40:00'),
-        performedBy: 2,
-      },
-      {
-        id: 4,
-        inventoryId: 101,
-        gtin: '00301430957010',
-        serialNumber: '10016550749981',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        transactionType: 'ship',
-        fromStatus: 'available',
-        toStatus: 'shipped',
-        reference: 'SO #1',
-        transactionDate: new Date('2025-05-16T14:20:00'),
-        performedBy: 2,
-      }
-    ];
+        {
+          id: 2,
+          inventoryId: 102,
+          gtin: '00301430957010',
+          serialNumber: '10018521666433',
+          lotNumber: '24052241',
+          expirationDate: '2026-09-30',
+          transactionType: 'receive',
+          fromStatus: null,
+          toStatus: 'available',
+          reference: 'File #47',
+          transactionDate: new Date('2025-05-15T10:35:00'),
+          performedBy: 2,
+        }
+      ];
+    }
     
-    res.json({ transactions });
+    // Sort transactions by date (newest first)
+    const sortedTransactions = [...global.inventoryTransactions].sort((a, b) => {
+      return new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime();
+    });
+    
+    console.log(`Returning ${sortedTransactions.length} inventory transactions`);
+    
+    // Return the transactions
+    res.json({ transactions: sortedTransactions });
   } catch (error: any) {
     console.error("Error fetching inventory ledger:", error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Create in-memory transaction storage if it doesn't exist
-// This is for demo purposes - in production this would be in a database
-if (!global.inventoryTransactions) {
-  global.inventoryTransactions = [
-    // Initial sample transactions
-    {
-      id: 1,
-      inventoryId: 101,
-      gtin: '00301430957010',
-      serialNumber: '10016550749981',
-      lotNumber: '24052241',
-      expirationDate: '2026-09-30',
-      transactionType: 'receive',
-      fromStatus: null,
-      toStatus: 'available',
-      reference: 'File #47',
-      transactionDate: new Date('2025-05-15T10:30:00'),
-      performedBy: 2,
-    },
-    {
-      id: 2,
-      inventoryId: 102,
-      gtin: '00301430957010',
-      serialNumber: '10018521666433',
-      lotNumber: '24052241',
-      expirationDate: '2026-09-30',
-      transactionType: 'receive',
-      fromStatus: null,
-      toStatus: 'available',
-      reference: 'File #47',
-      transactionDate: new Date('2025-05-15T10:35:00'),
-      performedBy: 2,
-    }
-  ];
-}
+// Delete this redundant initialization since we now do it in the ledger endpoint
 
 // Add product to inventory (scanning in)
 inventoryRouter.post("/receive", async (req: Request, res: Response) => {
@@ -149,6 +100,7 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
     
     // Create a unique inventory item ID
     const inventoryId = Math.floor(Math.random() * 1000) + 100;
+    const timestamp = new Date();
     
     // For demo, create a mock inventory item
     const inventoryItem = {
@@ -161,17 +113,23 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       status: "available",
       notes: notes || "",
       createdBy: req.user?.id as number,
-      createdAt: new Date(),
-      receivedAt: new Date(),
+      createdAt: timestamp,
+      receivedAt: timestamp,
       ndc: gtin.substring(2, 13),
       productName: "SODIUM FERRIC GLUCONATE",
       manufacturer: "WEST-WARD PHARMACEUTICALS",
       packageType: gtin.charAt(7) === '4' ? 'case' : 'item',
+      transactionType: 'receive'
     };
+    
+    // Initialize global transactions array if it doesn't exist
+    if (!global.inventoryTransactions) {
+      global.inventoryTransactions = [];
+    }
     
     // Create a transaction record for this inventory update
     const newTransaction = {
-      id: (global.inventoryTransactions.length + 1),
+      id: global.inventoryTransactions.length + 100, // Give it a unique ID
       inventoryId,
       gtin,
       serialNumber,
@@ -181,7 +139,7 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       fromStatus: null,
       toStatus: 'available',
       reference: `File #${fileId}`,
-      transactionDate: new Date(),
+      transactionDate: timestamp,
       performedBy: req.user?.id as number,
       notes: notes || "Product received",
       details: { fileId }
@@ -190,11 +148,14 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
     // Add the transaction to our global array
     global.inventoryTransactions.push(newTransaction);
     
-    console.log("Added new transaction:", newTransaction);
+    console.log("Recorded new transaction:", newTransaction.id, "for", gtin, serialNumber);
     console.log("Current transaction count:", global.inventoryTransactions.length);
     
-    // Return the mock item
-    res.status(201).json(inventoryItem);
+    // Return the inventory item with transaction info
+    res.status(201).json({
+      ...inventoryItem,
+      transactionId: newTransaction.id
+    });
   } catch (error: any) {
     console.error("Error receiving product:", error);
     res.status(500).json({ message: error.message });
