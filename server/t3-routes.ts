@@ -196,26 +196,37 @@ t3Router.get('/download/:bundleId', async (req: Request, res: Response) => {
   try {
     const { bundleId } = req.params;
     
-    // In a real implementation, fetch bundle details from database
-    // and return the actual file
+    // Extract the transaction ID from the bundle ID
+    const transactionId = parseInt(bundleId.replace('T3-', ''));
     
-    // For demo purposes, create a simple XML file on the fly
+    // Find the transaction in our global storage
+    if (!global.inventoryTransactions) {
+      return res.status(404).json({ message: "No transactions found" });
+    }
+    
+    const transaction = global.inventoryTransactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+    
+    // Generate XML file based on actual transaction data
     const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <t3Document xmlns="urn:dscsa:t3:schema:1.0" createdAt="${new Date().toISOString()}">
   <transactionInformation>
-    <transactionId>TX-123456</transactionId>
+    <transactionId>TX-${transaction.id}</transactionId>
     <product>
-      <gtin>00301430957010</gtin>
-      <ndc>301430957010</ndc>
-      <name>SODIUM FERRIC GLUCONATE</name>
+      <gtin>${transaction.gtin || 'N/A'}</gtin>
+      <ndc>${transaction.gtin ? transaction.gtin.substring(2, 13) : 'N/A'}</ndc>
+      <name>${transaction.productName || 'Pharmaceutical Product'}</name>
     </product>
     <lot>
-      <number>24052241</number>
-      <expirationDate>2026-09-30</expirationDate>
+      <number>${transaction.lotNumber || 'N/A'}</number>
+      <expirationDate>${transaction.expirationDate || 'N/A'}</expirationDate>
       <quantity>1</quantity>
     </lot>
     <transaction>
-      <date>${new Date().toISOString()}</date>
+      <date>${transaction.transactionDate?.toISOString() || new Date().toISOString()}</date>
       <senderGln>0123456789012</senderGln>
       <receiverGln>9876543210123</receiverGln>
     </transaction>
@@ -224,15 +235,9 @@ t3Router.get('/download/:bundleId', async (req: Request, res: Response) => {
   <transactionHistory>
     <historyEntry>
       <sequenceNumber>1</sequenceNumber>
-      <transactionDate>2025-05-10T14:30:00Z</transactionDate>
+      <transactionDate>${transaction.transactionDate?.toISOString() || new Date().toISOString()}</transactionDate>
       <senderGln>0123456789012</senderGln>
       <receiverGln>9876543210123</receiverGln>
-    </historyEntry>
-    <historyEntry>
-      <sequenceNumber>2</sequenceNumber>
-      <transactionDate>2025-05-15T10:20:00Z</transactionDate>
-      <senderGln>9876543210123</senderGln>
-      <receiverGln>5555555555555</receiverGln>
     </historyEntry>
   </transactionHistory>
   
@@ -256,14 +261,14 @@ t3Router.get('/download/:bundleId', async (req: Request, res: Response) => {
       
       g) Transferor did not knowingly alter the transaction history.
       
-      Signed by: John Smith
-      Company: Distributor LLC
-      Date: 2025-05-15
+      Signed by: ${req.user?.fullName || 'Authorized User'}
+      Company: Your Company
+      Date: ${new Date().toISOString().split('T')[0]}
     </text>
-    <signedBy>John Smith</signedBy>
+    <signedBy>${req.user?.fullName || 'Authorized User'}</signedBy>
     <signerTitle>Authorized Representative</signerTitle>
-    <signerCompany>Distributor LLC</signerCompany>
-    <signatureDate>2025-05-15T10:20:00Z</signatureDate>
+    <signerCompany>Your Company</signerCompany>
+    <signatureDate>${new Date().toISOString()}</signatureDate>
   </transactionStatement>
 </t3Document>`;
 
@@ -300,34 +305,26 @@ t3Router.get('/download/:bundleId', async (req: Request, res: Response) => {
  */
 t3Router.get('/ledger', async (req: Request, res: Response) => {
   try {
-    // In real implementation, fetch from database
-    // For now, return mock data
-    const transactions = [
-      {
-        id: 1,
-        transactionId: 'TX-123456',
-        productName: 'SODIUM FERRIC GLUCONATE',
-        lotNumber: '24052241',
-        transactionDate: new Date(),
-        sender: 'Our Company',
-        receiver: 'Acme Pharmaceuticals',
-        bundleId: 'T3-12345',
+    // Use real inventory transactions instead of mock data
+    if (!global.inventoryTransactions || global.inventoryTransactions.length === 0) {
+      return res.json({ transactions: [] });
+    }
+    
+    // Convert inventory transactions to a format suitable for the ledger
+    const transactions = global.inventoryTransactions.map(transaction => {
+      return {
+        id: transaction.id,
+        transactionId: `TX-${transaction.id}`,
+        productName: transaction.productName || 'Pharmaceutical Product',
+        lotNumber: transaction.lotNumber || 'N/A',
+        transactionDate: transaction.transactionDate || new Date(),
+        sender: 'Manufacturer',
+        receiver: 'Your Facility',
+        bundleId: `T3-${transaction.id}`,
         deliveryMethod: 'as2',
-        deliveryStatus: 'sent'
-      },
-      {
-        id: 2,
-        transactionId: 'TX-789012',
-        productName: 'AMOXICILLIN 500MG',
-        lotNumber: 'AMX5001',
-        transactionDate: new Date(Date.now() - 86400000),
-        sender: 'ABC Supplier',
-        receiver: 'Our Company',
-        bundleId: 'T3-67890',
-        deliveryMethod: 'presigned_url',
-        deliveryStatus: 'received'
-      }
-    ];
+        deliveryStatus: transaction.transactionType === 'receive' ? 'received' : 'pending'
+      };
+    }).reverse(); // Show newest first
     
     res.json({ transactions });
   } catch (error: any) {
@@ -344,11 +341,37 @@ t3Router.get('/audit-export', async (req: Request, res: Response) => {
   try {
     const { format, startDate, endDate } = req.query;
     
-    // In real implementation, generate full export based on parameters
-    // For now, generate a simple CSV for demo
-    const csvContent = `Transaction ID,Product,Lot Number,Transaction Date,Sender,Receiver,Bundle ID,Delivery Method,Status
-TX-123456,SODIUM FERRIC GLUCONATE,24052241,2025-05-20,Our Company,Acme Pharmaceuticals,T3-12345,as2,sent
-TX-789012,AMOXICILLIN 500MG,AMX5001,2025-05-19,ABC Supplier,Our Company,T3-67890,presigned_url,received`;
+    // Use real inventory transactions instead of mock data
+    if (!global.inventoryTransactions || global.inventoryTransactions.length === 0) {
+      // Create empty CSV if no transactions
+      const csvContent = `Transaction ID,Product,Lot Number,Transaction Date,Sender,Receiver,Bundle ID,Delivery Method,Status`;
+      const tempDir = path.join(process.cwd(), 'tmp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      const filePath = path.join(tempDir, 't3-audit-export.csv');
+      fs.writeFileSync(filePath, csvContent);
+      return res.download(filePath, 't3-audit-export.csv');
+    }
+    
+    // Generate CSV from actual transactions
+    let csvContent = `Transaction ID,Product,Lot Number,Transaction Date,Sender,Receiver,Bundle ID,Delivery Method,Status\n`;
+    
+    global.inventoryTransactions.forEach(transaction => {
+      const row = [
+        `TX-${transaction.id}`,
+        transaction.productName || 'Pharmaceutical Product',
+        transaction.lotNumber || 'N/A',
+        transaction.transactionDate?.toISOString() || new Date().toISOString(),
+        'Manufacturer',
+        'Your Facility',
+        `T3-${transaction.id}`,
+        'as2',
+        transaction.transactionType === 'receive' ? 'received' : 'pending'
+      ].join(',');
+      
+      csvContent += row + '\n';
+    });
 
     // Create a temporary directory for storing files
     const tempDir = path.join(process.cwd(), 'tmp');
