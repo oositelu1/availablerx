@@ -75,7 +75,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex md:flex-col w-64 bg-white border-r border-neutral-300 h-screen">
+    <aside className="flex flex-col w-64 bg-white border-r border-neutral-300 h-screen">
       <div className="p-4 border-b border-neutral-300">
         <h1 className="text-xl font-semibold text-primary">EPCIS File Manager</h1>
       </div>
