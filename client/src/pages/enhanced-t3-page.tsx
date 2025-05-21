@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, Download, ArrowLeft, Printer } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { EnhancedTransactionInfo } from '@/components/t3/enhanced-transaction-info';
-import { EnhancedTransactionHistory } from '@/components/t3/enhanced-transaction-history';
+import { SimplifiedTransactionHistory } from '@/components/t3/simplified-transaction-history';
 import { EnhancedTransactionStatement } from '@/components/t3/enhanced-transaction-statement';
 import { Layout } from '@/components/layout/layout';
 
@@ -366,7 +366,7 @@ export default function EnhancedT3Page() {
             </TabsContent>
             
             <TabsContent value="th" className="mt-6">
-              <EnhancedTransactionHistory history={data.history} />
+              <SimplifiedTransactionHistory history={data.history} />
             </TabsContent>
             
             <TabsContent value="ts" className="mt-6">
