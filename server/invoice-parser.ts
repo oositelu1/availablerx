@@ -3,8 +3,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
 
-// Set the worker source (required for PDF.js)
-pdfjsLib.GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// Configure PDF.js for Node.js environment
+const nodeUtil = require('util');
+const nodeStream = require('stream');
+const nodeFS = require('fs');
+
+// Set up the Node.js version of the worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(__dirname, '../node_modules/pdfjs-dist/build/pdf.worker.js');
 
 // Define the structure of extracted invoice data
 export interface ExtractedInvoiceData {
@@ -98,76 +103,88 @@ export type InvoiceData = z.infer<typeof invoiceDataSchema>;
  * @returns Extracted invoice data
  */
 export async function parseInvoicePDF(filePath: string): Promise<ExtractedInvoiceData> {
-  // Use a shell command to extract text from PDF using pdftotext (part of poppler-utils)
-  // This is more reliable for text extraction than JavaScript libraries
-  return new Promise((resolve, reject) => {
-    exec(`cat ${filePath} | strings`, async (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error extracting text from PDF: ${error.message}`);
-        // Fallback to loading the PDF with pdf-lib
-        try {
-          const pdfBytes = await fs.readFile(filePath);
-          const pdfDoc = await PDFDocument.load(pdfBytes);
-          const pageCount = pdfDoc.getPageCount();
-          
-          // We don't have direct text extraction in pdf-lib
-          // So we'll use some pre-defined patterns to identify invoice data
-          console.log(`PDF loaded with pdf-lib. Page count: ${pageCount}`);
-          
-          // Extract using the file name for initial basic information
-          const fileName = path.basename(filePath);
-          console.log(`Using filename for extraction: ${fileName}`);
-          
-          // Extract PO number and Invoice number from filename if possible
-          const fileNameMatch = fileName.match(/PO\s*(\d+)\s*-\s*INV\s*(\d+)/i);
-          
-          const defaultData: ExtractedInvoiceData = {
-            invoiceNumber: fileNameMatch ? fileNameMatch[2] : 'Unknown',
-            invoiceDate: new Date().toLocaleDateString(),
-            poNumber: fileNameMatch ? fileNameMatch[1] : 'Unknown',
-            vendor: {
-              name: 'Extracted from PDF',
-              address: 'Address extraction failed',
-            },
-            customer: {
-              name: 'Customer extraction failed',
-              address: 'Address extraction failed',
-            },
-            shipment: {},
-            products: [{
-              description: 'Product extraction failed',
-              lotNumber: 'Unknown',
-              expiryDate: 'Unknown',
-              quantity: 0,
-              unitPrice: 0,
-              totalPrice: 0
-            }],
-            totals: {
-              subtotal: 0,
-              total: 0
-            }
-          };
-          
-          resolve(defaultData);
-        } catch (pdfLibError) {
-          console.error('Error with pdf-lib fallback:', pdfLibError);
-          reject(new Error(`Failed to extract invoice data: ${error.message}`));
-        }
-        return;
+  try {
+    console.log(`Parsing PDF: ${filePath}`);
+    
+    // Read the PDF file into memory
+    const data = await fs.readFile(filePath);
+    const pdfData = new Uint8Array(data);
+    
+    // Load the PDF document
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+    
+    console.log(`PDF loaded successfully. Number of pages: ${pdf.numPages}`);
+    
+    // Extract text from all pages
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    
+    console.log('Text extraction complete. Sample text:');
+    console.log(fullText.substring(0, 500) + '...');
+    
+    // Extract invoice data using patterns
+    const invoiceData = extractInvoiceData(fullText, null);
+    
+    // If filename contains PO and INV numbers, use those as fallbacks
+    const fileName = path.basename(filePath);
+    const fileNameMatch = fileName.match(/PO\s*(\d+)\s*-\s*INV\s*(\d+)/i);
+    
+    if (fileNameMatch) {
+      if (!invoiceData.poNumber || invoiceData.poNumber === 'Unknown') {
+        invoiceData.poNumber = fileNameMatch[1];
+        console.log(`Using PO number from filename: ${invoiceData.poNumber}`);
       }
       
-      if (stderr) {
-        console.warn(`Warning during PDF text extraction: ${stderr}`);
+      if (!invoiceData.invoiceNumber || invoiceData.invoiceNumber === 'Unknown') {
+        invoiceData.invoiceNumber = fileNameMatch[2];
+        console.log(`Using invoice number from filename: ${invoiceData.invoiceNumber}`);
       }
-      
-      const text = stdout;
-      console.log('PDF Text Extract (first 500 chars):', text.substring(0, 500));
-      
-      // Use regex and text patterns to extract information
-      const invoiceData = extractInvoiceData(text, null);
-      resolve(invoiceData);
-    });
-  });
+    }
+    
+    return invoiceData;
+  } catch (error) {
+    console.error('Error parsing PDF:', error);
+    
+    // Fallback to using filename information if possible
+    const fileName = path.basename(filePath);
+    const fileNameMatch = fileName.match(/PO\s*(\d+)\s*-\s*INV\s*(\d+)/i);
+    
+    // Create default extraction data
+    const defaultData: ExtractedInvoiceData = {
+      invoiceNumber: fileNameMatch ? fileNameMatch[2] : 'Unknown',
+      invoiceDate: new Date().toLocaleDateString(),
+      poNumber: fileNameMatch ? fileNameMatch[1] : 'Unknown',
+      vendor: {
+        name: 'Extraction Failed',
+        address: 'PDF parsing error occurred',
+      },
+      customer: {
+        name: 'Extraction Failed',
+        address: 'PDF parsing error occurred',
+      },
+      shipment: {},
+      products: [{
+        description: 'Product extraction failed',
+        lotNumber: 'Unknown',
+        expiryDate: 'Unknown',
+        quantity: 0,
+        unitPrice: 0,
+        totalPrice: 0
+      }],
+      totals: {
+        subtotal: 0,
+        total: 0
+      }
+    };
+    
+    return defaultData;
+  }
 }
 
 /**

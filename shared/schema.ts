@@ -687,3 +687,98 @@ export type InsertTransactionStatement = z.infer<typeof insertTransactionStateme
 
 export type T3Bundle = typeof t3Bundles.$inferSelect;
 export type InsertT3Bundle = z.infer<typeof insertT3BundleSchema>;
+
+// Invoice Management Tables
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  
+  // Basic invoice information
+  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
+  invoiceDate: date("invoice_date").notNull(),
+  dueDate: date("due_date"),
+  
+  // File information
+  filename: varchar("filename", { length: 255 }).notNull(),
+  filepath: varchar("filepath", { length: 255 }).notNull(),
+  
+  // Relationship with PO
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id),
+  
+  // Vendor information
+  vendorId: integer("vendor_id").references(() => partners.id),
+  vendorName: varchar("vendor_name", { length: 255 }),
+  vendorAddress: text("vendor_address"),
+  
+  // Invoice data
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  tax: decimal("tax", { precision: 10, scale: 2 }),
+  shipping: decimal("shipping", { precision: 10, scale: 2 }),
+  discount: decimal("discount", { precision: 10, scale: 2 }),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  
+  // Extracted data
+  extractedData: jsonb("extracted_data"),
+  
+  // OCR processing metadata
+  matchScore: decimal("match_score", { precision: 5, scale: 4 }),
+  issues: jsonb("issues"),
+  
+  // Processing status
+  status: varchar("status", { length: 20 }).notNull().default("uploaded"),
+  // Status values: uploaded, processing, processed, needs_review, reconciled, paid, error
+  
+  // Audit information
+  uploadedBy: integer("uploaded_by").notNull().references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+  reconciledBy: integer("reconciled_by").references(() => users.id),
+  reconciledAt: timestamp("reconciled_at"),
+  notes: text("notes"),
+});
+
+export const invoiceItems = pgTable("invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull().references(() => invoices.id),
+  
+  // Product information
+  description: text("description").notNull(),
+  productCode: varchar("product_code", { length: 100 }),
+  ndc: varchar("ndc", { length: 20 }),
+  lotNumber: varchar("lot_number", { length: 50 }).notNull(),
+  expiryDate: date("expiry_date").notNull(),
+  
+  // Quantity and pricing
+  quantity: integer("quantity").notNull(),
+  uom: varchar("uom", { length: 20 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  
+  // Matching with PO items
+  purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id),
+  matchScore: decimal("match_score", { precision: 5, scale: 4 }),
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  // Status values: pending, matched, discrepancy, reconciled
+  
+  // Additional information
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  uploadedAt: true,
+  processedAt: true,
+  reconciledAt: true
+});
+
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
+  id: true,
+  createdAt: true
+});
+
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
