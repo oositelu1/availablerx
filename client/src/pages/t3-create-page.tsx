@@ -61,6 +61,9 @@ export default function T3CreatePage() {
     queryKey: ['/api/partners'],
   });
   
+  // For debugging - log the partner data
+  console.log("Partners data:", partnersData);
+  
   // Set up form
   const form = useForm<CreateT3FormValues>({
     resolver: zodResolver(createT3Schema),
@@ -115,8 +118,8 @@ export default function T3CreatePage() {
   // Get transactions
   const transactions = inventoryData?.transactions || [];
   
-  // Get partners
-  const partners = partnersData?.partners || [];
+  // Get partners - partnersData is an array, not an object with a partners property
+  const partners = Array.isArray(partnersData) ? partnersData : [];
   
   return (
     <div className="container mx-auto py-6 space-y-8">
