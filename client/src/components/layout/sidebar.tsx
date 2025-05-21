@@ -71,6 +71,7 @@ export function Sidebar() {
     { path: "/inventory/ledger", label: "Inventory Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, indent: true },
     // T3 Document section
     { path: "/t3", label: "T3 Documents", icon: <FileText className="mr-3 h-5 w-5" /> },
+    { path: "/t3/ledger", label: "T3 Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, indent: true },
     { path: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
   ];
 

@@ -62,6 +62,7 @@ function Router() {
       {/* T3 Document Pages */}
       <ProtectedRoute path="/t3" component={T3ListPage} />
       <ProtectedRoute path="/t3/create" component={T3CreatePage} />
+      <ProtectedRoute path="/t3/ledger" component={T3LedgerPage} />
       <ProtectedRoute path="/t3/:bundleId" component={T3Page} />
       
       <Route path="/qr-test" component={QrTest} />
