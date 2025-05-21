@@ -1,17 +1,19 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Package, Calendar, Barcode, Info, Building, ArrowRightLeft } from "lucide-react";
+import { 
+  Package, Building, User, Calendar, ShoppingCart, 
+  Hash, Barcode, FileSpreadsheet, Pill, FlaskConical
+} from "lucide-react";
 
-interface EnhancedProductInfo {
+interface ProductInfo {
   productName: string;
-  gtin?: string;
   ndc: string;
+  gtin?: string;
   lotNumber: string;
   expirationDate: string;
   quantity: number;
   manufacturer?: string;
-  genericName?: string;
   strength?: string;
   dosageForm?: string;
   containerSize?: string;
@@ -41,7 +43,7 @@ interface TransactionDetails {
 }
 
 interface EnhancedTransactionInfoProps {
-  product: EnhancedProductInfo;
+  product: ProductInfo;
   sender: CompanyInfo;
   receiver: CompanyInfo;
   transaction: TransactionDetails;
@@ -53,6 +55,7 @@ export function EnhancedTransactionInfo({
   receiver, 
   transaction 
 }: EnhancedTransactionInfoProps) {
+  
   // Format date for display
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
@@ -73,17 +76,10 @@ export function EnhancedTransactionInfo({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row justify-between gap-4">
-        <h2 className="text-2xl font-bold">Transaction Information</h2>
-        <div className="text-sm text-right">
-          <div className="font-semibold">Transaction #{transaction.transactionId}</div>
-          <div>Reference: {transaction.referenceNumber}</div>
-          {transaction.poNumber && <div>PO: {transaction.poNumber}</div>}
-          {transaction.invoiceId && <div>Invoice: {transaction.invoiceId}</div>}
-        </div>
-      </div>
-
-      <Card className="overflow-hidden">
+      <h2 className="text-2xl font-bold">Transaction Information</h2>
+      
+      {/* Product Information */}
+      <Card>
         <CardHeader className="bg-primary/5 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -91,139 +87,154 @@ export function EnhancedTransactionInfo({
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-y-6 gap-x-4">
-            <div className="space-y-1 md:col-span-3">
-              <div className="text-sm font-medium text-muted-foreground">Product Name</div>
-              <div className="text-lg font-semibold">{product.productName}</div>
-              {product.genericName && (
-                <div className="text-sm text-muted-foreground">Generic: {product.genericName}</div>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">NDC</div>
-              <div className="font-medium">{product.ndc}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Lot Number</div>
-              <div className="font-medium">{product.lotNumber}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Expiration Date</div>
-              <div className="font-medium">{formatDate(product.expirationDate)}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Quantity</div>
-              <div className="font-medium">{product.quantity}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Manufacturer</div>
-              <div className="font-medium">{product.manufacturer || "N/A"}</div>
-            </div>
-
-            {product.gtin && (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">GTIN</div>
-                <div className="font-medium font-mono text-sm">{product.gtin}</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-medium text-lg mb-3">{product.productName}</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <FlaskConical className="h-4 w-4 mt-1 text-muted-foreground" /> 
+                  <div>
+                    <span className="text-muted-foreground">Manufacturer:</span> {product.manufacturer || "N/A"}
+                  </div>
+                </div>
+                {product.strength && (
+                  <div className="flex items-start gap-2">
+                    <Pill className="h-4 w-4 mt-1 text-muted-foreground" /> 
+                    <div>
+                      <span className="text-muted-foreground">Strength:</span> {product.strength}
+                    </div>
+                  </div>
+                )}
+                {product.dosageForm && (
+                  <div className="flex items-start gap-2">
+                    <Package className="h-4 w-4 mt-1 text-muted-foreground" /> 
+                    <div>
+                      <span className="text-muted-foreground">Dosage Form:</span> {product.dosageForm}
+                    </div>
+                  </div>
+                )}
+                {product.containerSize && (
+                  <div className="flex items-start gap-2">
+                    <Package className="h-4 w-4 mt-1 text-muted-foreground" /> 
+                    <div>
+                      <span className="text-muted-foreground">Container Size:</span> {product.containerSize}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-
-            {product.strength && (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Strength</div>
-                <div className="font-medium">{product.strength}</div>
+            </div>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 border rounded-md">
+                  <div className="text-xs text-muted-foreground">NDC</div>
+                  <div className="font-medium">{product.ndc}</div>
+                </div>
+                <div className="p-3 border rounded-md">
+                  <div className="text-xs text-muted-foreground">GTIN</div>
+                  <div className="font-medium">{product.gtin || "N/A"}</div>
+                </div>
+                <div className="p-3 border rounded-md">
+                  <div className="text-xs text-muted-foreground">Lot Number</div>
+                  <div className="font-medium">{product.lotNumber}</div>
+                </div>
+                <div className="p-3 border rounded-md">
+                  <div className="text-xs text-muted-foreground">Expiration Date</div>
+                  <div className="font-medium">{formatDate(product.expirationDate)}</div>
+                </div>
               </div>
-            )}
-
-            {product.dosageForm && (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Dosage Form</div>
-                <div className="font-medium">{product.dosageForm}</div>
+              <div className="p-3 border rounded-md">
+                <div className="text-xs text-muted-foreground">Quantity</div>
+                <div className="font-medium">{product.quantity} unit(s)</div>
               </div>
-            )}
-
-            {product.containerSize && (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Container Size</div>
-                <div className="font-medium">{product.containerSize}</div>
-              </div>
-            )}
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      <Card className="overflow-hidden">
+      
+      {/* Transaction Details */}
+      <Card>
         <CardHeader className="bg-primary/5 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5" />
+            <FileSpreadsheet className="h-5 w-5" />
             Transaction Details
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div className="flex flex-col">
-                <div className="text-sm font-medium text-muted-foreground mb-1">Sender</div>
-                <div className="font-semibold">{sender.name}</div>
-                <div className="text-sm mt-1">
-                  {formatAddress(sender.address)}
-                </div>
-                {sender.contactInfo && (
-                  <div className="text-sm mt-2">
-                    {sender.contactInfo.phone && <div>{sender.contactInfo.phone}</div>}
-                    {sender.contactInfo.email && <div>{sender.contactInfo.email}</div>}
+              <div className="p-4 border rounded-md">
+                <h3 className="font-medium text-sm mb-1 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Transaction Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Transaction ID</div>
+                    <div>{transaction.transactionId}</div>
                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex flex-col">
-                <div className="text-sm font-medium text-muted-foreground mb-1">Receiver</div>
-                <div className="font-semibold">{receiver.name}</div>
-                <div className="text-sm mt-1">
-                  {formatAddress(receiver.address)}
-                </div>
-                {receiver.contactInfo && (
-                  <div className="text-sm mt-2">
-                    {receiver.contactInfo.phone && <div>{receiver.contactInfo.phone}</div>}
-                    {receiver.contactInfo.email && <div>{receiver.contactInfo.email}</div>}
+                  <div>
+                    <div className="text-xs text-muted-foreground">Shipment Date</div>
+                    <div>{formatDate(transaction.shipmentDate)}</div>
                   </div>
-                )}
+                  <div>
+                    <div className="text-xs text-muted-foreground">Reference Number</div>
+                    <div>{transaction.referenceNumber}</div>
+                  </div>
+                  {transaction.poNumber && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">PO Number</div>
+                      <div>{transaction.poNumber}</div>
+                    </div>
+                  )}
+                  {transaction.invoiceId && (
+                    <div>
+                      <div className="text-xs text-muted-foreground">Invoice ID</div>
+                      <div>{transaction.invoiceId}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <Separator className="my-6" />
-
-          <div className="flex flex-wrap gap-8">
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Shipment Date</div>
-              <div className="font-medium">{formatDate(transaction.shipmentDate)}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Reference Number</div>
-              <div className="font-medium">{transaction.referenceNumber}</div>
-            </div>
-
-            {transaction.poNumber && (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">PO Number</div>
-                <div className="font-medium">{transaction.poNumber}</div>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="p-4 border rounded-md">
+                <h3 className="font-medium text-sm mb-1 flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  Sender
+                </h3>
+                <div className="mt-2">
+                  <div className="font-medium">{sender.name}</div>
+                  <div className="text-sm mt-1 text-muted-foreground">
+                    {formatAddress(sender.address)}
+                  </div>
+                  {sender.contactInfo && (
+                    <div className="mt-2 text-sm">
+                      {sender.contactInfo.phone && <div>Phone: {sender.contactInfo.phone}</div>}
+                      {sender.contactInfo.email && <div>Email: {sender.contactInfo.email}</div>}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
 
-            {transaction.invoiceId && (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">Invoice ID</div>
-                <div className="font-medium">{transaction.invoiceId}</div>
+              <div className="p-4 border rounded-md">
+                <h3 className="font-medium text-sm mb-1 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Receiver
+                </h3>
+                <div className="mt-2">
+                  <div className="font-medium">{receiver.name}</div>
+                  <div className="text-sm mt-1 text-muted-foreground">
+                    {formatAddress(receiver.address)}
+                  </div>
+                  {receiver.contactInfo && (
+                    <div className="mt-2 text-sm">
+                      {receiver.contactInfo.phone && <div>Phone: {receiver.contactInfo.phone}</div>}
+                      {receiver.contactInfo.email && <div>Email: {receiver.contactInfo.email}</div>}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </CardContent>
       </Card>
