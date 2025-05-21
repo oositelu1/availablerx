@@ -20,7 +20,7 @@ export default function T3Page() {
   const [activeTab, setActiveTab] = useState('ti');
 
   // Fetch T3 bundle details
-  const { data: bundle, isLoading, error } = useQuery({
+  const { data: bundle, isLoading, error } = useQuery<any>({
     queryKey: ['/api/t3/bundles', bundleId],
     enabled: !!bundleId
   });
