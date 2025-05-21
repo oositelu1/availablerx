@@ -122,205 +122,206 @@ export default function T3ListPage() {
             </Link>
           </Button>
         </div>
-      
-      {/* Filter Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Search & Filter</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSearch} className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by ID, partner, etc."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
+        
+        {/* Filter Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Search & Filter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSearch} className="flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="search">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    placeholder="Search by ID, partner, etc."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
               </div>
+              <Button type="submit">Apply Filters</Button>
+            </form>
+          </CardContent>
+        </Card>
+        
+        {/* Results Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>T3 Documents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[150px]">
+                      <div className="flex items-center gap-1">
+                        Bundle ID
+                        <ArrowUpDown className="h-3 w-3" />
+                      </div>
+                    </TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Partner</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        Date
+                        <ArrowUpDown className="h-3 w-3" />
+                      </div>
+                    </TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Format</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    // Loading state - empty rows with shimmer effect
+                    emptyRows.map((i) => (
+                      <TableRow key={`loading-${i}`}>
+                        <TableCell><div className="h-5 bg-muted animate-pulse rounded w-20"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted animate-pulse rounded w-32"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted animate-pulse rounded w-28"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted animate-pulse rounded w-24"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted animate-pulse rounded w-20"></div></TableCell>
+                        <TableCell><div className="h-5 bg-muted animate-pulse rounded w-12"></div></TableCell>
+                        <TableCell className="text-right"><div className="h-8 bg-muted animate-pulse rounded w-8 ml-auto"></div></TableCell>
+                      </TableRow>
+                    ))
+                  ) : error ? (
+                    // Error state
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        <div className="flex flex-col items-center justify-center text-muted-foreground">
+                          <AlertCircle className="h-8 w-8 mb-2" />
+                          <p>Failed to load T3 documents</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => window.location.reload()}
+                          >
+                            Try Again
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : data?.bundles?.length === 0 ? (
+                    // Empty state
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        <div className="flex flex-col items-center justify-center text-muted-foreground">
+                          <FileText className="h-8 w-8 mb-2" />
+                          <p>No T3 documents found</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2"
+                            asChild
+                          >
+                            <Link href="/t3/create">Create T3 Document</Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    // Data rows
+                    data?.bundles?.map((bundle: any) => (
+                      <TableRow key={bundle.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            {bundle.bundleId.substring(0, 8)}...
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {bundle.transactionInformation?.productName || 'N/A'}
+                        </TableCell>
+                        <TableCell>{bundle.partnerName || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            {formatDate(bundle.generatedAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(bundle.deliveryStatus)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {bundle.format?.toUpperCase() || 'XML'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => setLocation(`/t3/${bundle.bundleId}`)}
+                                className="cursor-pointer"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => window.open(`/api/t3/download/${bundle.bundleId}`, '_blank')}
+                                className="cursor-pointer"  
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <Button type="submit">Apply Filters</Button>
-          </form>
-        </CardContent>
-      </Card>
-      
-      {/* Results Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>T3 Documents</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[150px]">
-                    <div className="flex items-center gap-1">
-                      Bundle ID
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      Date
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Format</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  // Loading state - empty rows with shimmer effect
-                  emptyRows.map((i) => (
-                    <TableRow key={`loading-${i}`}>
-                      <TableCell><div className="h-5 bg-muted animate-pulse rounded w-20"></div></TableCell>
-                      <TableCell><div className="h-5 bg-muted animate-pulse rounded w-32"></div></TableCell>
-                      <TableCell><div className="h-5 bg-muted animate-pulse rounded w-28"></div></TableCell>
-                      <TableCell><div className="h-5 bg-muted animate-pulse rounded w-24"></div></TableCell>
-                      <TableCell><div className="h-5 bg-muted animate-pulse rounded w-20"></div></TableCell>
-                      <TableCell><div className="h-5 bg-muted animate-pulse rounded w-12"></div></TableCell>
-                      <TableCell className="text-right"><div className="h-8 bg-muted animate-pulse rounded w-8 ml-auto"></div></TableCell>
-                    </TableRow>
-                  ))
-                ) : error ? (
-                  // Error state
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <AlertCircle className="h-8 w-8 mb-2" />
-                        <p>Failed to load T3 documents</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => window.location.reload()}
-                        >
-                          Try Again
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : data?.bundles?.length === 0 ? (
-                  // Empty state
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      <div className="flex flex-col items-center justify-center text-muted-foreground">
-                        <FileText className="h-8 w-8 mb-2" />
-                        <p>No T3 documents found</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          asChild
-                        >
-                          <Link href="/t3/create">Create T3 Document</Link>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  // Data rows
-                  data?.bundles?.map((bundle: any) => (
-                    <TableRow key={bundle.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          {bundle.bundleId.substring(0, 8)}...
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {bundle.transactionInformation?.productName || 'N/A'}
-                      </TableCell>
-                      <TableCell>{bundle.partnerName || 'N/A'}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {formatDate(bundle.generatedAt)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(bundle.deliveryStatus)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {bundle.format?.toUpperCase() || 'XML'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              onClick={() => setLocation(`/t3/${bundle.bundleId}`)}
-                              className="cursor-pointer"
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => window.open(`/api/t3/download/${bundle.bundleId}`, '_blank')}
-                              className="cursor-pointer"  
-                            >
-                              <Download className="mr-2 h-4 w-4" />
-                              Download
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          
-          {/* Pagination */}
-          {!isLoading && !error && data?.bundles?.length > 0 && (
-            <div className="mt-4">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
-                    />
-                  </PaginationItem>
-                  {[...Array(Math.min(5, data.totalPages || 1))].map((_, i) => (
-                    <PaginationItem key={i}>
-                      <PaginationLink
-                        onClick={() => setPage(i + 1)}
-                        isActive={page === i + 1}
-                      >
-                        {i + 1}
-                      </PaginationLink>
+            
+            {/* Pagination */}
+            {!isLoading && !error && data?.bundles?.length > 0 && (
+              <div className="mt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
                     </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setPage(p => p + 1)}
-                      className={page >= (data.totalPages || 1) ? 'pointer-events-none opacity-50' : ''}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                    {[...Array(Math.min(5, data?.totalPages || 1))].map((_, i) => (
+                      <PaginationItem key={i}>
+                        <PaginationLink
+                          onClick={() => setPage(i + 1)}
+                          isActive={page === i + 1}
+                        >
+                          {i + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setPage(p => p + 1)}
+                        className={page >= (data?.totalPages || 1) ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
   );
 }
