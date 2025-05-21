@@ -26,6 +26,7 @@ import { inventoryTransactionRouter } from './inventory-transaction-routes';
 import { salesOrderRouter } from './sales-order-routes';
 import { salesOrderItemRouter } from './sales-order-item-routes';
 import { t3Router } from './t3-routes';
+import { invoiceRouter } from './invoice-routes';
 import { s3Monitor } from './s3-monitor';
 
 // Helper function to generate proper download URLs for the current environment
@@ -113,6 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/sales-orders', salesOrderRouter);
   app.use('/api/sales-order-items', salesOrderItemRouter);
   app.use('/api/t3', t3Router);
+  app.use('/api/invoices', invoiceRouter);
   
   // === File Upload & Processing ===
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {
