@@ -24,6 +24,8 @@ import InventoryDashboard from "@/pages/inventory/index";
 import ScanProductInPage from "@/pages/inventory/scan-in";
 import ScanProductOutPage from "@/pages/inventory/scan-out";
 import InventoryLedgerPage from "@/pages/inventory/ledger";
+import T3ListPage from "@/pages/t3-list-page";
+import T3Page from "@/pages/t3-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -55,6 +57,11 @@ function Router() {
       <ProtectedRoute path="/inventory/scan-in" component={ScanProductInPage} />
       <ProtectedRoute path="/inventory/scan-out" component={ScanProductOutPage} />
       <ProtectedRoute path="/inventory/ledger" component={InventoryLedgerPage} />
+      
+      {/* T3 Document Pages */}
+      <ProtectedRoute path="/t3" component={T3ListPage} />
+      <ProtectedRoute path="/t3/:bundleId" component={T3Page} />
+      
       <Route path="/qr-test" component={QrTest} />
       <Route component={NotFound} />
     </Switch>
