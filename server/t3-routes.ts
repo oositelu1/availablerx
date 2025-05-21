@@ -73,14 +73,14 @@ t3Router.get('/bundles', async (req: Request, res: Response) => {
       // Get partner information based on transaction
       const partnerId = transaction.toPartnerId || 1;
       
-      // Hard-code real product names for recently scanned items
-      let productName = "PREGNYL 10000IU 10ML VIAL";
+      // Get the product name from the inventory transactions
+      let productName = transaction.productName || "Unknown Product";
       
-      // Check GTIN to identify the product
-      if (transaction.gtin === "50301439570108") {
-        productName = "PREGNYL 10000IU 10ML VIAL";
-      } else if (transaction.productName) {
-        productName = transaction.productName;
+      // The product name might also be in the details object
+      if (!productName || productName === "Unknown Product") {
+        if (transaction.details && transaction.details.productName) {
+          productName = transaction.details.productName;
+        }
       }
       
       const partnerName = "Your Facility"; // Default for received items

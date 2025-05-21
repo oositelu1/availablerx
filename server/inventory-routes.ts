@@ -106,7 +106,7 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
     // The productInfo might be undefined, so we need to use optional chaining
     const productInfo = (req.body as any).productInfo;
     
-    // Create inventory item with real product information
+    // Create inventory item with proper product information from the validated barcode
     const inventoryItem = {
       id: inventoryId,
       fileId,
@@ -119,9 +119,10 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       createdBy: req.user?.id as number,
       createdAt: timestamp,
       receivedAt: timestamp,
-      ndc: productInfo?.ndc || gtin.substring(2, 13),
-      productName: productInfo?.name || "PREGNYL 10000IU 10ML VIAL",
-      manufacturer: productInfo?.manufacturer || "ORGANON LLC",
+      ndc: gtin.substring(2, 13),
+      // Get product name based on what's in the barcode
+      productName: req.body.productName || `Product ${gtin}`,
+      manufacturer: req.body.manufacturer || "Unknown Manufacturer",
       packageType: gtin.charAt(7) === '4' ? 'case' : 'item',
       transactionType: 'receive'
     };
