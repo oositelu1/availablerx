@@ -3,7 +3,8 @@ import {
   purchaseOrders, purchaseOrderItems, salesOrders, salesOrderItems, 
   epcisPoAssociations, productItems, scannedItems,
   inventory, inventoryTransactions,
-  validationSessions, auditLogs 
+  validationSessions, auditLogs,
+  invoices, invoiceItems
 } from "@shared/schema";
 import type { 
   User, InsertUser, Partner, InsertPartner, PartnerLocation, InsertPartnerLocation,
@@ -13,7 +14,8 @@ import type {
   EpcisPoAssociation, InsertEpcisPoAssociation,
   ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
   Inventory, InsertInventory, InventoryTransaction, InsertInventoryTransaction,
-  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
+  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog,
+  Invoice, InsertInvoice, InvoiceItem, InsertInvoiceItem
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";

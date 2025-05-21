@@ -30,6 +30,7 @@ import T3CreatePage from "@/pages/t3-create-page";
 import T3LedgerPage from "@/pages/t3-ledger-page";
 import EnhancedT3Page from "@/pages/enhanced-t3-page";
 import MultiPageT3View from "@/pages/multi-page-t3-view";
+import InvoiceUploadPage from "@/pages/invoice-upload-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -69,6 +70,9 @@ function Router() {
       <ProtectedRoute path="/t3/enhanced/:bundleId" component={EnhancedT3Page} />
       <ProtectedRoute path="/t3/multi-page/:bundleId" component={MultiPageT3View} />
       <ProtectedRoute path="/t3/:bundleId" component={T3Page} />
+      
+      {/* Invoice Management */}
+      <ProtectedRoute path="/invoices/upload" component={InvoiceUploadPage} />
       
       <Route path="/qr-test" component={QrTest} />
       <Route component={NotFound} />
