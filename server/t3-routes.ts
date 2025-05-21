@@ -1,11 +1,14 @@
 import { Router, Request, Response } from 'express';
-// Temporarily comment out the t3Service import since we're using mock data
-// import { t3Service } from './t3-service';
 import { checkAuthenticated } from './auth-middleware';
 import { storage } from './storage';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+
+// Import inventory-specific globals
+declare global {
+  var inventoryTransactions: any[];
+}
 
 export const t3Router = Router();
 
@@ -56,48 +59,57 @@ t3Router.post('/create', async (req: Request, res: Response) => {
  */
 t3Router.get('/bundles', async (req: Request, res: Response) => {
   try {
-    // In a real implementation, we would query the database
-    // For now, return mock sample data for demonstration
-    const bundles = [
-      {
-        id: 1,
-        bundleId: 'T3-12345',
+    // Access the actual inventory transactions from global storage
+    if (!global.inventoryTransactions || global.inventoryTransactions.length === 0) {
+      // If no transactions exist yet, return empty array
+      return res.json({ bundles: [], totalPages: 0 });
+    }
+
+    // Convert inventory transactions to T3 bundles
+    const bundles = global.inventoryTransactions.map((transaction, index) => {
+      // Get partner information based on transaction
+      const partnerId = transaction.toPartnerId || 1;
+      const partnerName = "Your Facility"; // Default for received items
+      
+      // For transactions with a receiving status, set partner to the sender
+      const deliveryStatus = transaction.transactionType === 'receive' ? 'received' : 'pending';
+      
+      // Create a unique bundle ID for each transaction
+      const bundleId = `T3-${transaction.id}`;
+      
+      return {
+        id: transaction.id,
+        bundleId,
         format: 'xml',
-        generatedAt: new Date(),
+        generatedAt: transaction.transactionDate || new Date(),
         deliveryMethod: 'as2',
-        deliveryStatus: 'sent',
-        partnerName: 'Acme Pharmaceuticals',
+        deliveryStatus,
+        partnerName,
         transactionInformation: {
-          transactionId: 'TX-123456',
-          gtin: '00301430957010',
-          ndc: '301430957010',
-          productName: 'SODIUM FERRIC GLUCONATE',
-          lotNumber: '24052241',
-          expirationDate: '2026-09-30',
+          transactionId: `TX-${transaction.id}`,
+          gtin: transaction.gtin,
+          ndc: transaction.gtin ? transaction.gtin.substring(2, 13) : 'N/A',
+          productName: transaction.productName || 'Pharmaceutical Product',
+          lotNumber: transaction.lotNumber,
+          expirationDate: transaction.expirationDate,
           quantity: 1
         }
-      },
-      {
-        id: 2,
-        bundleId: 'T3-67890',
-        format: 'json',
-        generatedAt: new Date(Date.now() - 86400000), // yesterday
-        deliveryMethod: 'presigned_url',
-        deliveryStatus: 'delivered',
-        partnerName: 'MedSupply Inc.',
-        transactionInformation: {
-          transactionId: 'TX-789012',
-          gtin: '00301430957010',
-          ndc: '301430957010',
-          productName: 'AMOXICILLIN 500MG',
-          lotNumber: 'AMX5001',
-          expirationDate: '2026-05-15',
-          quantity: 10
-        }
-      }
-    ];
+      };
+    }).reverse(); // Show newest first
 
-    res.json({ bundles });
+    // Apply pagination
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = 10;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedBundles = bundles.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(bundles.length / pageSize);
+
+    res.json({ 
+      bundles: paginatedBundles,
+      totalPages,
+      totalCount: bundles.length
+    });
   } catch (error: any) {
     console.error('Error fetching T3 bundles:', error);
     res.status(500).json({ message: error.message });
@@ -112,50 +124,60 @@ t3Router.get('/bundles/:bundleId', async (req: Request, res: Response) => {
   try {
     const { bundleId } = req.params;
     
-    // In a real implementation, fetch from database
-    // For now, return mock data
+    // Extract the transaction ID from the bundle ID (T3-123 -> 123)
+    const transactionId = parseInt(bundleId.replace('T3-', ''));
+    
+    // Find the transaction in our global storage
+    if (!global.inventoryTransactions) {
+      return res.status(404).json({ message: "No transactions found" });
+    }
+    
+    const transaction = global.inventoryTransactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+    
+    // Create a T3 bundle from the actual transaction data
     const bundle = {
-      id: 1,
+      id: transaction.id,
       bundleId,
-      transactionInformationId: 123,
+      transactionInformationId: transaction.id,
       format: 'xml',
-      generatedAt: new Date(),
+      generatedAt: transaction.transactionDate || new Date(),
       deliveryMethod: 'as2',
-      deliveryStatus: 'sent',
-      partnerName: 'Acme Pharmaceuticals',
-      // Include more comprehensive data
+      deliveryStatus: transaction.transactionType === 'receive' ? 'received' : 'pending',
+      partnerName: "Your Facility", // Default for received items
+      
+      // Include comprehensive data based on the actual transaction
       transactionInformation: {
-        transactionId: 'TX-123456',
-        gtin: '00301430957010',
-        ndc: '301430957010',
-        productName: 'SODIUM FERRIC GLUCONATE',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
+        transactionId: `TX-${transaction.id}`,
+        gtin: transaction.gtin,
+        ndc: transaction.gtin ? transaction.gtin.substring(2, 13) : 'N/A',
+        productName: transaction.productName || 'Pharmaceutical Product',
+        lotNumber: transaction.lotNumber,
+        expirationDate: transaction.expirationDate,
         quantity: 1
       },
+      
+      // Create a transaction history for this item
       transactionHistory: [
         {
           sequenceNumber: 1,
-          transactionDate: '2025-05-10T14:30:00Z',
-          senderGln: '0123456789012',
-          receiverGln: '9876543210123',
-          senderName: 'Manufacturer Inc.',
-          receiverName: 'Distributor LLC'
-        },
-        {
-          sequenceNumber: 2,
-          transactionDate: '2025-05-15T10:20:00Z',
-          senderGln: '9876543210123',
-          receiverGln: '5555555555555',
-          senderName: 'Distributor LLC',
-          receiverName: 'Pharmacy Corp.'
+          transactionDate: transaction.transactionDate || new Date().toISOString(),
+          senderGln: '0123456789012', // Manufacturer GLN (could be retrieved from EPCIS file)
+          receiverGln: '9876543210123', // Your facility GLN
+          senderName: 'Manufacturer',
+          receiverName: 'Your Facility'
         }
       ],
+      
+      // Create a standard transaction statement
       transactionStatement: {
-        signedBy: 'John Smith',
+        signedBy: req.user?.fullName || 'Authorized User',
         signerTitle: 'Authorized Representative',
-        signerCompany: 'Distributor LLC',
-        signatureDate: '2025-05-15T10:20:00Z'
+        signerCompany: 'Your Company',
+        signatureDate: new Date().toISOString()
       }
     };
     
