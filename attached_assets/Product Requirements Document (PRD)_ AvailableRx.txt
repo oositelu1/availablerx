@@ -1,0 +1,113 @@
+﻿Product Requirements Document (PRD): AvailableRx
+Product Name: AvailableRx (placeholder)
+Overview & Context: The pharmaceutical industry is under increasing regulatory pressure to ensure end-to-end traceability of drug products throughout the supply chain. The Drug Supply Chain Security Act (DSCSA) mandates that trading partners must provide product transaction documentation—Transaction Information, Transaction History, and Transaction Statement (T3)—for every drug movement. Most organizations today rely on a fragmented mix of tools such as OneDrive, email, manual spreadsheets, and third-party platforms like TrackTraceRx to manage this workflow. This not only introduces significant compliance risk but also causes inefficiencies in billing, reconciliation, and audit readiness.
+AvailableRx is a unified platform designed to replace these fragmented workflows with an integrated, automated, and auditable system that manages Accounts Payable (AP), Accounts Receivable (AR), EPCIS traceability, and full DSCSA-compliant T3 documentation. The system handles invoice processing, document parsing, T3 generation, and chain-of-custody linking—without relying on external platforms. By centralizing these workflows and enforcing regulatory compliance, AvailableRx enables pharmaceutical companies to improve efficiency, reduce risk, and build trust across their supply chain network.
+________________
+
+
+1. Target Users
+* Pharmaceutical Distributors
+* Pharmacies
+* Drug Manufacturers
+* Direct-to-Consumer Pharma Brands
+* Wholesalers & Third-Party Logistics Providers
+________________
+
+
+2. Core Problems Solved
+* Manual reconciliation of Purchase Orders (POs), invoices, and T3s
+* Non-scalable T3 generation with high compliance risk
+* Fragmented storage and version control of traceability documents
+* Lack of visibility across supply chain hops
+* No single source of truth for compliance, traceability, and payments
+________________
+
+
+3. Workflow Architecture
+Supplier-Side (AP):
+1. Purchase Order (PO) is created (by distributor, who is the reference user) in SAP (ERP system)
+2. Supplier sends to distributor:
+   * T3 PDF via email and/or
+   * EPCIS XML file
+3. Invoice PDF is received and parsed
+4. T3 (PDF or EPCIS) is parsed and matched
+5. Validate invoice and T3/EPCIS against PO
+6. Generate internal T3 (editable preview)
+7. Compile final outbound T3 (page 1)
+8. Post invoice to SAP
+9. Store invoice, T3s, and EPCIS internally
+Customer-Side (AR):
+1. Sales order created in SAP
+2. Match products to EPCIS/lot-level data
+3. Generate invoice + outbound T3
+4. Deliver both via email or portal
+5. Archive and link to PO, EPCIS, and compliance logs
+4. Key Features & Modules
+A. EPCIS Ingestion & Parsing
+* Accept EPCIS XML uploads via drag/drop or API
+* Parse key fields:
+   * GTIN / NDC
+   * Lot number
+   * Serial numbers
+   * Expiration date
+   * Event type (shipping, receiving)
+   * PO numbers
+* Link EPCIS data to invoice and PO records
+B. Invoice Management (AP + AR)
+Supplier-Side (AP):
+* Upload invoice PDF or receive via email (from the supplier)
+* Upload T3 (if provided, usually PDF) from supplier
+* OCR extracts:
+   * Invoice number, date, PO, pricing
+   * NDC, lot number, expiration, quantity
+* Match invoice against:
+   * SAP PO
+   * T3 or EPCIS file (if available)
+* If no mismatch: auto-create invoice in SAP via API
+* Archive internally with structured naming
+Customer-Side (AR):
+* Auto-generate invoice from SAP sales order
+* Attach validated EPCIS + outbound T3
+* Send invoice + T3 via portal or email to the customer
+* Monitor payment status
+C. T3 Generation & Compliance
+* Accept T3s from suppliers via:
+   * PDF (email)
+   * EPCIS XML file
+* OCR/Parse supplier T3 (PDF)
+* System auto-generates:
+   * Internal T3 from Distributor to customer
+   * Final compiled T3 with:
+      * Page 3: Original Supplier T3
+      * Page 2: Internal SAP-generated T3
+      * Page 1: Final compiled outbound T3
+* Output in PDF + JSON/XML (for regulatory bodies)
+* Validates against FDCA Sec. 581(27)
+D. File Storage & Audit Trail
+* Structured cloud-based storage:
+   * Invoice, PO, T3, EPCIS
+* Organized by:
+   * PO Number, Invoice Number, Date, Partner
+* Searchable, taggable, version-controlled
+* Immutable audit trail with:
+   * Edit history
+   * Upload/download logs
+
+
+________________
+
+
+5. Security & Compliance
+* 21 CFR Part 11 support
+* Encrypted storage + digital signatures for T3
+* Immutable logging for T3 edits, uploads, invoice creation
+________________
+
+
+6. MVP Scope
+* EPCIS and T3 ingestion (PDF/XML)
+* Invoice OCR and validation against PO + EPCIS
+* Internal T3 generator/editor
+* Multi-page T3 compiler (page 1, 2, 3 model)
+* Internal archive system with search + permissions
+________________
