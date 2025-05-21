@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Timeline, TimelineItem, TimelineIcon, TimelineConnector, TimelineContent, TimelineTitle, TimelineTime, TimelineDescription } from "@/components/ui/timeline";
+import { Timeline, TimelineItem, TimelineIcon, TimelineConnector, TimelineContent, TimelineTitle, TimelineTime, TimelineDescription } from "@/components/ui/timeline-components";
 import { ArrowLeftRight, Calendar, Building } from "lucide-react";
 
 // Define the Transaction History props interface
