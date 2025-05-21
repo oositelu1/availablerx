@@ -73,7 +73,9 @@ export default function T3Page() {
   };
 
   // Get delivery status badge color
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    
     switch (status.toLowerCase()) {
       case 'sent':
         return 'bg-blue-100 text-blue-800';
