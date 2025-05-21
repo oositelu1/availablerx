@@ -57,7 +57,7 @@ t3Router.post('/create', async (req: Request, res: Response) => {
 t3Router.get('/bundles', async (req: Request, res: Response) => {
   try {
     // In a real implementation, we would query the database
-    // For now, mock some sample data
+    // For now, return mock sample data for demonstration
     const bundles = [
       {
         id: 1,
@@ -66,7 +66,16 @@ t3Router.get('/bundles', async (req: Request, res: Response) => {
         generatedAt: new Date(),
         deliveryMethod: 'as2',
         deliveryStatus: 'sent',
-        partnerName: 'Acme Pharmaceuticals'
+        partnerName: 'Acme Pharmaceuticals',
+        transactionInformation: {
+          transactionId: 'TX-123456',
+          gtin: '00301430957010',
+          ndc: '301430957010',
+          productName: 'SODIUM FERRIC GLUCONATE',
+          lotNumber: '24052241',
+          expirationDate: '2026-09-30',
+          quantity: 1
+        }
       },
       {
         id: 2,
@@ -75,7 +84,16 @@ t3Router.get('/bundles', async (req: Request, res: Response) => {
         generatedAt: new Date(Date.now() - 86400000), // yesterday
         deliveryMethod: 'presigned_url',
         deliveryStatus: 'delivered',
-        partnerName: 'MedSupply Inc.'
+        partnerName: 'MedSupply Inc.',
+        transactionInformation: {
+          transactionId: 'TX-789012',
+          gtin: '00301430957010',
+          ndc: '301430957010',
+          productName: 'AMOXICILLIN 500MG',
+          lotNumber: 'AMX5001',
+          expirationDate: '2026-05-15',
+          quantity: 10
+        }
       }
     ];
 

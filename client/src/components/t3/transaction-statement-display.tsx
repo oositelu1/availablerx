@@ -1,16 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { FileText, CheckCircle, User, Building, Calendar } from "lucide-react";
+import { FileCheck, User, Calendar, Shield } from "lucide-react";
 
 // Define the Transaction Statement props interface
 interface TransactionStatementProps {
   statement: {
-    text: string;
-    signedBy: string;
+    id?: number;
+    certification?: string;
+    statements?: string[];
+    signature?: {
+      signedBy: string;
+      title: string;
+      signatureDate: string | Date;
+    };
+    signedBy?: string;
     signerTitle?: string;
-    signerCompany: string;
-    signatureDate: string;
+    signerCompany?: string;
+    signatureDate?: string | Date;
   };
 }
 
@@ -26,90 +31,86 @@ export function TransactionStatementDisplay({ statement }: TransactionStatementP
   }
 
   // Format date for display
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
+  const formatDate = (dateInput?: string | Date) => {
+    if (!dateInput) return "Not specified";
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleDateString();
   };
+
+  // Get signature details from either format
+  const signedBy = statement.signature?.signedBy || statement.signedBy || "Not specified";
+  const signerTitle = statement.signature?.title || statement.signerTitle || "Not specified";
+  const signerCompany = statement.signerCompany || "Not specified";
+  const signatureDate = statement.signature?.signatureDate || statement.signatureDate;
+
+  // Get statements array or create from certification string
+  const statementsList = statement.statements || 
+    (statement.certification ? [statement.certification] : []);
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Transaction Statement (TS)</h2>
       <p className="text-muted-foreground">
-        The Transaction Statement contains required DSCSA attestations about product authenticity, 
-        authorized trading partners, and data integrity.
+        The Transaction Statement contains the required DSCSA certifications that must accompany each transaction.
       </p>
       
-      {/* Statement text card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            DSCSA Transaction Statement
+            <FileCheck className="h-5 w-5" />
+            DSCSA Certifications
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="bg-muted p-4 rounded-md">
-            <pre className="whitespace-pre-wrap text-sm">
-              {statement.text}
-            </pre>
+        <CardContent className="space-y-6">
+          <div className="p-4 bg-primary/5 rounded-md border">
+            {statementsList.length > 0 ? (
+              <ul className="space-y-3">
+                {statementsList.map((item, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <Shield className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <p className="text-sm">{item}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No statement certifications provided.</p>
+            )}
           </div>
           
-          <Alert className="mt-4">
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription className="ml-2">
-              This statement is required by the Drug Supply Chain Security Act (DSCSA) 
-              and confirms compliance with regulatory requirements.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-      
-      {/* Signature information card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Signature Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="pt-4 border-t">
+            <h3 className="text-lg font-medium mb-4">Signature</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">Signed By</h4>
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{statement.signedBy}</span>
-                </div>
-                {statement.signerTitle && (
-                  <div className="text-sm text-muted-foreground">
-                    {statement.signerTitle}
-                  </div>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Signed By
+                </p>
+                <p className="font-semibold">{signedBy}</p>
+                <p className="text-sm text-muted-foreground">{signerTitle}</p>
+                {signerCompany && (
+                  <p className="text-sm text-muted-foreground">{signerCompany}</p>
                 )}
               </div>
               
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">Company</h4>
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span>{statement.signerCompany}</span>
-                </div>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Signature Date
+                </p>
+                <p>{formatDate(signatureDate)}</p>
               </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Signature Date</h4>
-              <Badge variant="outline" className="flex items-center gap-2 w-fit">
-                <Calendar className="h-3 w-3" />
-                <span>{formatDate(statement.signatureDate)}</span>
-              </Badge>
-            </div>
-            
-            <div className="flex items-center gap-2 mt-4">
-              <div className="h-4 w-4 rounded-full bg-green-500"></div>
-              <span>Digital signature verified</span>
             </div>
           </div>
         </CardContent>
       </Card>
+      
+      <div className="bg-muted p-4 rounded-md">
+        <p className="text-sm font-medium">Legal Note:</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          The Transaction Statement is a legal attestation required by the Drug Supply Chain Security Act (DSCSA). 
+          By providing this statement, the transferring party certifies compliance with DSCSA requirements.
+        </p>
+      </div>
     </div>
   );
 }
