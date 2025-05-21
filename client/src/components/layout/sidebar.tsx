@@ -13,7 +13,8 @@ import {
   Boxes,
   PackageCheck,
   PackageX,
-  ClipboardList
+  ClipboardList,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -68,6 +69,8 @@ export function Sidebar() {
     { path: "/inventory/scan-in", label: "Scan Product In", icon: <PackageCheck className="mr-3 h-5 w-5" />, indent: true },
     { path: "/inventory/scan-out", label: "Scan Product Out", icon: <PackageX className="mr-3 h-5 w-5" />, indent: true },
     { path: "/inventory/ledger", label: "Inventory Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, indent: true },
+    // T3 Document section
+    { path: "/t3", label: "T3 Documents", icon: <FileText className="mr-3 h-5 w-5" /> },
     { path: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
   ];
 
