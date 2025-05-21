@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { 
@@ -14,24 +15,40 @@ import {
   PackageCheck,
   PackageX,
   ClipboardList,
-  FileText
+  FileText,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type NavItem = {
   path: string;
   label: string;
   icon: React.ReactNode;
   indent?: boolean;
+  isSubItem?: boolean;
+  subItems?: NavItem[];
 };
 
 export function Sidebar() {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    inventory: false,
+    t3: false
+  });
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   const handleLogout = async () => {
     try {
@@ -66,14 +83,26 @@ export function Sidebar() {
     { path: "/sales-orders", label: "Sales Orders", icon: <Send className="mr-3 h-5 w-5" /> },
     // Invoice section
     { path: "/invoices/upload", label: "Invoice Processing", icon: <FileText className="mr-3 h-5 w-5" /> },
-    // Inventory section with improved icons
-    { path: "/inventory", label: "Inventory", icon: <Boxes className="mr-3 h-5 w-5" /> },
-    { path: "/inventory/scan-in", label: "Scan Product In", icon: <PackageCheck className="mr-3 h-5 w-5" />, indent: true },
-    { path: "/inventory/scan-out", label: "Scan Product Out", icon: <PackageX className="mr-3 h-5 w-5" />, indent: true },
-    { path: "/inventory/ledger", label: "Inventory Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, indent: true },
-    // T3 Document section
-    { path: "/t3", label: "T3 Documents", icon: <FileText className="mr-3 h-5 w-5" /> },
-    { path: "/t3/ledger", label: "T3 Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, indent: true },
+    // Inventory section with collapsible menu
+    { 
+      path: "/inventory", 
+      label: "Inventory", 
+      icon: <Boxes className="mr-3 h-5 w-5" />,
+      subItems: [
+        { path: "/inventory/scan-in", label: "Scan Product In", icon: <PackageCheck className="mr-3 h-5 w-5" />, isSubItem: true },
+        { path: "/inventory/scan-out", label: "Scan Product Out", icon: <PackageX className="mr-3 h-5 w-5" />, isSubItem: true },
+        { path: "/inventory/ledger", label: "Inventory Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, isSubItem: true },
+      ]
+    },
+    // T3 Document section with collapsible menu
+    { 
+      path: "/t3", 
+      label: "T3 Documents", 
+      icon: <FileText className="mr-3 h-5 w-5" />,
+      subItems: [
+        { path: "/t3/ledger", label: "T3 Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, isSubItem: true },
+      ]
+    },
     { path: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
   ];
 
@@ -87,16 +116,58 @@ export function Sidebar() {
         <ul>
           {navItems.map((item) => (
             <li key={item.path}>
-              <Link href={item.path}>
-                <div
-                  className={`nav-item flex items-center ${item.indent ? 'pl-10' : 'px-4'} py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
-                    location === item.path ? "active bg-neutral-50 font-medium" : ""
-                  } ${item.indent ? 'text-sm' : ''}`}
+              {item.subItems ? (
+                <Collapsible
+                  open={openSections[item.label.toLowerCase().replace(' ', '-')]}
+                  onOpenChange={() => toggleSection(item.label.toLowerCase().replace(' ', '-'))}
                 >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </div>
-              </Link>
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={`nav-item flex items-center justify-between px-4 py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
+                        location.startsWith(item.path) ? 'bg-neutral-50 text-primary font-medium' : ''
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </div>
+                      {openSections[item.label.toLowerCase().replace(' ', '-')] ? 
+                        <ChevronDown className="h-4 w-4" /> : 
+                        <ChevronRight className="h-4 w-4" />
+                      }
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <ul>
+                      {item.subItems.map((subItem) => (
+                        <li key={subItem.path}>
+                          <Link href={subItem.path}>
+                            <div
+                              className={`nav-item flex items-center pl-10 py-2.5 text-sm text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
+                                location === subItem.path ? 'bg-neutral-50 text-primary font-medium' : ''
+                              }`}
+                            >
+                              {subItem.icon}
+                              <span>{subItem.label}</span>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <Link href={item.path}>
+                  <div
+                    className={`nav-item flex items-center ${item.indent ? 'pl-10' : 'px-4'} py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
+                      location === item.path ? "active bg-neutral-50 font-medium" : ""
+                    } ${item.indent ? 'text-sm' : ''}`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </div>
+                </Link>
+              )}
             </li>
           ))}
         </ul>
