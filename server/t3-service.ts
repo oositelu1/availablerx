@@ -255,11 +255,11 @@ export class T3Service {
     </product>
     <lot>
       <number>${ti.lotNumber}</number>
-      <expirationDate>${ti.expirationDate.toISOString().split('T')[0]}</expirationDate>
+      <expirationDate>${new Date(ti.expirationDate).toISOString().split('T')[0]}</expirationDate>
       <quantity>${ti.quantity}</quantity>
     </lot>
     <transaction>
-      <date>${ti.transactionDate.toISOString()}</date>
+      <date>${new Date(ti.transactionDate).toISOString()}</date>
       <senderGln>${ti.senderGln}</senderGln>
       <receiverGln>${ti.receiverGln}</receiverGln>
     </transaction>
@@ -272,7 +272,7 @@ export class T3Service {
       xml += `
     <historyEntry>
       <sequenceNumber>${entry.sequenceNumber}</sequenceNumber>
-      <transactionDate>${entry.transactionDate.toISOString()}</transactionDate>
+      <transactionDate>${new Date(entry.transactionDate).toISOString()}</transactionDate>
       <senderGln>${entry.senderGln}</senderGln>
       <receiverGln>${entry.receiverGln}</receiverGln>
     </historyEntry>`;
@@ -286,7 +286,7 @@ export class T3Service {
     <signedBy>${ts.signedBy}</signedBy>
     <signerTitle>${ts.signerTitle || ''}</signerTitle>
     <signerCompany>${ts.signerCompany}</signerCompany>
-    <signatureDate>${ts.signatureDate.toISOString()}</signatureDate>
+    <signatureDate>${new Date(ts.signatureDate).toISOString()}</signatureDate>
   </transactionStatement>
 </t3Document>`;
     
@@ -316,18 +316,18 @@ export class T3Service {
         },
         lot: {
           number: ti.lotNumber,
-          expirationDate: ti.expirationDate.toISOString().split('T')[0],
+          expirationDate: new Date(ti.expirationDate).toISOString().split('T')[0],
           quantity: ti.quantity
         },
         transaction: {
-          date: ti.transactionDate.toISOString(),
+          date: new Date(ti.transactionDate).toISOString(),
           senderGln: ti.senderGln,
           receiverGln: ti.receiverGln
         }
       },
       transactionHistory: th.map(entry => ({
         sequenceNumber: entry.sequenceNumber,
-        transactionDate: entry.transactionDate.toISOString(),
+        transactionDate: new Date(entry.transactionDate).toISOString(),
         senderGln: entry.senderGln,
         receiverGln: entry.receiverGln
       })),
@@ -336,7 +336,7 @@ export class T3Service {
         signedBy: ts.signedBy,
         signerTitle: ts.signerTitle,
         signerCompany: ts.signerCompany,
-        signatureDate: ts.signatureDate.toISOString()
+        signatureDate: new Date(ts.signatureDate).toISOString()
       }
     };
     
