@@ -272,6 +272,13 @@ export default function T3ListPage() {
                                 View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem 
+                                onClick={() => setLocation(`/t3/enhanced/${bundle.bundleId}`)}
+                                className="cursor-pointer"
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Enhanced T3 View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
                                 onClick={() => window.open(`/api/t3/download/${bundle.bundleId}`, '_blank')}
                                 className="cursor-pointer"  
                               >
