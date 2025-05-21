@@ -25,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, ArrowLeft, ShieldCheck, History, FileText } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
 // Define the form schema
@@ -34,6 +36,12 @@ const createT3Schema = z.object({
   partnerId: z.string().min(1, "Select a trading partner"),
   format: z.enum(["xml", "json", "pdf"]).default("xml"),
   deliveryMethod: z.enum(["as2", "https", "presigned_url"]).default("as2"),
+  referenceNumber: z.string().optional(),
+  purchaseOrderNumber: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  includeCompleteHistory: z.boolean().default(true),
+  includeStandardStatement: z.boolean().default(true),
+  additionalNotes: z.string().optional(),
 });
 
 type CreateT3FormValues = z.infer<typeof createT3Schema>;
@@ -61,6 +69,8 @@ export default function T3CreatePage() {
       partnerId: "",
       format: "xml",
       deliveryMethod: "as2",
+      includeCompleteHistory: true,
+      includeStandardStatement: true,
     },
   });
   
@@ -278,6 +288,146 @@ export default function T3CreatePage() {
                     </Select>
                     <FormDescription>
                       How the T3 document will be delivered to the trading partner
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Reference Information Section */}
+              <div className="border p-4 rounded-md bg-muted/20 space-y-4">
+                <h3 className="text-md font-medium">Transaction References</h3>
+                
+                {/* Reference Number */}
+                <FormField
+                  control={form.control}
+                  name="referenceNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reference Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., REF-12345" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormDescription>
+                        A unique reference number for this transaction
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Purchase Order */}
+                <FormField
+                  control={form.control}
+                  name="purchaseOrderNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purchase Order Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., PO-78910" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormDescription>
+                        Related purchase order number, if applicable
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Invoice Number */}
+                <FormField
+                  control={form.control}
+                  name="invoiceNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Invoice Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., INV-54321" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormDescription>
+                        Related invoice number, if applicable
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* DSCSA Compliance Options */}
+              <div className="border p-4 rounded-md bg-primary/5 space-y-4">
+                <h3 className="text-md font-medium flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  DSCSA Compliance Options
+                </h3>
+                
+                {/* Include Complete History */}
+                <FormField
+                  control={form.control}
+                  name="includeCompleteHistory"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="flex items-center gap-2">
+                          <History className="h-4 w-4" />
+                          Include Complete Transaction History
+                        </FormLabel>
+                        <FormDescription>
+                          Includes the full chain of ownership from manufacturer to current ownership
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                
+                {/* Include Standard Statement */}
+                <FormField
+                  control={form.control}
+                  name="includeStandardStatement"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Include Standard Transaction Statement
+                        </FormLabel>
+                        <FormDescription>
+                          Includes the standard FDCA Sec. 581 (27) (A)-(G) compliance statement
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Additional Notes */}
+              <FormField
+                control={form.control}
+                name="additionalNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Additional Notes</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Any special notes or instructions" 
+                        {...field} 
+                        value={field.value || ""} 
+                        className="min-h-[80px]"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Optional notes to include with this T3 document
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
