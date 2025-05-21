@@ -65,10 +65,22 @@ t3Router.get('/bundles', async (req: Request, res: Response) => {
       return res.json({ bundles: [], totalPages: 0 });
     }
 
+    // Log the actual inventory transactions for debugging
+    console.log("T3 API - All inventory transactions:", JSON.stringify(global.inventoryTransactions));
+    
     // Convert inventory transactions to T3 bundles
     const bundles = global.inventoryTransactions.map((transaction, index) => {
       // Get partner information based on transaction
       const partnerId = transaction.toPartnerId || 1;
+      
+      // Use actual product name if available
+      let productName = "Pharmaceutical Product";
+      if (transaction.productName) {
+        productName = transaction.productName;
+      } else if (transaction.details && transaction.details.productName) {
+        productName = transaction.details.productName;
+      }
+      
       const partnerName = "Your Facility"; // Default for received items
       
       // For transactions with a receiving status, set partner to the sender
