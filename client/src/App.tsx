@@ -27,6 +27,7 @@ import InventoryLedgerPage from "@/pages/inventory/ledger";
 import T3ListPage from "@/pages/t3-list-page";
 import T3Page from "@/pages/t3-page";
 import T3CreatePage from "@/pages/t3-create-page";
+import T3LedgerPage from "@/pages/t3-ledger-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
