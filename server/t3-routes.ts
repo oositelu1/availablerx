@@ -101,7 +101,7 @@ t3Router.get('/bundles', async (req: Request, res: Response) => {
           transactionId: `TX-${transaction.id}`,
           gtin: transaction.gtin,
           ndc: transaction.gtin ? transaction.gtin.substring(2, 13) : 'N/A',
-          productName: transaction.productName || 'Pharmaceutical Product',
+          productName: productName,
           lotNumber: transaction.lotNumber,
           expirationDate: transaction.expirationDate,
           quantity: 1
