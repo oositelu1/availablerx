@@ -154,12 +154,19 @@ export default function T3CreatePage() {
       {/* Create T3 Form */}
       <Card>
         <CardHeader>
-          <CardTitle>T3 Document Details</CardTitle>
+          <CardTitle>T3 Document Required by DSCSA</CardTitle>
           <CardDescription>
-            Select the transaction and trading partner to create a compliant T3 document
+            Complete all fields to create a DSCSA-compliant Transaction Information, Transaction History, and Transaction Statement (T3)
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-md mb-6 text-sm">
+            <p className="font-medium text-amber-800">Important Compliance Notice:</p>
+            <p className="mt-1 text-amber-700">
+              Per FDA regulations under DSCSA, all transactions of covered pharmaceutical products must be accompanied by Transaction Information (TI), 
+              Transaction History (TH), and Transaction Statement (TS). Failure to provide compliant documentation may result in regulatory penalties.
+            </p>
+          </div>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Inventory Transaction Selection */}

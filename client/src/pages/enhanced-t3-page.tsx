@@ -11,6 +11,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { EnhancedTransactionInfo } from '@/components/t3/enhanced-transaction-info';
 import { SimplifiedTransactionHistory } from '@/components/t3/simplified-transaction-history';
 import { EnhancedTransactionStatement } from '@/components/t3/enhanced-transaction-statement';
+import { DSCSAInfoSection } from '@/components/t3/dscsa-info-section';
 import { Layout } from '@/components/layout/layout';
 
 export default function EnhancedT3Page() {
@@ -303,57 +304,81 @@ export default function EnhancedT3Page() {
         </div>
         
         {/* Header section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <FileText className="h-8 w-8 text-primary" />
-              T3 Document
-            </h1>
-            <p className="text-muted-foreground">
-              Transaction Information, History, and Statement for <span className="font-medium">{data.productInfo.productName}</span>
-            </p>
+        <div className="print:hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                <FileText className="h-8 w-8 text-primary" />
+                DSCSA Transaction Documentation
+              </h1>
+              <p className="text-muted-foreground">
+                FDA-required Transaction Information, History, and Statement for <span className="font-medium">{data.productInfo.productName}</span>
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild className="gap-2">
+                <Link href="/t3">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={handlePrint} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+              <Button onClick={handleDownload} className="gap-2">
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" asChild className="gap-2">
-              <Link href="/t3">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Link>
-            </Button>
-            <Button variant="outline" onClick={handlePrint} className="gap-2">
-              <Printer className="h-4 w-4" />
-              Print
-            </Button>
-            <Button onClick={handleDownload} className="gap-2">
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
+          
+          <div className="mt-4 bg-amber-50 border border-amber-200 p-4 rounded-md text-sm">
+            <p className="font-medium text-amber-800">FDA DSCSA Compliance Documentation</p>
+            <p className="mt-1 text-amber-700">
+              This document contains all elements required by the Drug Supply Chain Security Act (DSCSA) for pharmaceutical transactions:
+              Transaction Information (TI), Transaction History (TH), and Transaction Statement (TS). 
+              Retain these records for a minimum of 6 years as required by FDA regulations.
+            </p>
           </div>
         </div>
 
         {/* Document Title and Meta - visible when printing */}
         <div className="hidden print:block border-b pb-4 mb-8">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Transaction Information, History, and Statement (T3)</h1>
             <div>
+              <h1 className="text-2xl font-bold">DSCSA TRANSACTION DOCUMENTATION (T3)</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Title II of the Drug Supply Chain Security Act (DSCSA) - FDA Required Transaction Records
+              </p>
+            </div>
+            <div className="text-right">
               <Badge variant="outline" className="text-base font-normal">
                 Document #{bundle.bundleId}
               </Badge>
+              <p className="text-sm mt-2">REGULATORY RECORD - MAINTAIN FOR 6 YEARS</p>
             </div>
           </div>
-          <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-            <div>Generated on {new Date(bundle.generatedAt).toLocaleDateString()}</div>
-            <div>Format: {bundle.format?.toUpperCase() || 'XML'}</div>
+          <div className="flex justify-between mt-4 text-sm">
+            <div>
+              <p className="font-medium">Generated on: {new Date(bundle.generatedAt).toLocaleDateString()}</p>
+              <p className="mt-1">Format: {bundle.format?.toUpperCase() || 'XML'}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-medium">FDA DSCSA Compliance Document</p>
+              <p className="mt-1">Authorized Distribution Record</p>
+            </div>
           </div>
         </div>
         
         {/* T3 Content tabs */}
         <div className="print:hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="ti">Transaction Information</TabsTrigger>
               <TabsTrigger value="th">Transaction History</TabsTrigger>
               <TabsTrigger value="ts">Transaction Statement</TabsTrigger>
+              <TabsTrigger value="dscsa">DSCSA Reference</TabsTrigger>
             </TabsList>
             
             <TabsContent value="ti" className="mt-6">
@@ -380,6 +405,10 @@ export default function EnhancedT3Page() {
                   "All transaction information and history has been accurately recorded and maintained."
                 ]}
               />
+            </TabsContent>
+            
+            <TabsContent value="dscsa" className="mt-6">
+              <DSCSAInfoSection />
             </TabsContent>
           </Tabs>
         </div>
