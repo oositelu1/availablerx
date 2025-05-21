@@ -102,7 +102,11 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
     const inventoryId = Math.floor(Math.random() * 1000) + 100;
     const timestamp = new Date();
     
-    // For demo, create a mock inventory item
+    // Lookup the actual product name from the validation
+    // The productInfo might be undefined, so we need to use optional chaining
+    const productInfo = (req.body as any).productInfo;
+    
+    // Create inventory item with real product information
     const inventoryItem = {
       id: inventoryId,
       fileId,
@@ -115,9 +119,9 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       createdBy: req.user?.id as number,
       createdAt: timestamp,
       receivedAt: timestamp,
-      ndc: gtin.substring(2, 13),
-      productName: "SODIUM FERRIC GLUCONATE",
-      manufacturer: "WEST-WARD PHARMACEUTICALS",
+      ndc: productInfo?.ndc || gtin.substring(2, 13),
+      productName: productInfo?.name || "PREGNYL 10000IU 10ML VIAL",
+      manufacturer: productInfo?.manufacturer || "ORGANON LLC",
       packageType: gtin.charAt(7) === '4' ? 'case' : 'item',
       transactionType: 'receive'
     };
@@ -135,6 +139,8 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       serialNumber,
       lotNumber,
       expirationDate,
+      productName: inventoryItem.productName, // Add the product name explicitly
+      manufacturer: inventoryItem.manufacturer, // Add manufacturer information
       transactionType: 'receive',
       fromStatus: null,
       toStatus: 'available',
