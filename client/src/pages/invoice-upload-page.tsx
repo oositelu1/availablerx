@@ -240,7 +240,7 @@ export default function InvoiceUploadPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None (Auto-detect)</SelectItem>
+                            <SelectItem value="none">None (Auto-detect)</SelectItem>
                             {purchaseOrders?.purchaseOrders?.map((po: any) => (
                               <SelectItem key={po.id} value={po.id.toString()}>
                                 PO-{po.poNumber} ({new Date(po.orderDate).toLocaleDateString()})
