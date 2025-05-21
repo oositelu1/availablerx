@@ -64,6 +64,8 @@ export function Sidebar() {
     { path: "/partners", label: "Partners", icon: <Users className="mr-3 h-5 w-5" /> },
     { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart className="mr-3 h-5 w-5" /> },
     { path: "/sales-orders", label: "Sales Orders", icon: <Send className="mr-3 h-5 w-5" /> },
+    // Invoice section
+    { path: "/invoices/upload", label: "Invoice Processing", icon: <FileText className="mr-3 h-5 w-5" /> },
     // Inventory section with improved icons
     { path: "/inventory", label: "Inventory", icon: <Boxes className="mr-3 h-5 w-5" /> },
     { path: "/inventory/scan-in", label: "Scan Product In", icon: <PackageCheck className="mr-3 h-5 w-5" />, indent: true },
