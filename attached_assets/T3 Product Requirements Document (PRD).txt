@@ -1,0 +1,122 @@
+﻿Product Requirements Document (PRD)
+Project: T3 Transaction Management Platform (DSCSA)
+
+________________
+
+
+1. Purpose
+Design and deliver a compliant, user-friendly platform to enable T3 compliance under DSCSA, allowing supply chain partners (suppliers, distributors, pharmacies) to generate, exchange, and archive Transaction Information (TI), Transaction History (TH), and Transaction Statements (TS) in accordance with FDA and GS1 standards.
+________________
+
+
+2. Scope
+In Scope:
+* Structured creation and storage of TI, TH, and TS per shipment
+* Support for EPCIS 1.2 and 2.0 standards (starting with 1.2)
+* T3 exchange via AS2, HTTPS, or downloadable URL
+* Simple visual interface for T3 chain-of-custody and audit
+________________
+
+
+3. Personas
+* Distributor Operator – sends/receives T3 with each shipment
+* Pharmacy Receiver – downloads T3, verifies authenticity
+* Compliance Officer – audits historical T3 data for inspection
+* 3PL / Virtual Manufacturer – needs to generate T3 for clients
+________________
+
+
+4. T3 Breakdown
+Component
+	Description
+	Required Fields
+	TI
+	Transaction Information – product identifiers and shipment details
+	Product name, NDC/GTIN, strength, dosage form, lot number, expiration date, quantity, transaction date, shipping info
+	TH
+	Transaction History – serialized record of every upstream transfer of ownership
+	Prior transaction entries, in sequence, up to manufacturer
+	TS
+	Transaction Statement – seller’s attestation that product is authorized and non-suspect
+	DSCSA-compliant standard language signed with timestamp
+	________________
+
+
+5. Functional Requirements
+5.1 T3 Creation
+ID
+	Feature
+	Description
+	Acceptance Criteria
+	T3-01
+	Create T3 Record
+	Automatically generate TI, TH, and TS from EPCIS or manual input
+	T3 XML/JSON bundle created and previewed
+	T3-02
+	Manual Entry
+	Form-based UI to manually enter product/lots when EPCIS not available
+	All TI fields required; validated on entry
+	T3-03
+	TS Generator
+	Auto-inserts standard DSCSA TS language with user/date
+	Text is non-editable except signer name
+	5.2 T3 Exchange
+ID
+	Feature
+	Description
+	Acceptance Criteria
+	T3-10
+	Downloadable URL
+	Recipient can download T3 zip via signed URL
+	URL expires in 48h; one-time use optional
+	T3-11
+	AS2 Transmission
+	Send full T3 as ZIP bundle via AS2 to trading partner
+	MDN logged and correlated to file
+	T3-12
+	HTTPS Push
+	POST T3 file to partner API endpoint
+	HTTP 200 status required for delivery success
+	5.3 T3 Receiving & Validation
+ID
+	Feature
+	Description
+	Acceptance Criteria
+	T3-20
+	Upload/Import
+	Upload received T3 ZIP/XML files into system
+	Extracted data parsed and shown in viewer
+	T3-21
+	TH Chain Viewer
+	UI shows origin-to-recipient transfer chain from TH
+	All prior owners shown with timestamps
+	T3-22
+	TS Validator
+	Confirms TS contains correct language, signature, and date
+	Warning if any fields missing or malformed
+	5.4 T3 Ledger & Audit
+ID
+	Feature
+	Description
+	Acceptance Criteria
+	T3-30
+	Central Ledger
+	Table of all sent and received T3 transactions
+	Searchable by product, partner, date
+	T3-31
+	Audit Export
+	Export 6-year T3 record history to CSV or PDF
+	All TI, TH, and TS fields included
+	T3-32
+	Status Tracker
+	Delivery + receipt status for each T3 entry
+	Success, Failed, Pending shown with time and method
+	________________
+
+
+6. UI/UX Requirements
+* Clean 3-tab layout: Create T3, Received T3, Ledger
+* Auto-validate fields (e.g., NDC format, date, quantity)
+* Drag-drop T3 file import
+* Tooltip popovers for DSCSA terms (TI, TH, TS)
+* Mobile-responsive views for pharmacy access
