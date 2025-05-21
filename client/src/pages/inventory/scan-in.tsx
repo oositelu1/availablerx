@@ -50,13 +50,38 @@ export default function ScanProductInPage() {
     enabled: !!user,
   });
   
+  // Fetch recent inventory transactions to maintain state
+  const { data: inventoryData, isLoading: isLoadingInventory } = useQuery({
+    queryKey: ['/api/inventory/ledger'],
+    enabled: !!user,
+    staleTime: 5000, // Update frequently
+  });
+  
   // Extract files array safely
   const files = filesData?.files || [];
+  
+  // Initialize scanned items with recent 'received' transactions on component mount
+  useEffect(() => {
+    if (inventoryData?.transactions) {
+      const recentReceived = inventoryData.transactions
+        .filter((tx: any) => tx.transactionType === 'receive')
+        .sort((a: any, b: any) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+        .slice(0, 10); // Show most recent 10 items
+        
+      setScannedItems(recentReceived);
+    }
+  }, [inventoryData]);
 
   // Mutation for adding a product to inventory
   const addToInventoryMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest('POST', '/api/inventory/receive', data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add product to inventory');
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -65,15 +90,20 @@ export default function ScanProductInPage() {
         description: 'The product has been added to inventory',
         variant: 'default',
       });
+      
       // Add to scanned items list
-      setScannedItems(prev => [...prev, data]);
+      setScannedItems(prev => [data, ...prev].slice(0, 10));
       setIsSuccess(true);
+      
       // Reset form
       form.reset();
+      
       // Clear success message after a delay
       setTimeout(() => setIsSuccess(false), 3000);
-      // Invalidate inventory queries
+      
+      // Invalidate both inventory and ledger queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/ledger'] });
     },
     onError: (error: any) => {
       toast({
@@ -81,6 +111,7 @@ export default function ScanProductInPage() {
         description: error.message || 'Failed to add product to inventory',
         variant: 'destructive',
       });
+      console.error('Inventory receive error:', error);
     }
   });
 
