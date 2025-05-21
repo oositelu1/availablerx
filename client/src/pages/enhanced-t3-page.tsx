@@ -393,7 +393,7 @@ export default function EnhancedT3Page() {
             transaction={data.transaction}
           />
           
-          <EnhancedTransactionHistory history={data.history} />
+          <SimplifiedTransactionHistory history={data.history} />
           
           <EnhancedTransactionStatement 
             company={data.sender}
