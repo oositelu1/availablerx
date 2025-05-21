@@ -33,22 +33,24 @@ inventoryRouter.get("/stats", async (req: Request, res: Response) => {
 // Get inventory ledger
 inventoryRouter.get("/ledger", async (req: Request, res: Response) => {
   try {
-    // Sample mock transaction data for demonstration
-    const transactions = [
-      {
-        id: 1,
-        inventoryId: 101,
-        gtin: '00301430957010',
-        serialNumber: '10016550749981',
-        lotNumber: '24052241',
-        expirationDate: '2026-09-30',
-        transactionType: 'receive',
-        fromStatus: null,
-        toStatus: 'available',
-        reference: 'File #47',
-        transactionDate: new Date('2025-05-15T10:30:00'),
-        performedBy: 2,
-      },
+    // Use the global transactions array (or initialize if doesn't exist)
+    if (!global.inventoryTransactions) {
+      // Initialize with some transactions
+      global.inventoryTransactions = [
+        {
+          id: 1,
+          inventoryId: 101,
+          gtin: '00301430957010',
+          serialNumber: '10016550749981',
+          lotNumber: '24052241',
+          expirationDate: '2026-09-30',
+          transactionType: 'receive',
+          fromStatus: null,
+          toStatus: 'available',
+          reference: 'File #47',
+          transactionDate: new Date('2025-05-15T10:30:00'),
+          performedBy: 2,
+        },
       {
         id: 2,
         inventoryId: 102,
@@ -100,6 +102,42 @@ inventoryRouter.get("/ledger", async (req: Request, res: Response) => {
   }
 });
 
+// Create in-memory transaction storage if it doesn't exist
+// This is for demo purposes - in production this would be in a database
+if (!global.inventoryTransactions) {
+  global.inventoryTransactions = [
+    // Initial sample transactions
+    {
+      id: 1,
+      inventoryId: 101,
+      gtin: '00301430957010',
+      serialNumber: '10016550749981',
+      lotNumber: '24052241',
+      expirationDate: '2026-09-30',
+      transactionType: 'receive',
+      fromStatus: null,
+      toStatus: 'available',
+      reference: 'File #47',
+      transactionDate: new Date('2025-05-15T10:30:00'),
+      performedBy: 2,
+    },
+    {
+      id: 2,
+      inventoryId: 102,
+      gtin: '00301430957010',
+      serialNumber: '10018521666433',
+      lotNumber: '24052241',
+      expirationDate: '2026-09-30',
+      transactionType: 'receive',
+      fromStatus: null,
+      toStatus: 'available',
+      reference: 'File #47',
+      transactionDate: new Date('2025-05-15T10:35:00'),
+      performedBy: 2,
+    }
+  ];
+}
+
 // Add product to inventory (scanning in)
 inventoryRouter.post("/receive", async (req: Request, res: Response) => {
   try {
@@ -109,9 +147,12 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
     
+    // Create a unique inventory item ID
+    const inventoryId = Math.floor(Math.random() * 1000) + 100;
+    
     // For demo, create a mock inventory item
     const inventoryItem = {
-      id: Math.floor(Math.random() * 1000) + 100,
+      id: inventoryId,
       fileId,
       gtin,
       serialNumber,
@@ -127,6 +168,30 @@ inventoryRouter.post("/receive", async (req: Request, res: Response) => {
       manufacturer: "WEST-WARD PHARMACEUTICALS",
       packageType: gtin.charAt(7) === '4' ? 'case' : 'item',
     };
+    
+    // Create a transaction record for this inventory update
+    const newTransaction = {
+      id: (global.inventoryTransactions.length + 1),
+      inventoryId,
+      gtin,
+      serialNumber,
+      lotNumber,
+      expirationDate,
+      transactionType: 'receive',
+      fromStatus: null,
+      toStatus: 'available',
+      reference: `File #${fileId}`,
+      transactionDate: new Date(),
+      performedBy: req.user?.id as number,
+      notes: notes || "Product received",
+      details: { fileId }
+    };
+    
+    // Add the transaction to our global array
+    global.inventoryTransactions.push(newTransaction);
+    
+    console.log("Added new transaction:", newTransaction);
+    console.log("Current transaction count:", global.inventoryTransactions.length);
     
     // Return the mock item
     res.status(201).json(inventoryItem);
