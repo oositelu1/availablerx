@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Layout } from '@/components/layout/layout';
 import { 
   Table, 
   TableBody, 
@@ -105,21 +106,22 @@ export default function T3ListPage() {
   const emptyRows = Array(5).fill(0).map((_, i) => i);
 
   return (
-    <div className="container mx-auto py-6 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">T3 Documents</h1>
-          <p className="text-muted-foreground">
-            Manage your DSCSA Transaction Information, History, and Statements (T3)
-          </p>
+    <Layout title="T3 Documents">
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">T3 Documents</h1>
+            <p className="text-muted-foreground">
+              Manage your DSCSA Transaction Information, History, and Statements (T3)
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/t3/create" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Create T3 Document
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/t3/create" className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Create T3 Document
-          </Link>
-        </Button>
-      </div>
       
       {/* Filter Card */}
       <Card>
