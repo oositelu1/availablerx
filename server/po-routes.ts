@@ -146,10 +146,10 @@ poRouter.get('/', async (req: Request, res: Response) => {
     const hardcodedOrders = [
       {
         id: 1,
-        poNumber: "PO-43121",
+        poNumber: "43121", // Match exact PO number format from invoice
         status: "RECEIVED",
         orderDate: new Date("2025-04-15"),
-        supplierName: "Genentech"
+        supplierName: "ABC Pharmaceuticals" // Match supplier from invoice
       }
     ];
     

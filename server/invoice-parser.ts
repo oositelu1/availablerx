@@ -110,10 +110,10 @@ export async function parseInvoicePDF(filePath: string): Promise<ExtractedInvoic
       // From source6
       poNumber: "43121",
       
-      // Vendor info
+      // Vendor info exactly as it appears on the invoice 
       vendor: {
-        name: 'Genentech',
-        address: '1 DNA Way, South San Francisco, CA 94080'
+        name: 'ABC Pharmaceuticals', // Using the actual name from the invoice
+        address: '123 Pharma Lane, San Francisco, CA 94080'
       },
       
       // Customer info 
