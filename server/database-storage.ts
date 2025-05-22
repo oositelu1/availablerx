@@ -3,7 +3,8 @@ import {
   purchaseOrders, purchaseOrderItems, salesOrders, salesOrderItems, 
   epcisPoAssociations, productItems, scannedItems,
   inventory, inventoryTransactions,
-  validationSessions, auditLogs
+  validationSessions, auditLogs,
+  invoices, invoiceItems
 } from "@shared/schema";
 import type { 
   User, InsertUser, Partner, InsertPartner, PartnerLocation, InsertPartnerLocation,
@@ -1699,6 +1700,220 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error shipping inventory:', error);
       return false;
+    }
+  }
+  
+  // Invoice management
+  async createInvoice(invoice: any): Promise<any> {
+    try {
+      // Convert any date strings to Date objects
+      const processedInvoice = {
+        ...invoice,
+        invoiceDate: invoice.invoiceDate instanceof Date ? invoice.invoiceDate : new Date(invoice.invoiceDate),
+        dueDate: invoice.dueDate instanceof Date ? invoice.dueDate : (invoice.dueDate ? new Date(invoice.dueDate) : null),
+      };
+      
+      // Insert into invoices table
+      const [newInvoice] = await db.insert(invoices).values(processedInvoice).returning();
+      return newInvoice;
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      throw error;
+    }
+  }
+  
+  async getInvoice(id: number): Promise<any> {
+    try {
+      const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+      return invoice;
+    } catch (error) {
+      console.error('Error getting invoice:', error);
+      throw error;
+    }
+  }
+  
+  async updateInvoice(id: number, updates: any): Promise<any> {
+    try {
+      const [updatedInvoice] = await db
+        .update(invoices)
+        .set(updates)
+        .where(eq(invoices.id, id))
+        .returning();
+      return updatedInvoice;
+    } catch (error) {
+      console.error('Error updating invoice:', error);
+      throw error;
+    }
+  }
+  
+  async listInvoices(filters?: {
+    status?: string;
+    purchaseOrderId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ invoices: any[], total: number }> {
+    try {
+      let query = db.select().from(invoices);
+      
+      // Apply filters
+      if (filters?.status) {
+        query = query.where(eq(invoices.status, filters.status));
+      }
+      
+      if (filters?.purchaseOrderId) {
+        query = query.where(eq(invoices.purchaseOrderId, filters.purchaseOrderId));
+      }
+      
+      if (filters?.startDate) {
+        query = query.where(gte(invoices.invoiceDate, filters.startDate));
+      }
+      
+      if (filters?.endDate) {
+        query = query.where(lte(invoices.invoiceDate, filters.endDate));
+      }
+      
+      // Get total count (simplified for now)
+      const countResult = await db.select({ count: sql`count(*)` }).from(invoices);
+      const total = Number(countResult[0]?.count || 0);
+      
+      // Order by uploaded date (newest first)
+      query = query.orderBy(desc(invoices.uploadedAt));
+      
+      // Apply pagination
+      if (filters?.limit !== undefined) {
+        query = query.limit(filters.limit);
+      }
+      
+      if (filters?.offset !== undefined) {
+        query = query.offset(filters.offset);
+      }
+      
+      const invoiceList = await query;
+      
+      return { 
+        invoices: invoiceList, 
+        total 
+      };
+    } catch (error) {
+      console.error('Error listing invoices:', error);
+      return { invoices: [], total: 0 };
+    }
+  }
+  
+  // Invoice Item management
+  async createInvoiceItem(item: any): Promise<any> {
+    try {
+      // Convert any date strings to Date objects
+      const processedItem = {
+        ...item,
+        expiryDate: item.expiryDate instanceof Date ? item.expiryDate : new Date(item.expiryDate),
+      };
+      
+      const [newItem] = await db.insert(invoiceItems).values(processedItem).returning();
+      return newItem;
+    } catch (error) {
+      console.error('Error creating invoice item:', error);
+      throw error;
+    }
+  }
+  
+  async getInvoiceItem(id: number): Promise<any> {
+    try {
+      const [item] = await db.select().from(invoiceItems).where(eq(invoiceItems.id, id));
+      return item;
+    } catch (error) {
+      console.error('Error getting invoice item:', error);
+      throw error;
+    }
+  }
+  
+  async updateInvoiceItem(id: number, updates: any): Promise<any> {
+    try {
+      const [updatedItem] = await db
+        .update(invoiceItems)
+        .set(updates)
+        .where(eq(invoiceItems.id, id))
+        .returning();
+      return updatedItem;
+    } catch (error) {
+      console.error('Error updating invoice item:', error);
+      throw error;
+    }
+  }
+  
+  async listInvoiceItems(invoiceId: number): Promise<any[]> {
+    try {
+      return await db.select()
+        .from(invoiceItems)
+        .where(eq(invoiceItems.invoiceId, invoiceId));
+    } catch (error) {
+      console.error('Error listing invoice items:', error);
+      return [];
+    }
+  }
+  
+  // EPCIS matching
+  async findMatchingEpcisFiles(criteria: {
+    lotNumbers?: string[];
+    ndcCodes?: string[];
+    gtins?: string[];
+    poId?: number;
+  }): Promise<any[]> {
+    try {
+      // If no criteria provided, return empty array
+      if (!criteria.lotNumbers?.length && !criteria.ndcCodes?.length && !criteria.gtins?.length && !criteria.poId) {
+        return [];
+      }
+      
+      // Start with base query for product items
+      let fileIds = new Set<number>();
+      
+      // If we have lot numbers, find matching files
+      if (criteria.lotNumbers?.length) {
+        // Use product items to match by lot number
+        const matchingItems = await db.select()
+          .from(productItems)
+          .where(or(...criteria.lotNumbers.map(lot => eq(productItems.lotNumber, lot))));
+        
+        // Add file IDs to our set
+        matchingItems.forEach(item => fileIds.add(item.fileId));
+      }
+      
+      // If we have GTIN codes, find matching files
+      if (criteria.gtins?.length) {
+        const gtinMatches = await db.select()
+          .from(productItems)
+          .where(or(...criteria.gtins.map(gtin => eq(productItems.gtin, gtin))));
+        
+        gtinMatches.forEach(item => fileIds.add(item.fileId));
+      }
+      
+      // If we have a PO ID, find files associated with this PO
+      if (criteria.poId) {
+        const poMatches = await db.select()
+          .from(epcisPoAssociations)
+          .where(eq(epcisPoAssociations.poId, criteria.poId));
+        
+        poMatches.forEach(assoc => fileIds.add(assoc.fileId));
+      }
+      
+      // If we found any matching files, retrieve them
+      if (fileIds.size === 0) {
+        return [];
+      }
+      
+      // Convert Set to array for our query
+      const fileIdArray = Array.from(fileIds);
+      
+      // Retrieve the matching files
+      return await db.select()
+        .from(files)
+        .where(or(...fileIdArray.map(id => eq(files.id, id))));
+    } catch (error) {
+      console.error('Error finding matching EPCIS files:', error);
+      return [];
     }
   }
 }
