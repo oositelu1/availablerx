@@ -167,8 +167,18 @@ poRouter.get('/', async (req: Request, res: Response) => {
       filter.status = req.query.status as string;
     }
 
-    const pos = await storage.listPurchaseOrders(filter);
-    res.json(pos);
+    const orders = await storage.listPurchaseOrders(filter);
+    
+    // Format the response to include supplier information and match expected format
+    const formattedOrders = orders.map(po => {
+      return {
+        ...po,
+        // Add supplier name for display if not already present
+        supplierName: po.supplier || "Unknown Supplier"
+      };
+    });
+    
+    res.json({ orders: formattedOrders });
   } catch (error) {
     console.error('Error retrieving purchase orders:', error);
     res.status(500).json({ error: 'Error retrieving purchase orders' });
