@@ -323,6 +323,8 @@ export const insertValidationSessionSchema = createInsertSchema(validationSessio
   totalMismatched: true
 });
 
+// Using the existing invoice schema defined below
+
 // Audit trail
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
