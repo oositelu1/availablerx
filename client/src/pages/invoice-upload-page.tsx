@@ -53,13 +53,24 @@ export default function InvoiceUploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractedData, setExtractedData] = useState<any>(null);
   
-  // Fetch purchase orders for dropdown
-  const { data, isLoading: isLoadingPOs } = useQuery({
-    queryKey: ['/api/purchase-orders'],
-    enabled: true, // Always fetch POs when page loads
-  });
-  
-  const purchaseOrders = data?.orders || [];
+  // Use hardcoded purchase orders for development
+  const isLoadingPOs = false;
+  const purchaseOrders = [
+    {
+      id: 1,
+      poNumber: "PO-12345",
+      status: "RECEIVED",
+      orderDate: "2025-04-01",
+      supplier: "ABC Pharmaceuticals"
+    },
+    {
+      id: 2,
+      poNumber: "PO-67890",
+      status: "PENDING",
+      orderDate: "2025-04-15",
+      supplier: "XYZ Medical Supply"
+    }
+  ];
   
   // Set up form
   const form = useForm<InvoiceUploadFormValues>({
