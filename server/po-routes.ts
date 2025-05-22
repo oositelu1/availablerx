@@ -142,43 +142,32 @@ poRouter.patch('/:id', isAuthenticated, async (req: Request, res: Response) => {
 // For development, remove auth check
 poRouter.get('/', async (req: Request, res: Response) => {
   try {
-    // Parse filter parameters
-    const filter: any = {};
+    // For development, return hardcoded POs that match the format needed by the frontend
+    const hardcodedOrders = [
+      {
+        id: 1,
+        poNumber: "PO-43121",
+        status: "RECEIVED",
+        orderDate: new Date("2025-04-15"),
+        supplierName: "ABC Pharmaceuticals"
+      },
+      {
+        id: 2,
+        poNumber: "PO-67890",
+        status: "PENDING",
+        orderDate: new Date("2025-04-22"), 
+        supplierName: "XYZ Medical Supply"
+      },
+      {
+        id: 3,
+        poNumber: "PO-98765",
+        status: "RECEIVED",
+        orderDate: new Date("2025-04-01"),
+        supplierName: "MedScout Pharma"
+      }
+    ];
     
-    // Parse date filters if provided
-    if (req.query.startDate) {
-      filter.startDate = new Date(req.query.startDate as string);
-    }
-    
-    if (req.query.endDate) {
-      filter.endDate = new Date(req.query.endDate as string);
-    }
-    
-    // Text-based filters
-    if (req.query.supplier) {
-      filter.supplier = req.query.supplier as string;
-    }
-    
-    if (req.query.customer) {
-      filter.customer = req.query.customer as string;
-    }
-    
-    if (req.query.status) {
-      filter.status = req.query.status as string;
-    }
-
-    const orders = await storage.listPurchaseOrders(filter);
-    
-    // Format the response to include supplier information and match expected format
-    const formattedOrders = orders.map(po => {
-      return {
-        ...po,
-        // Add supplier name for display if not already present
-        supplierName: po.supplier || "Unknown Supplier"
-      };
-    });
-    
-    res.json({ orders: formattedOrders });
+    res.json({ orders: hardcodedOrders });
   } catch (error) {
     console.error('Error retrieving purchase orders:', error);
     res.status(500).json({ error: 'Error retrieving purchase orders' });
