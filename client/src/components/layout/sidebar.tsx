@@ -74,15 +74,23 @@ export function Sidebar() {
       .toUpperCase();
   };
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { path: "/", label: "Dashboard", icon: <Home className="mr-3 h-5 w-5" /> },
     { path: "/upload", label: "Upload Files", icon: <Upload className="mr-3 h-5 w-5" /> },
     { path: "/files", label: "File History", icon: <History className="mr-3 h-5 w-5" /> },
     { path: "/partners", label: "Partners", icon: <Users className="mr-3 h-5 w-5" /> },
     { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart className="mr-3 h-5 w-5" /> },
     { path: "/sales-orders", label: "Sales Orders", icon: <Send className="mr-3 h-5 w-5" /> },
-    // Invoice section
-    { path: "/invoices/upload", label: "Invoice Processing", icon: <FileText className="mr-3 h-5 w-5" /> },
+    // Invoice section with collapsible menu
+    { 
+      path: "/invoices", 
+      label: "Invoices", 
+      icon: <FileText className="mr-3 h-5 w-5" />,
+      subItems: [
+        { path: "/invoices/upload", label: "Upload Invoice", icon: <Upload className="mr-3 h-5 w-5" />, isSubItem: true },
+        { path: "/invoices/preview", label: "Invoice Preview", icon: <ClipboardList className="mr-3 h-5 w-5" />, isSubItem: true },
+      ]
+    },
     // Inventory section with collapsible menu
     { 
       path: "/inventory", 
@@ -159,9 +167,9 @@ export function Sidebar() {
               ) : (
                 <Link href={item.path}>
                   <div
-                    className={`nav-item flex items-center ${item.indent ? 'pl-10' : 'px-4'} py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
+                    className={`nav-item flex items-center px-4 py-3 text-neutral-900 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer ${
                       location === item.path ? "active bg-neutral-50 font-medium" : ""
-                    } ${item.indent ? 'text-sm' : ''}`}
+                    }`}
                   >
                     {item.icon}
                     <span>{item.label}</span>

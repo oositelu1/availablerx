@@ -74,6 +74,7 @@ function Router() {
       
       {/* Invoice Management */}
       <ProtectedRoute path="/invoices/upload" component={InvoiceUploadPage} />
+      <ProtectedRoute path="/invoices/preview" component={InvoicePreviewPage} />
       
       <Route path="/qr-test" component={QrTest} />
       <Route component={NotFound} />

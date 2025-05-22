@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 
 // Sample structured data for demonstration
-const sampleInvoiceData = {
+const sampleInvoiceData: StructuredInvoiceData = {
   invoiceNumber: "626000800",
   invoiceDate: "04/30/2025",
   poNumber: "43121",
@@ -35,6 +35,8 @@ const sampleInvoiceData = {
   ],
   totals: {
     subtotal: 1141.92,
+    tax: 0,
+    shipping: 0,
     discount: 0,
     total: 1141.92
   },
@@ -137,13 +139,13 @@ export function StructuredInvoiceView({ data, showSampleData = false }: Structur
                 <p className="text-sm">Subtotal:</p>
                 <p className="font-medium">${invoiceData.totals.subtotal.toFixed(2)}</p>
               </div>
-              {invoiceData.totals.tax !== undefined && (
+              {'tax' in invoiceData.totals && invoiceData.totals.tax !== undefined && (
                 <div className="flex justify-between">
                   <p className="text-sm">Tax:</p>
                   <p className="font-medium">${invoiceData.totals.tax.toFixed(2)}</p>
                 </div>
               )}
-              {invoiceData.totals.shipping !== undefined && (
+              {'shipping' in invoiceData.totals && invoiceData.totals.shipping !== undefined && (
                 <div className="flex justify-between">
                   <p className="text-sm">Shipping:</p>
                   <p className="font-medium">${invoiceData.totals.shipping.toFixed(2)}</p>
