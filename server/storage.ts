@@ -98,6 +98,33 @@ export interface IStorage {
   listPresignedLinksForPartner(partnerId: number, includeExpired?: boolean): Promise<(PresignedLink & { file: File })[]>;
   listPresignedLinksForFile(fileId: number): Promise<(PresignedLink & { partner: Partner })[]>;
   generatePresignedUrl(fileId: number, expirationSeconds?: number): Promise<string>;
+
+  // Invoice management
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  getInvoice(id: number): Promise<Invoice | undefined>;
+  updateInvoice(id: number, updates: Partial<Invoice>): Promise<Invoice | undefined>;
+  listInvoices(filters?: {
+    status?: string;
+    purchaseOrderId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ invoices: Invoice[], total: number }>;
+  
+  // Invoice Item management
+  createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
+  getInvoiceItem(id: number): Promise<InvoiceItem | undefined>;
+  updateInvoiceItem(id: number, updates: Partial<InvoiceItem>): Promise<InvoiceItem | undefined>;
+  listInvoiceItems(invoiceId: number): Promise<InvoiceItem[]>;
+  
+  // EPCIS matching
+  findMatchingEpcisFiles(criteria: {
+    lotNumbers?: string[];
+    ndcCodes?: string[];
+    gtins?: string[];
+    poId?: number;
+  }): Promise<File[]>;
   
   // Purchase Order management
   createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;

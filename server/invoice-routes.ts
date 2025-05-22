@@ -64,19 +64,53 @@ invoiceRouter.post('/upload', upload.single('invoice'), async (req: Request, res
     const filePath = req.file.path;
     const processingResult = await processInvoicePDF(filePath, poIds);
     
-    // For demo purposes, we'll skip database storage and return the processed data directly
-    const invoiceRecord = {
-      id: Math.floor(Math.random() * 1000),
+    // Save the invoice to the database
+    const invoiceData = {
+      invoiceNumber: processingResult.invoiceData.invoiceNumber,
+      invoiceDate: new Date(processingResult.invoiceData.invoiceDate),
+      dueDate: processingResult.invoiceData.dueDate ? new Date(processingResult.invoiceData.dueDate) : undefined,
       filename: req.file.originalname,
       filepath: req.file.path,
-      uploadedBy: req.user!.id,
-      uploadedAt: new Date(),
+      purchaseOrderId: processingResult.matchedPO,
+      vendorName: processingResult.invoiceData.vendor.name,
+      vendorAddress: processingResult.invoiceData.vendor.address,
+      subtotal: processingResult.invoiceData.totals.subtotal,
+      tax: processingResult.invoiceData.totals.tax,
+      shipping: processingResult.invoiceData.totals.shipping,
+      discount: processingResult.invoiceData.totals.discount,
+      total: processingResult.invoiceData.totals.total,
       extractedData: processingResult.invoiceData,
-      matchedPurchaseOrderId: processingResult.matchedPO,
       matchScore: processingResult.matchScore,
-      issues: processingResult.issues,
-      status: processingResult.issues?.length ? 'needs_review' : 'processed'
+      issues: processingResult.issues || [],
+      status: processingResult.issues?.length ? 'needs_review' : 'processed',
+      uploadedBy: req.user?.id || 1 // Fallback to user ID 1 if not authenticated
     };
+    
+    // Store the invoice
+    const invoiceRecord = await appStorage.createInvoice(invoiceData);
+    
+    // Store the invoice items
+    for (const product of processingResult.invoiceData.products) {
+      await appStorage.createInvoiceItem({
+        invoiceId: invoiceRecord.id,
+        description: product.description,
+        productCode: product.ndc || undefined,
+        ndc: product.ndc || undefined,
+        lotNumber: product.lotNumber,
+        expiryDate: new Date(product.expiryDate),
+        quantity: product.quantity,
+        uom: 'EA', // Default unit of measure
+        unitPrice: product.unitPrice,
+        totalPrice: product.totalPrice,
+        status: 'pending'
+      });
+    }
+    
+    // Find matching EPCIS files based on lot numbers, NDCs
+    const matchingEpcisFiles = await appStorage.findMatchingEpcisFiles({
+      lotNumbers: processingResult.invoiceData.products.map(p => p.lotNumber),
+      ndcCodes: processingResult.invoiceData.products.filter(p => p.ndc).map(p => p.ndc!)
+    });
     
     res.status(201).json({
       success: true,
@@ -85,7 +119,8 @@ invoiceRouter.post('/upload', upload.single('invoice'), async (req: Request, res
       extractedData: processingResult.invoiceData,
       matchedPO: processingResult.matchedPO,
       matchScore: processingResult.matchScore,
-      issues: processingResult.issues
+      issues: processingResult.issues,
+      matchingEpcisFiles: matchingEpcisFiles
     });
   } catch (error: any) {
     console.error('Error processing invoice:', error);
