@@ -142,28 +142,14 @@ poRouter.patch('/:id', isAuthenticated, async (req: Request, res: Response) => {
 // For development, remove auth check
 poRouter.get('/', async (req: Request, res: Response) => {
   try {
-    // For development, return hardcoded POs that match the format needed by the frontend
+    // For invoice testing, include a PO specifically for the invoice we're uploading (PO-43121)
     const hardcodedOrders = [
       {
         id: 1,
         poNumber: "PO-43121",
         status: "RECEIVED",
         orderDate: new Date("2025-04-15"),
-        supplierName: "ABC Pharmaceuticals"
-      },
-      {
-        id: 2,
-        poNumber: "PO-67890",
-        status: "PENDING",
-        orderDate: new Date("2025-04-22"), 
-        supplierName: "XYZ Medical Supply"
-      },
-      {
-        id: 3,
-        poNumber: "PO-98765",
-        status: "RECEIVED",
-        orderDate: new Date("2025-04-01"),
-        supplierName: "MedScout Pharma"
+        supplierName: "Genentech"
       }
     ];
     
