@@ -67,20 +67,20 @@ invoiceRouter.post('/upload', upload.single('invoice'), async (req: Request, res
     // Save the invoice to the database
     const invoiceData = {
       invoiceNumber: processingResult.invoiceData.invoiceNumber,
-      invoiceDate: new Date(processingResult.invoiceData.invoiceDate),
-      dueDate: processingResult.invoiceData.dueDate ? new Date(processingResult.invoiceData.dueDate) : undefined,
+      invoiceDate: processingResult.invoiceData.invoiceDate, // Pass as string
+      dueDate: processingResult.invoiceData.dueDate, // Pass as string or undefined
       filename: req.file.originalname,
       filepath: req.file.path,
       purchaseOrderId: processingResult.matchedPO,
       vendorName: processingResult.invoiceData.vendor.name,
       vendorAddress: processingResult.invoiceData.vendor.address,
-      subtotal: processingResult.invoiceData.totals.subtotal,
-      tax: processingResult.invoiceData.totals.tax,
-      shipping: processingResult.invoiceData.totals.shipping,
-      discount: processingResult.invoiceData.totals.discount,
-      total: processingResult.invoiceData.totals.total,
+      subtotal: processingResult.invoiceData.totals.subtotal.toString(), // Convert to string
+      tax: processingResult.invoiceData.totals.tax?.toString(), // Convert to string
+      shipping: processingResult.invoiceData.totals.shipping?.toString(), // Convert to string
+      discount: processingResult.invoiceData.totals.discount?.toString(), // Convert to string
+      total: processingResult.invoiceData.totals.total.toString(), // Convert to string
       extractedData: processingResult.invoiceData,
-      matchScore: processingResult.matchScore,
+      matchScore: processingResult.matchScore ? processingResult.matchScore.toString() : null, // Convert to string
       issues: processingResult.issues || [],
       status: processingResult.issues?.length ? 'needs_review' : 'processed',
       uploadedBy: req.user?.id || 1 // Fallback to user ID 1 if not authenticated
@@ -94,14 +94,14 @@ invoiceRouter.post('/upload', upload.single('invoice'), async (req: Request, res
       await appStorage.createInvoiceItem({
         invoiceId: invoiceRecord.id,
         description: product.description,
-        productCode: product.ndc || undefined,
-        ndc: product.ndc || undefined,
+        productCode: product.ndc || '',
+        ndc: product.ndc || '',
         lotNumber: product.lotNumber,
-        expiryDate: new Date(product.expiryDate),
+        expiryDate: product.expiryDate, // Pass as string
         quantity: product.quantity,
         uom: 'EA', // Default unit of measure
-        unitPrice: product.unitPrice,
-        totalPrice: product.totalPrice,
+        unitPrice: product.unitPrice.toString(), // Convert to string
+        totalPrice: product.totalPrice.toString(), // Convert to string
         status: 'pending'
       });
     }

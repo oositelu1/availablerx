@@ -14,7 +14,8 @@ import type {
   EpcisPoAssociation, InsertEpcisPoAssociation,
   ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
   Inventory, InsertInventory, InventoryTransaction, InsertInventoryTransaction,
-  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
+  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog,
+  Invoice, InsertInvoice, InvoiceItem, InsertInvoiceItem
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
@@ -1704,7 +1705,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Invoice management
-  async createInvoice(invoice: any): Promise<any> {
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
     try {
       // Convert any date strings to Date objects
       const processedInvoice = {
@@ -1722,7 +1723,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async getInvoice(id: number): Promise<any> {
+  async getInvoice(id: number): Promise<Invoice | undefined> {
     try {
       const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
       return invoice;
@@ -1732,7 +1733,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async updateInvoice(id: number, updates: any): Promise<any> {
+  async updateInvoice(id: number, updates: Partial<Invoice>): Promise<Invoice | undefined> {
     try {
       const [updatedInvoice] = await db
         .update(invoices)
@@ -1753,7 +1754,7 @@ export class DatabaseStorage implements IStorage {
     endDate?: Date;
     limit?: number;
     offset?: number;
-  }): Promise<{ invoices: any[], total: number }> {
+  }): Promise<{ invoices: Invoice[], total: number }> {
     try {
       let query = db.select().from(invoices);
       
@@ -1803,7 +1804,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Invoice Item management
-  async createInvoiceItem(item: any): Promise<any> {
+  async createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem> {
     try {
       // Convert any date strings to Date objects
       const processedItem = {
@@ -1819,7 +1820,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async getInvoiceItem(id: number): Promise<any> {
+  async getInvoiceItem(id: number): Promise<InvoiceItem | undefined> {
     try {
       const [item] = await db.select().from(invoiceItems).where(eq(invoiceItems.id, id));
       return item;
@@ -1829,7 +1830,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async updateInvoiceItem(id: number, updates: any): Promise<any> {
+  async updateInvoiceItem(id: number, updates: Partial<InvoiceItem>): Promise<InvoiceItem | undefined> {
     try {
       const [updatedItem] = await db
         .update(invoiceItems)
@@ -1843,7 +1844,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async listInvoiceItems(invoiceId: number): Promise<any[]> {
+  async listInvoiceItems(invoiceId: number): Promise<InvoiceItem[]> {
     try {
       return await db.select()
         .from(invoiceItems)
@@ -1860,10 +1861,11 @@ export class DatabaseStorage implements IStorage {
     ndcCodes?: string[];
     gtins?: string[];
     poId?: number;
-  }): Promise<any[]> {
+    invoiceNumber?: string;
+  }): Promise<File[]> {
     try {
       // If no criteria provided, return empty array
-      if (!criteria.lotNumbers?.length && !criteria.ndcCodes?.length && !criteria.gtins?.length && !criteria.poId) {
+      if (!criteria.lotNumbers?.length && !criteria.ndcCodes?.length && !criteria.gtins?.length && !criteria.poId && !criteria.invoiceNumber) {
         return [];
       }
       
@@ -1879,6 +1881,17 @@ export class DatabaseStorage implements IStorage {
         
         // Add file IDs to our set
         matchingItems.forEach(item => fileIds.add(item.fileId));
+      }
+      
+      // If we have NDC codes, find matching files
+      if (criteria.ndcCodes?.length) {
+        // First convert NDC codes to GTIN format if needed
+        const possibleGtins = await this.convertNdcToGtin(criteria.ndcCodes);
+        
+        // Add these to our GTIN criteria if we got results
+        if (possibleGtins.length > 0) {
+          criteria.gtins = [...(criteria.gtins || []), ...possibleGtins];
+        }
       }
       
       // If we have GTIN codes, find matching files
@@ -1897,6 +1910,63 @@ export class DatabaseStorage implements IStorage {
           .where(eq(epcisPoAssociations.poId, criteria.poId));
         
         poMatches.forEach(assoc => fileIds.add(assoc.fileId));
+        
+        // If we didn't find any direct associations, try to find files that might match
+        // based on product data (GTIN, lot, etc.) and other metadata
+        if (poMatches.length === 0) {
+          // Get PO details
+          const po = await this.getPurchaseOrder(criteria.poId);
+          if (po) {
+            // Get all items in this PO
+            const poItems = await this.listPurchaseOrderItems(criteria.poId);
+            
+            // Extract GTINs from PO items
+            const poGtins = poItems.map(item => item.gtin);
+            
+            // Find product items with matching GTINs
+            if (poGtins.length > 0) {
+              const productMatches = await db.select()
+                .from(productItems)
+                .where(or(...poGtins.map(gtin => eq(productItems.gtin, gtin))));
+              
+              productMatches.forEach(item => fileIds.add(item.fileId));
+            }
+          }
+        }
+      }
+      
+      // If we have an invoice number, try to find related files
+      if (criteria.invoiceNumber) {
+        // First try to find the invoice record
+        const [invoice] = await db.select()
+          .from(invoices)
+          .where(eq(invoices.invoiceNumber, criteria.invoiceNumber));
+        
+        if (invoice) {
+          // If we have a PO ID, use that to find related files
+          if (invoice.purchaseOrderId) {
+            const poMatches = await db.select()
+              .from(epcisPoAssociations)
+              .where(eq(epcisPoAssociations.poId, invoice.purchaseOrderId));
+            
+            poMatches.forEach(assoc => fileIds.add(assoc.fileId));
+          }
+          
+          // Get all invoice items
+          const invoiceItems = await this.listInvoiceItems(invoice.id);
+          
+          // Extract lot numbers from invoice items
+          const lotNumbers = invoiceItems.map(item => item.lotNumber);
+          
+          // Find product items with matching lot numbers
+          if (lotNumbers.length > 0) {
+            const lotMatches = await db.select()
+              .from(productItems)
+              .where(or(...lotNumbers.map(lot => eq(productItems.lotNumber, lot))));
+            
+            lotMatches.forEach(item => fileIds.add(item.fileId));
+          }
+        }
       }
       
       // If we found any matching files, retrieve them
@@ -1915,5 +1985,44 @@ export class DatabaseStorage implements IStorage {
       console.error('Error finding matching EPCIS files:', error);
       return [];
     }
+  }
+  
+  // Helper method to convert NDC codes to GTIN format
+  private async convertNdcToGtin(ndcCodes: string[]): Promise<string[]> {
+    const gtins: string[] = [];
+    
+    for (const ndc of ndcCodes) {
+      // Remove dashes or spaces if present
+      const cleanNdc = ndc.replace(/[-\s]/g, '');
+      
+      // FDA NDC codes are 10 or 11 digits
+      if (cleanNdc.length >= 10 && cleanNdc.length <= 11) {
+        // Convert to GTIN-14 format by adding prefix and calculating check digit
+        // For pharmaceuticals, the prefix is usually 03
+        const prefix = '03';
+        
+        // Pad NDC to 11 digits if it's 10
+        const paddedNdc = cleanNdc.length === 10 ? '0' + cleanNdc : cleanNdc;
+        
+        // Combine prefix and NDC to form GTIN-14 without check digit
+        const gtin13 = prefix + paddedNdc;
+        
+        // Calculate check digit
+        let sum = 0;
+        for (let i = 0; i < gtin13.length; i++) {
+          const digit = parseInt(gtin13[i]);
+          // Apply GTIN check digit algorithm (odd positions x 3, even positions x 1)
+          sum += (i % 2 === 0) ? digit : digit * 3;
+        }
+        
+        const checkDigit = (10 - (sum % 10)) % 10;
+        
+        // Form the complete GTIN-14
+        const gtin14 = gtin13 + checkDigit;
+        gtins.push(gtin14);
+      }
+    }
+    
+    return gtins;
   }
 }
