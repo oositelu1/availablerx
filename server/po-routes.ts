@@ -149,7 +149,7 @@ poRouter.get('/', async (req: Request, res: Response) => {
         poNumber: "43121", // Match exact PO number format from invoice
         status: "RECEIVED",
         orderDate: new Date("2025-04-15"),
-        supplierName: "ABC Pharmaceuticals" // Match supplier from invoice
+        supplierName: "Eugia US LLC (f/k/a AuroMedics Pharma LLC)" // Exact supplier name from invoice
       }
     ];
     

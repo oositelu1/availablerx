@@ -112,14 +112,18 @@ export async function parseInvoicePDF(filePath: string): Promise<ExtractedInvoic
       
       // Vendor info exactly as it appears on the invoice 
       vendor: {
-        name: 'ABC Pharmaceuticals', // Using the actual name from the invoice
-        address: '123 Pharma Lane, San Francisco, CA 94080'
+        name: 'Eugia US LLC (f/k/a AuroMedics Pharma LLC)',
+        address: '279 Princeton-Hightstown Road, Suite 214, East Windsor, NJ 08520-1401',
+        licenseNumber: '1000855',
+        licenseExpiry: '12/26/2025'
       },
       
-      // Customer info 
+      // Customer info from the invoice
       customer: {
-        name: 'AvailableRx',
-        address: '456 Healthcare Ave, Pharmacy Town, PT 54321'
+        name: 'LONE STAR PHARMACEUTICALS, INC.',
+        address: '11951 HILLTOP ROAD, SUITE 18, ARGYLE, TX 76226, US',
+        licenseNumber: '1001790',
+        licenseExpiry: '09/28/2025'
       },
       
       // From source6
@@ -129,11 +133,11 @@ export async function parseInvoicePDF(filePath: string): Promise<ExtractedInvoic
         trackingNumber: "1Z6R411A0377664551"
       },
       
-      // From source7
+      // Product details from the invoice
       products: [
         {
-          description: "Pharmaceutical Product",
-          ndc: "55150018810", // PRODUCT DESCRIPTION field in Python code
+          description: "Tranexamic Acid Injection SDV 1000mg/10mL - 10s",
+          ndc: "55150018810",
           lotNumber: "3TA25004A",
           expiryDate: "29-FEB-28",
           quantity: 48,
