@@ -53,24 +53,14 @@ export default function InvoiceUploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractedData, setExtractedData] = useState<any>(null);
   
-  // Use hardcoded purchase orders for development
-  const isLoadingPOs = false;
-  const purchaseOrders = [
-    {
-      id: 1,
-      poNumber: "PO-12345",
-      status: "RECEIVED",
-      orderDate: "2025-04-01",
-      supplier: "ABC Pharmaceuticals"
-    },
-    {
-      id: 2,
-      poNumber: "PO-67890",
-      status: "PENDING",
-      orderDate: "2025-04-15",
-      supplier: "XYZ Medical Supply"
-    }
-  ];
+  // Fetch purchase orders for dropdown from API
+  const { data: purchaseOrdersData, isLoading: isLoadingPOs } = useQuery({
+    queryKey: ['/api/purchase-orders'],
+    enabled: true, // Always fetch POs when page loads
+  });
+  
+  // Extract the purchase orders from the response
+  const purchaseOrders = purchaseOrdersData?.orders || [];
   
   // Set up form
   const form = useForm<InvoiceUploadFormValues>({
@@ -256,7 +246,7 @@ export default function InvoiceUploadPage() {
                             <SelectItem value="none">None (Auto-detect)</SelectItem>
                             {purchaseOrders?.map((po: any) => (
                               <SelectItem key={po.id} value={po.id.toString()}>
-                                PO-{po.poNumber} ({new Date(po.orderDate).toLocaleDateString()})
+                                {po.poNumber} - {po.supplierName || po.supplier || "Unknown Supplier"}
                               </SelectItem>
                             ))}
                           </SelectContent>
