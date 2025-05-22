@@ -54,10 +54,12 @@ export default function InvoiceUploadPage() {
   const [extractedData, setExtractedData] = useState<any>(null);
   
   // Fetch purchase orders for dropdown
-  const { data: purchaseOrders, isLoading: isLoadingPOs } = useQuery({
+  const { data, isLoading: isLoadingPOs } = useQuery({
     queryKey: ['/api/purchase-orders'],
     enabled: true, // Always fetch POs when page loads
   });
+  
+  const purchaseOrders = data?.orders || [];
   
   // Set up form
   const form = useForm<InvoiceUploadFormValues>({
@@ -241,7 +243,7 @@ export default function InvoiceUploadPage() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="none">None (Auto-detect)</SelectItem>
-                            {purchaseOrders?.purchaseOrders?.map((po: any) => (
+                            {purchaseOrders?.map((po: any) => (
                               <SelectItem key={po.id} value={po.id.toString()}>
                                 PO-{po.poNumber} ({new Date(po.orderDate).toLocaleDateString()})
                               </SelectItem>

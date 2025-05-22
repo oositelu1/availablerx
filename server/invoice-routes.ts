@@ -12,7 +12,10 @@ export const invoiceRouter = Router();
 // Configure multer for file uploads
 const invoiceStorage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads/invoices');
+    // Use import.meta.url to determine paths in ES modules
+    const moduleURL = new URL(import.meta.url);
+    const dirname = path.dirname(moduleURL.pathname);
+    const dir = path.join(dirname, '../uploads/invoices');
     try {
       await fs.mkdir(dir, { recursive: true });
       cb(null, dir);
