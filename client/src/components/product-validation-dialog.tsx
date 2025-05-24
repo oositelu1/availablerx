@@ -6,7 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon } from "lucide-react";
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
-import { dataMatrixToEpcisGtin } from "@/lib/gtin-utils";
+import { dataMatrixToEpcisGtin, getPackagingLevel, normalizeGtinForComparison } from "@/lib/gtin-utils";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -60,9 +60,11 @@ export default function ProductValidationDialog({
       matchResult: {
         matches: boolean;
         gtinMatch: boolean;
+        gtinSimilar?: boolean;
         lotMatch: boolean;
         serialMatch: boolean;
         expirationMatch: boolean;
+        matchScore?: number;
       }
     }>;
   } | null>(null);
@@ -85,14 +87,37 @@ export default function ProductValidationDialog({
       
       // Special handling for the specific barcode in the screenshot
       if (parsedData.gtin === '00301439570103' && 
-          parsedData.serialNumber === '10012888457960' && 
           parsedData.lotNumber === '24052241') {
-        console.log("⭐ DETECTED SCREENSHOT EXAMPLE - Ensuring match works");
+        console.log("⭐ DETECTED WEST-WARD BARCODE - GTIN and Lot match expected data");
+        console.log("Available serial numbers in EPCIS: 10016550749981, 10018521666433, etc.");
       }
       
       // Find matching products
+      console.log(`Scanning against ${productItems.length} products in EPCIS file`);
+      console.log(`Looking for: Lot=${parsedData.lotNumber}, Serial=${parsedData.serialNumber}`);
+      
+      // First, let's find if this exact serial exists
+      const exactSerialMatch = productItems.find(item => 
+        item.serialNumber === parsedData.serialNumber
+      );
+      
+      if (exactSerialMatch) {
+        console.log(`✓ Found exact serial number match!`);
+        console.log(`Product: GTIN=${exactSerialMatch.gtin}, Lot=${exactSerialMatch.lotNumber}, Serial=${exactSerialMatch.serialNumber}`);
+      } else {
+        console.log(`✗ Serial number ${parsedData.serialNumber} NOT FOUND in productItems array`);
+        console.log(`Looking for serial: "${parsedData.serialNumber}" (length: ${parsedData.serialNumber?.length})`);
+        
+        // Check if any products have this lot number
+        const sameLotProducts = productItems.filter(p => p.lotNumber === parsedData.lotNumber);
+        console.log(`Found ${sameLotProducts.length} products with lot ${parsedData.lotNumber}`);
+        if (sameLotProducts.length > 0) {
+          console.log(`Their serials:`, sameLotProducts.map(p => `"${p.serialNumber}" (len: ${p.serialNumber.length})`));
+        }
+      }
+      
       const matches = productItems.map(productItem => {
-        // First check - direct matching through the compareWithEPCISData function
+        // Use the enhanced compareWithEPCISData function that handles format variations
         const matchResult = compareWithEPCISData(parsedData, {
           gtin: productItem.gtin,
           lotNumber: productItem.lotNumber,
@@ -100,38 +125,15 @@ export default function ProductValidationDialog({
           serialNumber: productItem.serialNumber
         });
         
-        // Second check - manual GTIN conversion with matching
-        let enhancedMatch = { ...matchResult };
-        if (!matchResult.matches) {
-          // Convert DataMatrix GTIN to EPCIS format
-          const epcisGtin = dataMatrixToEpcisGtin(parsedData.gtin || '');
-          
-          if (epcisGtin && epcisGtin === productItem.gtin) {
-            console.log("DataMatrix GTIN successfully converted to EPCIS format!");
-            console.log(`DataMatrix: ${parsedData.gtin} → EPCIS: ${epcisGtin}`);
-            
-            // Check if lot number and serial number also match
-            const lotMatch = parsedData.lotNumber?.toLowerCase() === productItem.lotNumber?.toLowerCase();
-            const serialMatch = parsedData.serialNumber === productItem.serialNumber;
-            
-            if (lotMatch && serialMatch) {
-              console.log("✓ EXACT MATCH with converted GTIN, lot, and serial!");
-              
-              // Force the match to be true
-              enhancedMatch = {
-                ...matchResult,
-                matches: true,
-                gtinMatch: true,
-                lotMatch: true,
-                serialMatch: true
-              };
-            }
-          }
+        // Log potential matches
+        if (matchResult.lotMatch && productItem.serialNumber === parsedData.serialNumber) {
+          console.log(`🎯 PERFECT MATCH CANDIDATE: GTIN ${productItem.gtin}, Lot ${productItem.lotNumber}, Serial ${productItem.serialNumber}`);
+          console.log(`Match result:`, matchResult);
         }
         
         return {
           productItem,
-          matchResult: enhancedMatch
+          matchResult
         };
       });
   
@@ -412,32 +414,28 @@ export default function ProductValidationDialog({
       const { scannedData, matches } = scanResult;
       console.log("Scan result matches array:", matches);
       
-      // Find exact GTIN+lot+serial matches
+      // Find exact GTIN+lot+serial matches (including format variations)
       const exactMatches = matches.filter(m => 
-        m.matchResult.gtinMatch && 
+        (m.matchResult.gtinMatch || m.matchResult.gtinSimilar) && 
         m.matchResult.lotMatch && 
         m.matchResult.serialMatch
       );
       
-      // Find GTIN+lot matches (less strict)
+      // Find GTIN+lot matches (less strict, includes format variations)
       const looseMatches = matches.filter(m => 
-        m.matchResult.gtinMatch && 
+        (m.matchResult.gtinMatch || m.matchResult.gtinSimilar) && 
         m.matchResult.lotMatch
       );
       
       // Find matches by the overall 'matches' flag
       const flagMatches = matches.filter(m => m.matchResult.matches);
       
-      // For hardcoded handling of the example in screenshot
-      const manualMatch = scannedData.gtin === '00301439570103' && 
-                          scannedData.serialNumber === '10012888457960' && 
-                          scannedData.lotNumber === '24052241';
+      // No manual overrides - rely on the matching logic
       
       console.log("Match counts:", {
         exact: exactMatches.length,
         loose: looseMatches.length,
-        flag: flagMatches.length,
-        manualOverride: manualMatch
+        flag: flagMatches.length
       });
       
       // Determine if we have a valid match
@@ -445,30 +443,18 @@ export default function ProductValidationDialog({
                         looseMatches.length > 0 ? looseMatches[0] :
                         flagMatches.length > 0 ? flagMatches[0] : null;
       
-      // Force a match for the specific example from screenshot if needed
-      const forceMatch = manualMatch;
       
       return (
         <div className="space-y-4">
           <div className="mb-4">
             <h3 className="text-lg font-medium mb-2">Scan Results</h3>
             
-            {(bestMatch || forceMatch) ? (
+            {bestMatch ? (
               <Alert variant="default" className="bg-success/10 border-success">
                 <CheckCircle className="h-5 w-5 text-success" />
                 <AlertTitle>Valid Product!</AlertTitle>
                 <AlertDescription className="flex flex-col gap-1">
                   <span>This product matches an item in the EPCIS data.</span>
-                  
-                  {forceMatch && (
-                    <div className="mt-1 text-xs">
-                      <p className="font-medium text-success">✓ Matched Product Info:</p>
-                      <p>GTIN: 00301430957010 (DataMatrix format: 00301439570103)</p>
-                      <p>Packaging Level: Item/Each</p>
-                      <p>Serial: 10012888457960</p>
-                      <p>Lot: 24052241</p>
-                    </div>
-                  )}
                   
                   {/* Show PO information more prominently if available */}
                   {poId && (
@@ -500,20 +486,16 @@ export default function ProductValidationDialog({
                   <span className="font-mono">{scannedData.gtin || 'N/A'}</span>
                   {scannedData.gtin && (
                     <span className="text-xs mt-1 inline-block">
-                      {/* Updated logic to correctly identify packaging level from the GTIN */}
-                      {scannedData.gtin === '00301439570103' || scannedData.gtin.charAt(7) === '0' ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Item/Each
-                        </Badge>
-                      ) : scannedData.gtin.charAt(7) === '5' || scannedData.gtin.charAt(7) === '9' ? (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          Case
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-                          Unknown Level
-                        </Badge>
-                      )}
+                      {/* Use the proper packaging level function */}
+                      <Badge variant="outline" className={
+                        getPackagingLevel(scannedData.gtin) === 'Item/Each' ? 
+                          "bg-green-50 text-green-700 border-green-200" :
+                        getPackagingLevel(scannedData.gtin).includes('Case') || getPackagingLevel(scannedData.gtin).includes('Pack') ?
+                          "bg-blue-50 text-blue-700 border-blue-200" :
+                          "bg-gray-50 text-gray-700 border-gray-200"
+                      }>
+                        {getPackagingLevel(scannedData.gtin)}
+                      </Badge>
                     </span>
                   )}
                 </div>
@@ -558,8 +540,10 @@ export default function ProductValidationDialog({
                 <h4 className="text-sm font-medium mb-1">Match Details</h4>
                 <div className="border rounded-md p-3 bg-muted/30">
                   <div className="flex flex-wrap gap-2 mb-2">
-                    <Badge variant={bestMatch.matchResult.gtinMatch ? "success" : "destructive"}>
-                      {bestMatch.matchResult.gtinMatch ? "GTIN Match" : "GTIN Mismatch"}
+                    <Badge variant={bestMatch.matchResult.gtinMatch ? "success" : bestMatch.matchResult.gtinSimilar ? "secondary" : "destructive"}>
+                      {bestMatch.matchResult.gtinMatch ? "GTIN Match" : 
+                       bestMatch.matchResult.gtinSimilar ? "Format Variation" : 
+                       "GTIN Mismatch"}
                     </Badge>
                     <Badge variant={bestMatch.matchResult.lotMatch ? "success" : "destructive"}>
                       {bestMatch.matchResult.lotMatch ? "Lot Match" : "Lot Mismatch"}
@@ -572,6 +556,11 @@ export default function ProductValidationDialog({
                     {bestMatch.matchResult.expirationMatch !== undefined && (
                       <Badge variant={bestMatch.matchResult.expirationMatch ? "success" : "destructive"}>
                         {bestMatch.matchResult.expirationMatch ? "Expiration Match" : "Expiration Mismatch"}
+                      </Badge>
+                    )}
+                    {bestMatch.matchResult.matchScore !== undefined && (
+                      <Badge variant={bestMatch.matchResult.matchScore >= 60 ? "success" : "secondary"}>
+                        Score: {bestMatch.matchResult.matchScore}%
                       </Badge>
                     )}
                   </div>
@@ -587,12 +576,16 @@ export default function ProductValidationDialog({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>
-                                {bestMatch.matchResult.gtinMatch && bestMatch.matchResult.lotMatch && bestMatch.matchResult.serialMatch ? (
+                                {bestMatch.matchResult.gtinMatch && bestMatch.matchResult.lotMatch && bestMatch.matchResult.serialMatch && !bestMatch.matchResult.gtinSimilar ? (
                                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                                     Perfect Match
                                   </Badge>
-                                ) : (bestMatch.matchResult.gtinMatch && bestMatch.matchResult.lotMatch) ? (
+                                ) : (bestMatch.matchResult.matches && bestMatch.matchResult.matchScore >= 80) ? (
                                   <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    Strong Match
+                                  </Badge>
+                                ) : (bestMatch.matchResult.matches) ? (
+                                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
                                     Good Match
                                   </Badge>
                                 ) : (
@@ -650,10 +643,25 @@ export default function ProductValidationDialog({
                       
                       {/* Product identifiers in a cleaner grid */}
                       <div className="grid grid-cols-2 gap-2 mt-2">
-                        <div className={`p-1 rounded ${bestMatch.matchResult.gtinMatch ? 'bg-green-50' : 'bg-amber-50'}`}>
+                        <div className={`p-1 rounded ${bestMatch.matchResult.gtinMatch ? 'bg-green-50' : bestMatch.matchResult.gtinSimilar ? 'bg-yellow-50' : 'bg-amber-50'}`}>
                           <p className="text-xs text-gray-500 flex items-center">
                             GTIN
-                            {!bestMatch.matchResult.gtinMatch && (
+                            {bestMatch.matchResult.gtinSimilar && !bestMatch.matchResult.gtinMatch && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3 w-3 ml-1 text-yellow-600" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">GTIN format variation detected</p>
+                                    <p className="text-xs mt-1">Same product, different encoding</p>
+                                    <p className="text-xs mt-1">Scanned: {scanResult.scannedData.gtin}</p>
+                                    <p className="text-xs">EPCIS: {bestMatch.productItem.gtin}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            {!bestMatch.matchResult.gtinMatch && !bestMatch.matchResult.gtinSimilar && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -667,6 +675,7 @@ export default function ProductValidationDialog({
                             )}
                           </p>
                           <p className="font-mono text-sm">{bestMatch.productItem.gtin}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{getPackagingLevel(bestMatch.productItem.gtin)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">NDC</p>
@@ -735,6 +744,25 @@ export default function ProductValidationDialog({
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Scanned Data Comparison */}
+                    {scanResult && bestMatch.matchResult.gtinSimilar && (
+                      <div className="bg-white border p-3 rounded-md shadow-sm mt-3">
+                        <h4 className="font-medium text-primary/80 mb-2">Scanned Data Comparison</h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Scanned GTIN</p>
+                            <p className="font-mono">{scanResult.scannedData.gtin}</p>
+                            <p className="text-xs text-gray-500">{getPackagingLevel(scanResult.scannedData.gtin || '')}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">EPCIS GTIN</p>
+                            <p className="font-mono">{bestMatch.productItem.gtin}</p>
+                            <p className="text-xs text-gray-500">{getPackagingLevel(bestMatch.productItem.gtin)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

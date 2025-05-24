@@ -77,7 +77,10 @@ export async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?:
                 // Process each vocabulary
                 for (const vocabulary of vocabularies) {
                   // Look for EPCClass vocabulary which contains product info
-                  if (vocabulary.$ && vocabulary.$.type && vocabulary.$.type.value === 'urn:epcglobal:epcis:vtype:EPCClass') {
+                  const vocabType = vocabulary.$ && vocabulary.$.type || vocabulary.type;
+                  const typeValue = typeof vocabType === 'object' ? vocabType.value : vocabType;
+                  
+                  if (typeValue === 'urn:epcglobal:epcis:vtype:EPCClass') {
                     console.log('Found EPCClass vocabulary in master data');
                     const elemList = vocabulary['VocabularyElementList'];
                     if (elemList && elemList[0]) {
@@ -89,35 +92,40 @@ export async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?:
                           if (attributes) {
                             // Check each attribute for product info
                             for (const attr of attributes) {
+                              // Get attribute ID - handle different formats
+                              let attrId = '';
                               if (attr.$ && attr.$.id) {
-                                // Get attribute ID - handle both object and string types
-                                let attrId = '';
-                                if (typeof attr.$.id === 'object' && attr.$.id.value) {
-                                  attrId = attr.$.id.value;
-                                } else if (typeof attr.$.id === 'string') {
-                                  attrId = attr.$.id;
-                                }
-                                
-                                // Extract value - handle different ways it might be stored
-                                let attrValue = attr._ ? (attr._._ || attr._) : '';
-                                
-                                // Match product name
-                                if (attrId === 'urn:epcglobal:cbv:mda#regulatedProductName') {
-                                  console.log('Found product name in EPCISHeader:', attrValue);
-                                  result.name = attrValue;
-                                }
-                                
-                                // Match manufacturer
-                                if (attrId === 'urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName') {
-                                  console.log('Found manufacturer in EPCISHeader:', attrValue);
-                                  result.manufacturer = attrValue;
-                                }
-                                
-                                // Match NDC
-                                if (attrId === 'urn:epcglobal:cbv:mda#additionalTradeItemIdentification') {
-                                  console.log('Found NDC in EPCISHeader:', attrValue);
-                                  result.ndc = attrValue;
-                                }
+                                attrId = typeof attr.$.id === 'object' ? attr.$.id.value : attr.$.id;
+                              } else if (attr.id) {
+                                attrId = typeof attr.id === 'object' ? attr.id.value : attr.id;
+                              }
+                              
+                              // Extract value - handle different ways it might be stored
+                              let attrValue = '';
+                              if (attr._) {
+                                attrValue = typeof attr._ === 'object' ? (attr._._ || attr._) : attr._;
+                              } else if (attr.value) {
+                                attrValue = attr.value;
+                              } else if (typeof attr === 'string') {
+                                attrValue = attr;
+                              }
+                              
+                              // Match product name
+                              if (attrId === 'urn:epcglobal:cbv:mda#regulatedProductName') {
+                                console.log('Found product name in EPCISHeader:', attrValue);
+                                result.name = attrValue;
+                              }
+                              
+                              // Match manufacturer
+                              if (attrId === 'urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName') {
+                                console.log('Found manufacturer in EPCISHeader:', attrValue);
+                                result.manufacturer = attrValue;
+                              }
+                              
+                              // Match NDC
+                              if (attrId === 'urn:epcglobal:cbv:mda#additionalTradeItemIdentification') {
+                                console.log('Found NDC in EPCISHeader:', attrValue);
+                                result.ndc = attrValue;
                               }
                             }
                           }

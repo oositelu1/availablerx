@@ -3,8 +3,7 @@ import {
   purchaseOrders, purchaseOrderItems, salesOrders, salesOrderItems, 
   epcisPoAssociations, productItems, scannedItems,
   inventory, inventoryTransactions,
-  validationSessions, auditLogs,
-  invoices, invoiceItems
+  validationSessions, auditLogs
 } from "@shared/schema";
 import type { 
   User, InsertUser, Partner, InsertPartner, PartnerLocation, InsertPartnerLocation,
@@ -14,12 +13,11 @@ import type {
   EpcisPoAssociation, InsertEpcisPoAssociation,
   ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
   Inventory, InsertInventory, InventoryTransaction, InsertInventoryTransaction,
-  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog,
-  Invoice, InsertInvoice, InvoiceItem, InsertInvoiceItem
+  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, or, gte, lte, desc, sql, like } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, sql, like, isNotNull } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 import crypto from "crypto";
@@ -195,6 +193,31 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return !!partner;
+  }
+  
+  async getPartnerByGLN(gln: string): Promise<Partner | null> {
+    const [partner] = await db
+      .select()
+      .from(partners)
+      .where(eq(partners.gln, gln))
+      .limit(1);
+    
+    return partner || null;
+  }
+  
+  async getAllActiveAS2Receivers(): Promise<Partner[]> {
+    const receivers = await db
+      .select()
+      .from(partners)
+      .where(
+        and(
+          eq(partners.isActive, true),
+          eq(partners.transportType, 'AS2'),
+          isNotNull(partners.as2ServerId)
+        )
+      );
+    
+    return receivers;
   }
   
   // Partner Location methods
@@ -673,58 +696,54 @@ export class DatabaseStorage implements IStorage {
     limit?: number;
     offset?: number;
   }): Promise<{ orders: PurchaseOrder[], total: number }> {
-    // Create a base query
-    let ordersQuery = db.select().from(purchaseOrders);
-    let countQuery = db.select().from(purchaseOrders);
-    
-    // Create a filter array to hold conditions
-    let conditions = [];
-    
-    // Add conditions based on filters
-    if (filters?.status) {
-      conditions.push(eq(purchaseOrders.status, filters.status));
+    try {
+      // Build the where conditions
+      const conditions = [];
+      
+      if (filters?.status) {
+        conditions.push(eq(purchaseOrders.status, filters.status));
+      }
+      
+      if (filters?.supplierGln) {
+        conditions.push(eq(purchaseOrders.supplierGln, filters.supplierGln));
+      }
+      
+      if (filters?.startDate) {
+        conditions.push(gte(purchaseOrders.orderDate, filters.startDate));
+      }
+      
+      if (filters?.endDate) {
+        conditions.push(lte(purchaseOrders.orderDate, filters.endDate));
+      }
+      
+      // Build the base query
+      let query = db.select().from(purchaseOrders);
+      
+      // Apply conditions if any
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      // Apply sorting
+      query = query.orderBy(desc(purchaseOrders.orderDate));
+      
+      // Get all results for counting
+      const allResults = await query;
+      const total = allResults.length;
+      
+      // Apply pagination manually
+      const start = filters?.offset || 0;
+      const limit = filters?.limit || 50;
+      const paginatedResults = allResults.slice(start, start + limit);
+      
+      return { 
+        orders: paginatedResults, 
+        total 
+      };
+    } catch (error) {
+      console.error('Error in listPurchaseOrders:', error);
+      return { orders: [], total: 0 };
     }
-    
-    if (filters?.supplierGln) {
-      conditions.push(eq(purchaseOrders.supplierGln, filters.supplierGln));
-    }
-    
-    if (filters?.startDate) {
-      conditions.push(gte(purchaseOrders.orderDate, filters.startDate));
-    }
-    
-    if (filters?.endDate) {
-      conditions.push(lte(purchaseOrders.orderDate, filters.endDate));
-    }
-    
-    // Apply the conditions to both queries
-    if (conditions.length > 0) {
-      ordersQuery = ordersQuery.where(and(...conditions));
-      countQuery = countQuery.where(and(...conditions));
-    }
-    
-    // Get total count
-    const [countResult] = await countQuery;
-    const total = countResult ? Object.keys(countResult).length : 0;
-    
-    // Apply sorting and pagination
-    ordersQuery = ordersQuery.orderBy(desc(purchaseOrders.orderDate));
-    
-    if (filters?.limit !== undefined) {
-      ordersQuery = ordersQuery.limit(filters.limit);
-    }
-    
-    if (filters?.offset !== undefined) {
-      ordersQuery = ordersQuery.offset(filters.offset);
-    }
-    
-    // Execute the query
-    const ordersResult = await ordersQuery;
-    
-    return { 
-      orders: ordersResult, 
-      total: total || ordersResult.length 
-    };
   }
 
   // Purchase Order Items management

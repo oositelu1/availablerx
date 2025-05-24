@@ -4,7 +4,8 @@ import * as path from 'path';
 import { parseStringPromise } from 'xml2js';
 import { insertProductItemSchema, type ProductItem } from '@shared/schema';
 import { z } from 'zod';
-import * as libxmljs from 'libxmljs2';
+import { parseEpcisFileStreaming } from './streaming-xml-parser';
+// import * as libxmljs from 'libxmljs2'; // Commented out - not used for validation
 
 // Constants for file upload validation
 export const ALLOWED_FILE_TYPES = ['application/xml', 'text/xml', 'application/zip', 'application/x-zip-compressed'];
@@ -55,6 +56,22 @@ export interface EpcisMetadata {
  */
 export async function validateEpcisFile(filePath: string): Promise<ValidationResult> {
   try {
+    // Check file size to determine parsing strategy
+    const stats = fs.statSync(filePath);
+    const fileSizeInMB = stats.size / (1024 * 1024);
+    
+    // Use streaming parser for files larger than 10MB
+    if (fileSizeInMB > 10) {
+      console.log(`Using streaming parser for large file (${fileSizeInMB.toFixed(2)}MB)`);
+      try {
+        const metadata = await parseEpcisFileStreaming(filePath);
+        return { valid: true, metadata };
+      } catch (streamError) {
+        console.error('Streaming parser failed, falling back to regular parser:', streamError);
+        // Fall through to regular parser
+      }
+    }
+    
     // Parse the XML with xml2js for structured data access
     const xmlBuffer = fs.readFileSync(filePath);
     const xmlData = await parseStringPromise(xmlBuffer, {
@@ -276,18 +293,7 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
             
             for (const vocab of vocabularies) {
               // Look for EPCClass vocabulary which contains product info
-              if (!vocab.$ && !vocab.ATTRS) {
-                console.log('Vocabulary missing $ or ATTRS property');
-                continue;
-              }
-              
-              // Get the type attribute, which might be in different formats
-              let typeValue;
-              if (vocab.$ && vocab.$.type) {
-                typeValue = vocab.$.type;
-              } else if (vocab.ATTRS && vocab.ATTRS.type) {
-                typeValue = vocab.ATTRS.type;
-              }
+              let typeValue = vocab.type || (vocab.$ && vocab.$.type) || (vocab.ATTRS && vocab.ATTRS.type);
               
               if (!typeValue) {
                 console.log('Vocabulary missing type attribute');
@@ -301,13 +307,21 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
               if (typeString.includes('EPCClass')) {
                 console.log('Found EPCClass vocabulary, extracting product info');
                 
-                const vocabEls = vocab.VocabularyElement;
-                if (!vocabEls) {
+                // Handle VocabularyElementList wrapper if present
+                let elements = [];
+                if (vocab.VocabularyElementList && vocab.VocabularyElementList.VocabularyElement) {
+                  const vocabEls = vocab.VocabularyElementList.VocabularyElement;
+                  elements = Array.isArray(vocabEls) ? vocabEls : [vocabEls];
+                } else if (vocab.VocabularyElement) {
+                  const vocabEls = vocab.VocabularyElement;
+                  elements = Array.isArray(vocabEls) ? vocabEls : [vocabEls];
+                }
+                
+                if (elements.length === 0) {
                   console.log('No vocabulary elements found');
                   continue;
                 }
                 
-                const elements = Array.isArray(vocabEls) ? vocabEls : [vocabEls];
                 console.log(`Found ${elements.length} VocabularyElement(s)`);
                 
                 for (const element of elements) {
@@ -326,14 +340,8 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                   
                   for (const attr of attrList) {
                     try {
-                      if (!attr.$ && !attr.ATTRS) continue;
-                      
-                      let id;
-                      if (attr.$ && attr.$.id) {
-                        id = attr.$.id;
-                      } else if (attr.ATTRS && attr.ATTRS.id) {
-                        id = attr.ATTRS.id;
-                      }
+                      // Get ID - handle direct property or attribute format
+                      let id = attr.id || (attr.$ && attr.$.id) || (attr.ATTRS && attr.ATTRS.id);
                       
                       if (!id) {
                         console.log('Attribute has no ID');
@@ -345,13 +353,17 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                         id = id.value || JSON.stringify(id);
                       }
                       
-                      let value;
-                      if (attr._ !== undefined) {
-                        value = attr._;
-                      } else if (attr.value !== undefined) {
-                        value = attr.value;
-                      } else {
-                        value = attr.toString();
+                      // Get value - handle text content or direct property
+                      let value = attr._ || attr['#text'] || attr.value || attr;
+                      if (typeof value === 'object' && value._) {
+                        value = value._;
+                      }
+                      if (typeof value === 'object' && !Array.isArray(value)) {
+                        // If still an object, try to extract string representation
+                        value = value.value || value.toString();
+                      }
+                      if (typeof value !== 'string') {
+                        value = String(value);
                       }
                       
                       console.log(`Attribute ${id} = ${value}`);
@@ -548,24 +560,24 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
                               if (ilmd['cbvmda:lotNumber']) {
                                 const rawLotNumber = ilmd['cbvmda:lotNumber'];
                                 // Handle complex objects with underscore property
-                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber._ 
+                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber && rawLotNumber._ 
                                   ? rawLotNumber._ 
                                   : rawLotNumber;
                               } else if (ilmd.lotNumber) {
                                 const rawLotNumber = ilmd.lotNumber;
-                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber._ 
+                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber && rawLotNumber._ 
                                   ? rawLotNumber._ 
                                   : rawLotNumber;
                               }
                               
                               if (ilmd['cbvmda:itemExpirationDate']) {
                                 const rawExpirationDate = ilmd['cbvmda:itemExpirationDate'];
-                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate._ 
+                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate && rawExpirationDate._ 
                                   ? rawExpirationDate._ 
                                   : rawExpirationDate;
                               } else if (ilmd.itemExpirationDate) {
                                 const rawExpirationDate = ilmd.itemExpirationDate;
-                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate._ 
+                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate && rawExpirationDate._ 
                                   ? rawExpirationDate._ 
                                   : rawExpirationDate;
                               }

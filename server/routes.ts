@@ -25,9 +25,8 @@ import { inventoryRouter } from './inventory-routes';
 import { inventoryTransactionRouter } from './inventory-transaction-routes';
 import { salesOrderRouter } from './sales-order-routes';
 import { salesOrderItemRouter } from './sales-order-item-routes';
-import { t3Router } from './t3-routes';
-import { invoiceRouter } from './invoice-routes';
 import { s3Monitor } from './s3-monitor';
+import { multiAS2Router } from './multi-as2-routes';
 
 // Helper function to generate proper download URLs for the current environment
 function generateDownloadUrl(uuid: string, req?: Request): string {
@@ -113,8 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/inventory-transactions', inventoryTransactionRouter);
   app.use('/api/sales-orders', salesOrderRouter);
   app.use('/api/sales-order-items', salesOrderItemRouter);
-  app.use('/api/t3', t3Router);
-  app.use('/api/invoices', invoiceRouter);
+  app.use('/api/multi-as2', multiAS2Router);
   
   // === File Upload & Processing ===
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {
@@ -387,6 +385,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // === Cache Management ===
+  app.get("/api/cache/stats", isAdmin, async (req, res) => {
+    const cacheService = await import('./cache-service');
+    res.json(cacheService.cache.getStats());
+  });
+  
+  app.post("/api/cache/invalidate", isAdmin, async (req, res) => {
+    const { pattern } = req.body;
+    if (!pattern) {
+      return res.status(400).json({ message: 'Pattern is required' });
+    }
+    
+    const cacheService = await import('./cache-service');
+    const count = cacheService.cache.invalidate(pattern);
+    res.json({ message: `Invalidated ${count} cache entries`, count });
+  });
+  
+  app.post("/api/cache/clear", isAdmin, async (req, res) => {
+    const cacheService = await import('./cache-service');
+    cacheService.cache.clear();
+    res.json({ message: 'Cache cleared successfully' });
+  });
+
   // === AS2 Monitoring Service Control ===
   app.get("/api/as2/monitor/status", isAdmin, async (req, res) => {
     // Return the current status of the S3 monitoring service

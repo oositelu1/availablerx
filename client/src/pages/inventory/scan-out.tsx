@@ -138,22 +138,25 @@ export default function ScanProductOutPage() {
       return;
     }
 
-    // For this demo, we need to get the fileId from the order details
-    // In a real implementation, we would get this from the order or inventory record
-    const orderFileId = orderDetails?.fileId || orderDetails?.items?.[0]?.fileId;
+    // Get linked files from the order
+    const linkedFileIds = orderDetails?.linkedFileIds || [];
     
-    if (!orderFileId) {
+    if (linkedFileIds.length === 0) {
       toast({
         title: 'Error',
-        description: 'Could not determine file ID for validation',
+        description: 'No EPCIS files linked to this sales order',
         variant: 'destructive',
       });
       return;
     }
     
+    // For now, validate against the first linked file
+    // In a real implementation, you might validate against all files
+    const fileId = linkedFileIds[0];
+    
     // Validate the scanned product against the file data
     validateProductMutation.mutate({
-      fileId: orderFileId,
+      fileId: fileId,
       barcodeData: data.barcode
     });
   };
@@ -217,7 +220,7 @@ export default function ScanProductOutPage() {
                         <SelectItem value="none" disabled>Select an order</SelectItem>
                         {salesOrders.map((order: any) => (
                           <SelectItem key={order.id} value={order.id.toString()}>
-                            SO-{order.id}: {order.customerName} ({new Date(order.orderDate).toLocaleDateString()})
+                            {order.soNumber}: {order.customer} ({new Date(order.orderDate).toLocaleDateString()})
                           </SelectItem>
                         ))}
                       </>
@@ -236,7 +239,7 @@ export default function ScanProductOutPage() {
                     <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center">
                         <ShoppingCart className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span className="text-sm font-medium">Order #{selectedOrder}</span>
+                        <span className="text-sm font-medium">{orderDetails?.soNumber}</span>
                       </div>
                       <Badge 
                         variant="outline" 
@@ -259,14 +262,10 @@ export default function ScanProductOutPage() {
                       <Progress value={fulfillmentPercentage} className="h-2" />
                     </div>
                     
-                    {orderDetails.items && orderDetails.items.length > 0 && (
-                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                        {orderDetails.items.map((item: any, index: number) => (
-                          <div key={index} className="flex justify-between">
-                            <span>{item.productName || item.gtin}</span>
-                            <span>{item.quantityShipped || 0} / {item.quantity}</span>
-                          </div>
-                        ))}
+                    {orderDetails.linkedFileIds && orderDetails.linkedFileIds.length > 0 && (
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        <p>Linked EPCIS files: {orderDetails.linkedFileIds.length}</p>
+                        <p className="text-xs mt-1">Products will be validated against these files</p>
                       </div>
                     )}
                   </CardContent>

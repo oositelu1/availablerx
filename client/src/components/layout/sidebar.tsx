@@ -81,16 +81,6 @@ export function Sidebar() {
     { path: "/partners", label: "Partners", icon: <Users className="mr-3 h-5 w-5" /> },
     { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart className="mr-3 h-5 w-5" /> },
     { path: "/sales-orders", label: "Sales Orders", icon: <Send className="mr-3 h-5 w-5" /> },
-    // Invoice section with collapsible menu
-    { 
-      path: "/invoices", 
-      label: "Invoices", 
-      icon: <FileText className="mr-3 h-5 w-5" />,
-      subItems: [
-        { path: "/invoices/upload", label: "Upload Invoice", icon: <Upload className="mr-3 h-5 w-5" />, isSubItem: true },
-        { path: "/invoices/preview", label: "Invoice Preview", icon: <ClipboardList className="mr-3 h-5 w-5" />, isSubItem: true },
-      ]
-    },
     // Inventory section with collapsible menu
     { 
       path: "/inventory", 
@@ -100,15 +90,6 @@ export function Sidebar() {
         { path: "/inventory/scan-in", label: "Scan Product In", icon: <PackageCheck className="mr-3 h-5 w-5" />, isSubItem: true },
         { path: "/inventory/scan-out", label: "Scan Product Out", icon: <PackageX className="mr-3 h-5 w-5" />, isSubItem: true },
         { path: "/inventory/ledger", label: "Inventory Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, isSubItem: true },
-      ]
-    },
-    // T3 Document section with collapsible menu
-    { 
-      path: "/t3", 
-      label: "T3 Documents", 
-      icon: <FileText className="mr-3 h-5 w-5" />,
-      subItems: [
-        { path: "/t3/ledger", label: "T3 Ledger", icon: <ClipboardList className="mr-3 h-5 w-5" />, isSubItem: true },
       ]
     },
     { path: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },

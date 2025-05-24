@@ -2,6 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { s3Monitor } from "./s3-monitor";
+import { config } from 'dotenv';
+
+// Load environment variables from .env file
+config();
 
 const app = express();
 app.use(express.json());
@@ -57,21 +61,22 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // Serve the app on port 3000 (or PORT env variable)
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  const port = process.env.PORT || 3000;
+  server.listen(port as number, async () => {
     log(`serving on port ${port}`);
+    console.log(`\n🌐 Access your app at:`);
+    console.log(`   http://localhost:${port}`);
+    console.log(`   http://127.0.0.1:${port}`);
+    console.log(`   http://192.168.1.152:${port}`);
+    console.log(`\n✨ Try all three URLs above!\n`);
     
     // Start the S3 bucket monitor if AWS credentials are configured
     if (process.env.AWS_REGION && process.env.AWS_S3_BUCKET) {
       try {
-        const { s3Monitor } = require('./s3-monitor');
+        // Dynamic import for ES modules
+        const { s3Monitor } = await import('./s3-monitor.js');
         // Check for monitoring interval from environment or default to 5 minutes
         const monitorInterval = parseInt(process.env.S3_MONITOR_INTERVAL || '5');
         log(`Starting S3 bucket monitor with ${monitorInterval} minute interval`);

@@ -52,9 +52,11 @@ export default function PurchaseOrdersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Fetch all purchase orders
-  const { data: purchaseOrders, isLoading } = useQuery({
+  const { data: purchaseOrders, isLoading, refetch } = useQuery({
     queryKey: ['/api/purchase-orders'],
     enabled: !!user,
+    staleTime: 0, // Always refetch
+    refetchOnMount: true,
   });
 
   // Fetch all partners for dropdown selection
@@ -149,8 +151,10 @@ export default function PurchaseOrdersPage() {
         throw error;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+    onSuccess: async () => {
+      // Force refetch purchase orders
+      await queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      await refetch();
       setCreateDialogOpen(false);
       form.reset();
       toast({
@@ -174,9 +178,14 @@ export default function PurchaseOrdersPage() {
     createMutation.mutate(values);
   }
 
+  // Debug logging
+  console.log("Purchase orders data:", purchaseOrders);
+  
   // Filter purchase orders based on search query and status
   const purchaseOrdersArray = Array.isArray(purchaseOrders) ? purchaseOrders : 
     (purchaseOrders && purchaseOrders.orders ? purchaseOrders.orders : []);
+  
+  console.log("Purchase orders array:", purchaseOrdersArray);
     
   const filteredPOs = purchaseOrdersArray.filter(po => {
     const matchesSearch = searchQuery === "" || 

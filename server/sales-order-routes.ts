@@ -1,7 +1,34 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const salesOrderRouter = Router();
+
+// File path for persisting sales orders
+const SALES_ORDERS_FILE = path.join(process.cwd(), 'sales-orders.json');
+
+// Load sales orders from file or initialize empty
+let salesOrders: any[] = [];
+try {
+  if (fs.existsSync(SALES_ORDERS_FILE)) {
+    const data = fs.readFileSync(SALES_ORDERS_FILE, 'utf-8');
+    salesOrders = JSON.parse(data);
+    console.log(`Loaded ${salesOrders.length} sales orders from file`);
+  }
+} catch (error) {
+  console.error('Error loading sales orders:', error);
+  salesOrders = [];
+}
+
+// Helper to save sales orders to file
+function saveSalesOrders() {
+  try {
+    fs.writeFileSync(SALES_ORDERS_FILE, JSON.stringify(salesOrders, null, 2));
+  } catch (error) {
+    console.error('Error saving sales orders:', error);
+  }
+}
 
 // Middleware to check if user is authenticated
 salesOrderRouter.use((req, res, next) => {
@@ -25,41 +52,8 @@ salesOrderRouter.get("/count", async (req: Request, res: Response) => {
 // Get all sales orders
 salesOrderRouter.get("/", async (req: Request, res: Response) => {
   try {
-    // For demo, return mock sales orders
-    const orders = [
-      {
-        id: 1,
-        soNumber: 'SO-2025-001',
-        orderDate: '2025-05-10',
-        customerId: 3,
-        customerName: 'Memorial Hospital',
-        status: 'pending',
-        totalItems: 12,
-        shipToLocation: 'Memorial Hospital Pharmacy, 123 Main St, New York, NY'
-      },
-      {
-        id: 2,
-        soNumber: 'SO-2025-002',
-        orderDate: '2025-05-14',
-        customerId: 4,
-        customerName: 'University Medical Center',
-        status: 'approved',
-        totalItems: 24,
-        shipToLocation: 'UMC Pharmacy, 456 University Ave, San Francisco, CA'
-      },
-      {
-        id: 3,
-        soNumber: 'SO-2025-003',
-        orderDate: '2025-05-18',
-        customerId: 5,
-        customerName: 'Cedar-Sinai Medical',
-        status: 'pending',
-        totalItems: 8,
-        shipToLocation: 'Cedar-Sinai Pharmacy, 789 Cedar Blvd, Los Angeles, CA'
-      }
-    ];
-    
-    res.json({ orders });
+    // Return the in-memory sales orders array
+    res.json({ orders: salesOrders });
   } catch (error: any) {
     console.error("Error fetching sales orders:", error);
     res.status(500).json({ message: error.message });
@@ -74,88 +68,18 @@ salesOrderRouter.get("/:id", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid sales order ID" });
     }
     
-    // Mock sales order data
-    const mockOrders = {
-      1: {
-        id: 1,
-        soNumber: 'SO-2025-001',
-        orderDate: '2025-05-10',
-        customerId: 3,
-        customerName: 'Memorial Hospital',
-        status: 'pending',
-        totalItems: 12,
-        shipToLocation: 'Memorial Hospital Pharmacy, 123 Main St, New York, NY',
-        items: [
-          {
-            id: 101,
-            soId: 1,
-            lineNumber: 1,
-            gtin: '00301430957010',
-            productName: 'SODIUM FERRIC GLUCONATE',
-            ndc: '30143095701',
-            packageType: 'item',
-            packageSize: '1 x 125 mg/10 mL',
-            manufacturer: 'WEST-WARD PHARMACEUTICALS',
-            quantity: 5,
-            lotNumber: '24052241',
-            expirationDate: '2026-09-30',
-            unitPrice: 149.99,
-            status: 'pending'
-          },
-          {
-            id: 102,
-            soId: 1,
-            lineNumber: 2,
-            gtin: '10395487401027',
-            productName: 'HEPARIN SODIUM',
-            ndc: '39548740102',
-            packageType: 'item',
-            packageSize: '1 x 10,000 USP units/10 mL',
-            manufacturer: 'APP PHARMACEUTICALS',
-            quantity: 7,
-            lotNumber: '24081501',
-            expirationDate: '2026-08-15',
-            unitPrice: 89.99,
-            status: 'pending'
-          }
-        ]
-      },
-      2: {
-        id: 2,
-        soNumber: 'SO-2025-002',
-        orderDate: '2025-05-14',
-        customerId: 4,
-        customerName: 'University Medical Center',
-        status: 'approved',
-        totalItems: 24,
-        shipToLocation: 'UMC Pharmacy, 456 University Ave, San Francisco, CA',
-        items: [
-          {
-            id: 201,
-            soId: 2,
-            lineNumber: 1,
-            gtin: '00301430957010',
-            productName: 'SODIUM FERRIC GLUCONATE',
-            ndc: '30143095701',
-            packageType: 'item',
-            packageSize: '1 x 125 mg/10 mL',
-            manufacturer: 'WEST-WARD PHARMACEUTICALS',
-            quantity: 24,
-            lotNumber: '24052241',
-            expirationDate: '2026-09-30',
-            unitPrice: 149.99,
-            status: 'approved'
-          }
-        ]
+    // First check the in-memory array
+    const order = salesOrders.find(so => so.id === id);
+    if (order) {
+      // Add empty items array if not present
+      if (!order.items) {
+        order.items = [];
       }
-    };
-    
-    const order = mockOrders[id];
-    if (!order) {
-      return res.status(404).json({ message: "Sales order not found" });
+      return res.json(order);
     }
     
-    res.json(order);
+    // If not found in array, return 404
+    return res.status(404).json({ message: "Sales order not found" });
   } catch (error: any) {
     console.error("Error fetching sales order:", error);
     res.status(500).json({ message: error.message });
@@ -170,70 +94,107 @@ salesOrderRouter.get("/:id/items", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid sales order ID" });
     }
     
-    // Mock items data
-    const mockItems = {
-      1: [
-        {
-          id: 101,
-          soId: 1,
-          lineNumber: 1,
-          gtin: '00301430957010',
-          productName: 'SODIUM FERRIC GLUCONATE',
-          ndc: '30143095701',
-          packageType: 'item',
-          packageSize: '1 x 125 mg/10 mL',
-          manufacturer: 'WEST-WARD PHARMACEUTICALS',
-          quantity: 5,
-          lotNumber: '24052241',
-          expirationDate: '2026-09-30',
-          unitPrice: 149.99,
-          status: 'pending'
-        },
-        {
-          id: 102,
-          soId: 1,
-          lineNumber: 2,
-          gtin: '10395487401027',
-          productName: 'HEPARIN SODIUM',
-          ndc: '39548740102',
-          packageType: 'item',
-          packageSize: '1 x 10,000 USP units/10 mL',
-          manufacturer: 'APP PHARMACEUTICALS',
-          quantity: 7,
-          lotNumber: '24081501',
-          expirationDate: '2026-08-15',
-          unitPrice: 89.99,
-          status: 'pending'
-        }
-      ],
-      2: [
-        {
-          id: 201,
-          soId: 2,
-          lineNumber: 1,
-          gtin: '00301430957010',
-          productName: 'SODIUM FERRIC GLUCONATE',
-          ndc: '30143095701',
-          packageType: 'item',
-          packageSize: '1 x 125 mg/10 mL',
-          manufacturer: 'WEST-WARD PHARMACEUTICALS',
-          quantity: 24,
-          lotNumber: '24052241',
-          expirationDate: '2026-09-30',
-          unitPrice: 149.99,
-          status: 'approved'
-        }
-      ]
-    };
-    
-    const items = mockItems[id];
-    if (!items) {
-      return res.status(404).json({ message: "Sales order items not found" });
+    // Check if order exists
+    const order = salesOrders.find(so => so.id === id);
+    if (!order) {
+      return res.status(404).json({ message: "Sales order not found" });
     }
     
-    res.json({ items });
+    // Return items array (empty for now since we don't have item management yet)
+    res.json({ items: order.items || [] });
   } catch (error: any) {
     console.error("Error fetching sales order items:", error);
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Create a new sales order
+salesOrderRouter.post("/", async (req: Request, res: Response) => {
+  try {
+    const { soNumber, customerId, status, orderDate, linkedFileIds } = req.body;
+    
+    // Validate required fields
+    if (!soNumber || !customerId) {
+      return res.status(400).json({ 
+        message: "Missing required fields: soNumber and customerId are required" 
+      });
+    }
+    
+    // Get customer name from partners if possible
+    const partners = await storage.listPartners();
+    const customer = partners.find(p => p.id === parseInt(customerId));
+    
+    const newOrder = {
+      id: Date.now(), // Simple ID generation
+      soNumber,
+      customerId: parseInt(customerId),
+      customer: customer?.name || `Customer ${customerId}`,
+      status: status || 'approved',
+      orderDate: orderDate || new Date().toISOString().split('T')[0],
+      linkedFileIds: linkedFileIds || [],
+      totalItems: 0,
+      totalShipped: 0,
+      shipToLocation: customer?.address || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Add to the in-memory array
+    salesOrders.push(newOrder);
+    
+    // Save to file
+    saveSalesOrders();
+    
+    console.log('Created sales order:', newOrder);
+    console.log('Total sales orders:', salesOrders.length);
+    
+    // Return the created order
+    res.status(201).json(newOrder);
+  } catch (error: any) {
+    console.error("Error creating sales order:", error);
+    res.status(500).json({ message: error.message || "Failed to create sales order" });
+  }
+});
+
+// Update a sales order (PATCH)
+salesOrderRouter.patch("/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid sales order ID" });
+    }
+    
+    // Find the order in the array
+    const orderIndex = salesOrders.findIndex(so => so.id === id);
+    if (orderIndex === -1) {
+      return res.status(404).json({ message: "Sales order not found" });
+    }
+    
+    // Update only the fields that are provided
+    const updates = req.body;
+    const updatedOrder = {
+      ...salesOrders[orderIndex],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // If status is being updated to 'shipped', set the actual ship date
+    if (updates.status === 'shipped' && !updatedOrder.actualShipDate) {
+      updatedOrder.actualShipDate = new Date().toISOString().split('T')[0];
+    }
+    
+    // Update in the array
+    salesOrders[orderIndex] = updatedOrder;
+    
+    // Save to file
+    saveSalesOrders();
+    
+    console.log(`Updated sales order ${id}:`, updates);
+    
+    // Return the updated order
+    res.json(updatedOrder);
+  } catch (error: any) {
+    console.error("Error updating sales order:", error);
+    res.status(500).json({ message: error.message || "Failed to update sales order" });
   }
 });

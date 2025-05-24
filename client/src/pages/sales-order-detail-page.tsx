@@ -4,19 +4,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, FileText, Download, Plus, Truck, PackageCheck } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { insertSalesOrderItemSchema } from "@shared/schema";
 import { Layout } from "@/components/layout/layout";
 
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,21 +18,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 
-// Form schema for adding items
-const salesOrderItemSchema = insertSalesOrderItemSchema.extend({
-  soId: z.number(),
-  gtin: z.string().min(5, "GTIN must be at least 5 characters"),
-  productName: z.string().min(2, "Product name must be at least 2 characters"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-  lineNumber: z.number().min(1, "Line number must be at least 1"),
-});
-
-type SalesOrderItemFormValues = z.infer<typeof salesOrderItemSchema>;
 
 export default function SalesOrderDetailPage() {
   const [, params] = useRoute("/sales-orders/:id");
   const { toast } = useToast();
-  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("overview");
   
   // Get the sales order ID from the route
@@ -51,38 +33,14 @@ export default function SalesOrderDetailPage() {
     enabled: !!soId,
   });
   
-  // Fetch sales order items
-  const { data: soItems, isLoading: isLoadingItems } = useQuery({
-    queryKey: [`/api/sales-order-items/so/${soId}`],
-    enabled: !!soId,
+  // Fetch linked EPCIS file details  
+  const { data: linkedFiles, isLoading: isLoadingFiles } = useQuery({
+    queryKey: [`/api/files/linked/${soId}`],
+    enabled: !!soId && !!salesOrder?.linkedFileIds,
   });
   
-  // Fetch inventory allocated to this sales order
-  const { data: allocatedInventory, isLoading: isLoadingInventory } = useQuery({
-    queryKey: [`/api/inventory?destinationSoId=${soId}`],
-    enabled: !!soId,
-  });
   
-  // Set up form for adding sales order items
-  const form = useForm<SalesOrderItemFormValues>({
-    resolver: zodResolver(salesOrderItemSchema),
-    defaultValues: {
-      soId: soId,
-      gtin: "",
-      ndc: "",
-      productName: "",
-      manufacturer: "",
-      quantity: 1,
-      lineNumber: soItems?.length ? soItems.length + 1 : 1,
-      status: "pending",
-    },
-  });
-  
-  useEffect(() => {
-    if (soItems) {
-      form.setValue('lineNumber', soItems.length + 1);
-    }
-  }, [soItems, form]);
+  // Remove form setup since we're not adding items anymore
   
   // Mutation for adding a new item
   const addItemMutation = useMutation({
@@ -167,14 +125,12 @@ export default function SalesOrderDetailPage() {
     addItemMutation.mutate(values);
   };
   
-  // Calculate shipping progress
+  // Calculate shipping progress based on shipped vs total
   const getTotalShippingProgress = () => {
-    if (!soItems || soItems.length === 0) return 0;
-    
-    const totalItems = soItems.reduce((acc, item) => acc + item.quantity, 0);
-    const totalShipped = soItems.reduce((acc, item) => acc + (item.quantityShipped || 0), 0);
-    
-    return totalItems > 0 ? Math.round((totalShipped / totalItems) * 100) : 0;
+    if (!salesOrder) return 0;
+    const total = salesOrder.totalItems || 0;
+    const shipped = salesOrder.totalShipped || 0;
+    return total > 0 ? Math.round((shipped / total) * 100) : 0;
   };
   
   // Status badge color mapping
@@ -202,18 +158,6 @@ export default function SalesOrderDetailPage() {
     updateStatusMutation.mutate(newStatus);
   };
   
-  // Calculate allocation status
-  const getAllocationStatus = (item: any) => {
-    const allocated = allocatedInventory?.filter(inv => inv.gtin === item.gtin) || [];
-    const allocatedCount = allocated.length;
-    const progress = item.quantity > 0 ? Math.round((allocatedCount / item.quantity) * 100) : 0;
-    
-    return {
-      allocated: allocatedCount,
-      total: item.quantity,
-      progress
-    };
-  };
   
   if (isLoadingSO) {
     return (
@@ -282,8 +226,7 @@ export default function SalesOrderDetailPage() {
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="mb-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="items">Line Items</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="items">EPCIS Files & Items</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4 mt-4">
@@ -331,8 +274,8 @@ export default function SalesOrderDetailPage() {
                   
                   <div>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <dt className="font-medium">Total Items</dt>
-                      <dd>{salesOrder?.totalItems || 0}</dd>
+                      <dt className="font-medium">Linked EPCIS Files</dt>
+                      <dd>{salesOrder?.linkedFileIds?.length || 0}</dd>
                       
                       <dt className="font-medium">Total Shipped</dt>
                       <dd>{salesOrder?.totalShipped || 0}</dd>
@@ -363,152 +306,45 @@ export default function SalesOrderDetailPage() {
         
         <TabsContent value="items" className="space-y-4 mt-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Order Line Items</h3>
-            <Button 
-              onClick={() => setAddItemDialogOpen(true)} 
-              disabled={salesOrder?.status === 'shipped' || salesOrder?.status === 'delivered' || salesOrder?.status === 'cancelled'}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
+            <h3 className="text-lg font-medium">Linked EPCIS Files & Products</h3>
+            <div className="text-sm text-muted-foreground">
+              Use "Inventory → Scan Product Out" to ship items for this order
+            </div>
           </div>
           
           <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Line #</TableHead>
-                    <TableHead>GTIN</TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Shipped</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingItems ? (
-                    Array(3).fill(0).map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell><Skeleton className="h-6 w-10" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-40" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : soItems && soItems.length > 0 ? (
-                    soItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.lineNumber}</TableCell>
-                        <TableCell>{item.gtin}</TableCell>
-                        <TableCell>{item.productName}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{item.quantityShipped || 0}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(item.status)}>
-                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        No items added to this sales order yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            <CardHeader>
+              <CardTitle className="text-lg">Linked EPCIS Files</CardTitle>
+              <CardDescription>
+                These files contain the products that can be scanned out for this order
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {salesOrder?.linkedFileIds && salesOrder.linkedFileIds.length > 0 ? (
+                <div className="space-y-3">
+                  {salesOrder.linkedFileIds.map((fileId: number, index: number) => (
+                    <div key={fileId} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">EPCIS File #{fileId}</p>
+                          <p className="text-sm text-muted-foreground">Use "Inventory → Scan Product Out" to ship items</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline">Linked</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p>No EPCIS files linked to this sales order</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="inventory" className="space-y-4 mt-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Allocated Inventory</CardTitle>
-              <CardDescription>
-                Serialized inventory items allocated for this sales order
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>GTIN</TableHead>
-                    <TableHead>Serial Number</TableHead>
-                    <TableHead>Lot Number</TableHead>
-                    <TableHead>Expiration</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Location</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingInventory ? (
-                    Array(3).fill(0).map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell><Skeleton className="h-6 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : allocatedInventory && allocatedInventory.length > 0 ? (
-                    allocatedInventory.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.gtin}</TableCell>
-                        <TableCell>{item.serialNumber}</TableCell>
-                        <TableCell>{item.lotNumber}</TableCell>
-                        <TableCell>{new Date(item.expirationDate).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Badge className={item.status === 'shipped' ? 'bg-green-500' : 'bg-blue-500'}>
-                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{item.location || item.warehouse}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        No inventory has been allocated to this sales order yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-          
-          {soItems && soItems.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Allocation Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {soItems.map(item => {
-                    const allocation = getAllocationStatus(item);
-                    return (
-                      <div key={item.id} className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>{item.productName} (GTIN: {item.gtin})</span>
-                          <span>{allocation.allocated} / {allocation.total} ({allocation.progress}%)</span>
-                        </div>
-                        <Progress value={allocation.progress} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
       </Tabs>
       
       {/* Add Item Dialog */}

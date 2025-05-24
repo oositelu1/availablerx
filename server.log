@@ -1,0 +1,193 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+SendGrid API key not found. Email notifications will be logged but not sent.
+To enable email sending, please set the SENDGRID_API_KEY environment variable.
+Email Service Configuration:
+- Service Ready: No
+- SendGrid API Key: Missing
+- Sender Email: noreply@epcisportal.com
+- Email Sending Enabled: Yes
+
+Initialized AWS Transfer for AS2 service
+Loaded 1 sales orders from file
+S3 Monitor Service initialized
+S3 Prefix Monitor Service initialized
+Using bucket: elasticbeanstalk-us-east-1-308357913539
+(node:75270) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+7:22:27 AM [express] serving on port 3000
+
+🌐 Access your app at:
+   http://localhost:3000
+   http://127.0.0.1:3000
+   http://192.168.1.152:3000
+
+✨ Try all three URLs above!
+
+7:22:27 AM [express] Error starting S3 monitor: require is not defined
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+7:24:42 AM [express] GET /api/user 401 in 1ms
+7:24:56 AM [express] POST /api/login 200 in 481ms :: {"id":2,"username":"oositelu1","fullName":"Oluf…
+7:24:56 AM [express] GET /api/files 200 in 344ms :: {"files":[{"id":3,"originalName":"shipment_2da14…
+7:24:57 AM [express] GET /api/stats 304 in 597ms :: {"filesReceived":3,"filesSent":0,"validationRate…
+7:25:01 AM [express] GET /api/sales-orders 200 in 154ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:25:01 AM [express] GET /api/partners 200 in 212ms :: [{"id":1,"name":"Pharm House Supply","partner…
+7:25:05 AM [express] GET /api/sales-orders/1748060313147 200 in 138ms :: {"id":1748060313147,"soNumb…
+7:25:05 AM [express] GET /api/sales-order-items/so/1748060313147 200 in 142ms
+7:25:05 AM [express] GET /api/inventory 200 in 155ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+7:25:39 AM [express] GET /api/sales-orders 200 in 159ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:26:00 AM [express] GET /api/sales-order-items/so/1748060313147 200 in 175ms
+7:26:47 AM [express] GET /api/inventory 200 in 145ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+Created sales order: {
+  id: 1748089651982,
+  soNumber: 'so-2345',
+  customerId: 1,
+  customer: 'Pharm House Supply',
+  status: 'approved',
+  orderDate: '2025-05-24',
+  totalItems: 0,
+  shipToLocation: '',
+  createdAt: '2025-05-24T12:27:31.982Z',
+  updatedAt: '2025-05-24T12:27:31.982Z'
+}
+Total sales orders: 2
+7:27:32 AM [express] POST /api/sales-orders 201 in 421ms :: {"id":1748089651982,"soNumber":"so-2345"…
+7:27:32 AM [express] GET /api/sales-orders 200 in 140ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:27:49 AM [express] GET /api/sales-orders 304 in 141ms :: {"orders":[{"id":1748060313147,"soNumber"…
+Returning 2 inventory transactions
+7:29:05 AM [express] GET /api/inventory/ledger 200 in 299ms :: {"transactions":[{"id":2,"inventoryId…
+7:29:05 AM [express] GET /api/files 200 in 568ms :: {"files":[{"id":3,"originalName":"shipment_2da14…
+7:29:17 AM [express] GET /api/user 304 in 147ms :: {"id":2,"username":"oositelu1","fullName":"Olufis…
+7:29:18 AM [express] GET /api/sales-orders 304 in 153ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:29:18 AM [express] GET /api/partners 304 in 206ms :: [{"id":1,"name":"Pharm House Supply","partner…
+7:29:21 AM [express] GET /api/inventory 304 in 149ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+Created sales order: {
+  id: 1748089775509,
+  soNumber: '0904',
+  customerId: 1,
+  customer: 'Pharm House Supply',
+  status: 'draft',
+  orderDate: '2025-05-24',
+  totalItems: 0,
+  shipToLocation: '',
+  createdAt: '2025-05-24T12:29:35.509Z',
+  updatedAt: '2025-05-24T12:29:35.509Z'
+}
+Total sales orders: 3
+7:29:35 AM [express] POST /api/sales-orders 201 in 396ms :: {"id":1748089775509,"soNumber":"0904","c…
+7:29:35 AM [express] GET /api/sales-orders 200 in 150ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:29:43 AM [express] GET /api/sales-orders/1748089775509 200 in 145ms :: {"id":1748089775509,"soNumb…
+7:29:43 AM [express] GET /api/sales-order-items/so/1748089775509 200 in 166ms
+7:29:43 AM [express] GET /api/inventory 200 in 335ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+7:29:53 AM [express] PATCH /api/sales-orders/1748089775509 200 in 143ms
+Created sales order: {
+  id: 1748089856432,
+  soNumber: '87987',
+  customerId: 1,
+  customer: 'Pharm House Supply',
+  status: 'draft',
+  orderDate: '2025-05-24',
+  totalItems: 0,
+  shipToLocation: '',
+  createdAt: '2025-05-24T12:30:56.432Z',
+  updatedAt: '2025-05-24T12:30:56.432Z'
+}
+Total sales orders: 4
+7:30:56 AM [express] POST /api/sales-orders 201 in 199ms :: {"id":1748089856432,"soNumber":"87987","…
+7:30:56 AM [express] GET /api/sales-orders 200 in 162ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:31:20 AM [express] GET /api/sales-order-items/so/1748089775509 200 in 330ms
+Created sales order: {
+  id: 1748089967272,
+  soNumber: '6341',
+  customerId: 1,
+  customer: 'Pharm House Supply',
+  status: 'draft',
+  orderDate: '2025-05-24',
+  totalItems: 0,
+  shipToLocation: '',
+  createdAt: '2025-05-24T12:32:47.272Z',
+  updatedAt: '2025-05-24T12:32:47.272Z'
+}
+Total sales orders: 5
+7:32:47 AM [express] POST /api/sales-orders 201 in 424ms :: {"id":1748089967272,"soNumber":"6341","c…
+7:32:47 AM [express] GET /api/sales-orders 200 in 159ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:33:48 AM [express] GET /api/sales-orders/1748089967272 200 in 308ms :: {"id":1748089967272,"soNumb…
+7:33:48 AM [express] GET /api/sales-order-items/so/1748089967272 200 in 311ms
+7:33:48 AM [express] GET /api/inventory 200 in 375ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+7:34:12 AM [express] GET /api/sales-order-items/so/1748089775509 200 in 157ms
+GET /api/purchase-orders called
+User authenticated: true
+User: {
+  id: 2,
+  username: 'oositelu1',
+  password: '1aede840644e8ec6b122535cd5dcfdfa:3def27da079be5a129e2254da9b8e06828cc26c1b1e004a4e321d868575a6f47c0a18bc17a1baf1f65f14fb00425a3a053c627866c955e0eeb253aa1959aa994',
+  fullName: 'Olufisayo Ositelu',
+  role: 'administrator',
+  createdAt: 2025-05-23T03:19:11.612Z
+}
+7:36:10 AM [express] GET /api/purchase-orders 200 in 408ms :: {"orders":[{"id":1,"poNumber":"PO-3657…
+7:36:51 AM [express] POST /api/purchase-orders 201 in 505ms :: {"id":6,"poNumber":"123","partnerId":…
+GET /api/purchase-orders called
+User authenticated: true
+User: {
+  id: 2,
+  username: 'oositelu1',
+  password: '1aede840644e8ec6b122535cd5dcfdfa:3def27da079be5a129e2254da9b8e06828cc26c1b1e004a4e321d868575a6f47c0a18bc17a1baf1f65f14fb00425a3a053c627866c955e0eeb253aa1959aa994',
+  fullName: 'Olufisayo Ositelu',
+  role: 'administrator',
+  createdAt: 2025-05-23T03:19:11.612Z
+}
+7:36:51 AM [express] GET /api/purchase-orders 200 in 191ms :: {"orders":[{"id":1,"poNumber":"PO-3657…
+GET /api/purchase-orders called
+User authenticated: true
+User: {
+  id: 2,
+  username: 'oositelu1',
+  password: '1aede840644e8ec6b122535cd5dcfdfa:3def27da079be5a129e2254da9b8e06828cc26c1b1e004a4e321d868575a6f47c0a18bc17a1baf1f65f14fb00425a3a053c627866c955e0eeb253aa1959aa994',
+  fullName: 'Olufisayo Ositelu',
+  role: 'administrator',
+  createdAt: 2025-05-23T03:19:11.612Z
+}
+7:36:51 AM [express] GET /api/purchase-orders 304 in 187ms :: {"orders":[{"id":1,"poNumber":"PO-3657…
+7:39:02 AM [vite] hmr update /src/pages/direct-sales-order-form.tsx, /src/index.css?v=QUR8KIWAXsJlittI9OoJ2
+7:40:48 AM [express] GET /api/user 401 in 1ms
+7:44:42 AM [express] GET /api/sales-orders 200 in 894ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:44:50 AM [express] GET /api/user 304 in 126ms :: {"id":2,"username":"oositelu1","fullName":"Olufis…
+7:44:50 AM [express] GET /api/sales-orders 304 in 110ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:44:50 AM [express] GET /api/partners 304 in 169ms :: [{"id":1,"name":"Pharm House Supply","partner…
+7:44:51 AM [express] GET /api/inventory 304 in 126ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+Created sales order: {
+  id: 1748090739827,
+  soNumber: '1235',
+  customerId: 1,
+  customer: 'Pharm House Supply',
+  status: 'draft',
+  orderDate: '2025-05-24',
+  totalItems: 0,
+  shipToLocation: '',
+  createdAt: '2025-05-24T12:45:39.827Z',
+  updatedAt: '2025-05-24T12:45:39.827Z'
+}
+Total sales orders: 6
+7:45:39 AM [express] POST /api/sales-orders 201 in 310ms :: {"id":1748090739827,"soNumber":"1235","c…
+7:45:40 AM [express] GET /api/sales-orders 200 in 139ms :: {"orders":[{"id":1748060313147,"soNumber"…
+7:45:47 AM [express] GET /api/sales-order-items/so/1748090739827 200 in 138ms
+7:45:47 AM [express] GET /api/sales-orders/1748090739827 200 in 202ms :: {"id":1748090739827,"soNumb…
+7:45:47 AM [express] GET /api/inventory 200 in 265ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+7:45:56 AM [express] PATCH /api/sales-orders/1748090739827 200 in 134ms
+7:48:15 AM [express] GET /api/sales-orders/1748089856432 200 in 132ms :: {"id":1748089856432,"soNumb…
+7:48:15 AM [express] GET /api/inventory 200 in 241ms :: {"items":[{"id":101,"gtin":"00301430957010",…
+7:48:15 AM [express] GET /api/sales-order-items/so/1748089856432 200 in 267ms
+7:56:30 AM [vite] hmr update /src/pages/sales-order-detail-page.tsx, /src/index.css?v=QUR8KIWAXsJlittI9OoJ2
+7:56:32 AM [express] GET /api/sales-order-items/so/1748089856432 200 in 137ms
+7:58:05 AM [vite] hmr update /src/pages/direct-sales-order-form.tsx, /src/index.css?v=QUR8KIWAXsJlittI9OoJ2
+7:59:46 AM [vite] hmr update /src/pages/inventory/scan-out.tsx, /src/index.css?v=QUR8KIWAXsJlittI9OoJ2
+8:00:45 AM [vite] hmr update /src/pages/sales-order-detail-page.tsx, /src/index.css?v=QUR8KIWAXsJlittI9OoJ2

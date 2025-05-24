@@ -13,6 +13,7 @@
  */
 
 import { dataMatrixToEpcisGtin } from './gtin-utils';
+import { compareGTINsFlexibly, isSameBaseProduct, parseGTINFormat } from './gtin-validation';
 
 export interface ParsedQRData {
   raw: string;
@@ -159,6 +160,9 @@ export function parseQRCode(qrData: string): ParsedQRData {
     const gtinMatch = qrData.match(/\(01\)([0-9]{14})/);
     if (gtinMatch && gtinMatch[1]) {
       result.gtin = gtinMatch[1];
+      // Convert DataMatrix GTIN to EPCIS format
+      result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
+      console.log("Converted DataMatrix GTIN", result.gtin, "to EPCIS format:", result.epcisGtin);
     }
     
     // Lot Number - Application Identifier (10)
@@ -199,6 +203,10 @@ export function parseQRCode(qrData: string): ParsedQRData {
     // First 14 digits are likely GTIN
     result.gtin = qrData.substring(0, 14);
     console.log("Extracted GTIN from raw format:", result.gtin);
+    
+    // Convert DataMatrix GTIN to EPCIS format
+    result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
+    console.log("Converted DataMatrix GTIN", result.gtin, "to EPCIS format:", result.epcisGtin);
     
     // Check if there's more data after GTIN
     if (qrData.length > 14) {
@@ -312,50 +320,44 @@ export function compareWithEPCISData(
 ): {
   matches: boolean;
   gtinMatch: boolean;
+  gtinSimilar: boolean;
   lotMatch: boolean;
   expirationMatch: boolean;
   serialMatch: boolean;
+  matchScore: number;
 } {
   // Initialize with false
   const result = {
     matches: false,
     gtinMatch: false,
+    gtinSimilar: false,
     lotMatch: false,
     expirationMatch: false,
-    serialMatch: false
+    serialMatch: false,
+    matchScore: 0
   };
   
-  console.log("Comparing QR data with EPCIS data:");
-  console.log("QR GTIN:", qrData.gtin);
-  console.log("EPCIS GTIN:", epcisData.gtin);
+  console.log("\n=== Comparing QR data with EPCIS data ===");
+  console.log("QR GTIN:", qrData.gtin, "Serial:", qrData.serialNumber, "Lot:", qrData.lotNumber);
+  console.log("EPCIS GTIN:", epcisData.gtin, "Serial:", epcisData.serialNumber, "Lot:", epcisData.lotNumber);
   
   // Fix for CASE/ITEM GTIN matching with more detailed string handling
   if (qrData.gtin && epcisData.gtin) {
     console.log("Checking GTIN match between:", qrData.gtin, "and", epcisData.gtin);
     
-    // Convert DataMatrix to EPCIS format for proper comparison
-    const epcisGtin = dataMatrixToEpcisGtin(qrData.gtin);
+    // Use flexible GTIN comparison to handle format differences
+    const gtinComparison = compareGTINsFlexibly(qrData.gtin, epcisData.gtin);
+    console.log("GTIN comparison result:", gtinComparison);
     
-    // First try direct match
-    if (qrData.gtin === epcisData.gtin) {
+    if (gtinComparison.exactMatch) {
       result.gtinMatch = true;
-      console.log("Direct GTIN match found:", qrData.gtin);
-    }
-    // Try matching with converted EPCIS format
-    else if (epcisGtin === epcisData.gtin) {
-      result.gtinMatch = true;
-      console.log("✓ DataMatrix GTIN successfully converted to EPCIS format and matched!");
-      console.log(`DataMatrix: ${qrData.gtin} -> EPCIS: ${epcisGtin} = ${epcisData.gtin}`);
-    }
-    // Try case/item indicator digit conversion - specifically for your data
-    // Convert the CASE (5) to ITEM (0) format
-    else if (qrData.gtin.includes('50301439570') && epcisData.gtin.includes('00301430957')) {
-      // This is a special case for the specific GTIN in your system
-      result.gtinMatch = true;
-      console.log("Special match: Case GTIN 50301439570 matches Item GTIN 00301430957");
-    }
-    // Generic case for CASE vs ITEM indicator digit
-    else if (qrData.gtin.length >= 14 && epcisData.gtin.length >= 14) {
+      console.log("✓ Exact GTIN match!");
+    } else if (gtinComparison.sameProduct && gtinComparison.confidence >= 85) {
+      // This is a format variation, not a perfect match
+      result.gtinSimilar = true;
+      console.log("✓ Same product detected (different GTIN format/check digit)!");
+      console.log(`Confidence: ${gtinComparison.confidence}%`);
+    } else if (qrData.gtin.length >= 14 && epcisData.gtin.length >= 14) {
       // Get the important parts before and after the indicator digit
       const qrFirstPart = qrData.gtin.substring(0, 7);
       const qrLastPart = qrData.gtin.substring(8);
@@ -371,11 +373,43 @@ export function compareWithEPCISData(
         const qrIndicator = qrData.gtin.charAt(7);
         const epcisIndicator = epcisData.gtin.charAt(7);
         
-        // Check for CASE (5) vs ITEM (0) indicator pattern
-        if ((qrIndicator === '5' && epcisIndicator === '0') ||
-            (qrIndicator === '0' && epcisIndicator === '5')) {
-          result.gtinMatch = true;
-          console.log("✓ CASE/ITEM GTIN MATCH! QR:", qrData.gtin, "EPCIS:", epcisData.gtin);
+        // Check for packaging level variations (0=item, 1-9=various packaging levels)
+        // Common: 0=item, 3=inner pack, 4=case, 5=case, 9=special case
+        const validPackagingVariation = 
+          (qrIndicator !== epcisIndicator) && 
+          (qrIndicator >= '0' && qrIndicator <= '9') &&
+          (epcisIndicator >= '0' && epcisIndicator <= '9');
+          
+        if (validPackagingVariation) {
+          // This is a packaging level variation, not an exact match
+          result.gtinSimilar = true;
+          console.log(`✓ Packaging level variation detected! QR indicator: ${qrIndicator}, EPCIS indicator: ${epcisIndicator}`);
+          console.log(`QR: ${qrData.gtin} (level ${qrIndicator}) ~ EPCIS: ${epcisData.gtin} (level ${epcisIndicator})`);
+        }
+      }
+    }
+    
+    // Check for similar GTINs (same company prefix and similar item reference)
+    if (!result.gtinMatch && qrData.gtin && epcisData.gtin) {
+      const qrPrefix = qrData.gtin.substring(0, 7); // Company prefix
+      const epcisPrefix = epcisData.gtin.substring(0, 7);
+      
+      if (qrPrefix === epcisPrefix) {
+        // Same company, check if item references are similar
+        const qrItem = qrData.gtin.substring(7);
+        const epcisItem = epcisData.gtin.substring(7);
+        
+        // Check if they share common digits (like 31401 vs 314013)
+        const commonPart = Math.min(qrItem.length, epcisItem.length);
+        let matchingDigits = 0;
+        for (let i = 0; i < commonPart; i++) {
+          if (qrItem[i] === epcisItem[i]) matchingDigits++;
+        }
+        
+        if (matchingDigits >= 4) { // At least 4 matching digits in item reference
+          result.gtinSimilar = true;
+          console.log("✓ Similar GTIN detected! Same company, similar item reference");
+          console.log(`QR: ${qrData.gtin} ~ EPCIS: ${epcisData.gtin}`);
         }
       }
     }
@@ -395,45 +429,95 @@ export function compareWithEPCISData(
     result.expirationMatch = qrDate === epcisDate;
   }
   
-  // Check Serial Number match with enhanced handling for CASE packaging
+  // Check Serial Number match - ALWAYS check if both have serial numbers
   if (qrData.serialNumber && epcisData.serialNumber) {
     // Log serial numbers for debugging
     console.log("Comparing serial numbers:");
     console.log("QR serial:", qrData.serialNumber);
     console.log("EPCIS serial:", epcisData.serialNumber);
+    console.log("Are they equal?", qrData.serialNumber === epcisData.serialNumber);
     
     // Case-sensitive direct comparison for serial numbers
     if (qrData.serialNumber === epcisData.serialNumber) {
       result.serialMatch = true;
-      console.log("Direct serial number match!");
+      console.log("✓ Direct serial number match!");
     }
-    // Special handling for the specific serial '10000059214' 
-    else if (qrData.serialNumber === '10000059214' && (
-      epcisData.serialNumber === '10016550749981' || 
-      epcisData.serialNumber === '10018521666433' ||
-      epcisData.serialNumber === '10015409851063')
-    ) {
-      // Special case fix for scanning CASE vs ITEM serial numbers
-      result.serialMatch = true;
-      console.log("Special serial number match for CASE vs ITEM!");
+    // For pharmaceutical products, serial numbers must match exactly
+    // No partial matches allowed for compliance reasons
+    else {
+      result.serialMatch = false;
+      console.log("✗ Serial numbers do not match");
     }
-    // Look for partial matches for the common prefix
-    else if (qrData.serialNumber.startsWith('100') && epcisData.serialNumber.startsWith('100')) {
-      console.log("Serial numbers have common prefix '100'");
-      
-      // Special handling for the current dataset matching
-      if (qrData.gtin?.includes('5030143957') && epcisData.gtin?.includes('0030143095')) {
-        console.log("CASE/ITEM SGTIN pattern recognized, considering serial match");
-        result.serialMatch = true;
-      }
-    }
+  } else if (!qrData.serialNumber && !epcisData.serialNumber) {
+    // Both have no serial number - consider it a match
+    result.serialMatch = true;
+    console.log("Both products have no serial number");
+  } else {
+    // One has serial, other doesn't
+    result.serialMatch = false;
+    console.log("Serial number mismatch: one product has serial, other doesn't");
   }
   
-  // Determine overall match status
-  // For a valid pharmaceutical match, we need at least GTIN + lot number to match
-  if (result.gtinMatch && result.lotMatch) {
-    result.matches = true;
+  // Calculate match score
+  let score = 0;
+  if (result.gtinMatch) {
+    score += 40; // Exact GTIN match
+  } else if (result.gtinSimilar) {
+    // Check if this is just a format variation vs a packaging variation
+    const gtinComparison = compareGTINsFlexibly(qrData.gtin || '', epcisData.gtin || '');
+    if (gtinComparison.sameProduct && gtinComparison.confidence >= 85) {
+      score += 35; // Format variation - same product, different GTIN encoding
+    } else if (qrData.gtin && epcisData.gtin && 
+        qrData.gtin.substring(0, 7) === epcisData.gtin.substring(0, 7) &&
+        qrData.gtin.substring(8) === epcisData.gtin.substring(8)) {
+      score += 30; // Packaging variation - same product, different level
+    } else {
+      score += 20; // Similar GTIN but different product variant
+    }
   }
+  if (result.lotMatch) score += 30;
+  if (result.serialMatch) score += 20;
+  if (result.expirationMatch) score += 10;
+  
+  result.matchScore = score;
+  
+  // Determine overall match status with flexible criteria
+  // Option 1: Traditional exact match (GTIN + lot)
+  if (result.gtinMatch && result.lotMatch) {
+    // If both have serial numbers, they must match
+    if (qrData.serialNumber && epcisData.serialNumber) {
+      result.matches = result.serialMatch;
+    } else {
+      // If at least one doesn't have a serial number, GTIN + lot is sufficient
+      result.matches = true;
+    }
+  }
+  // Option 2: Similar GTIN (format variation) with lot match
+  else if (result.gtinSimilar && result.lotMatch) {
+    // For format variations, we're more flexible
+    if (qrData.serialNumber && epcisData.serialNumber) {
+      result.matches = result.serialMatch;
+      if (result.matches) {
+        console.log("✓ Match with GTIN format variation + lot + serial!");
+      }
+    } else {
+      // No serial comparison needed
+      result.matches = true;
+      console.log("✓ Match with GTIN format variation + lot!");
+    }
+  }
+  // Option 3: High confidence match based on lot + serial + expiration
+  else if (result.lotMatch && result.serialMatch && result.expirationMatch) {
+    result.matches = true;
+    console.log("✓ Match based on lot + serial + expiration!");
+  }
+  // Option 4: Score-based match (60+ points)
+  else if (result.matchScore >= 60) {
+    result.matches = true;
+    console.log(`✓ Match based on high score: ${result.matchScore}`);
+  }
+  
+  console.log("Final match result:", result);
   
   return result;
 }

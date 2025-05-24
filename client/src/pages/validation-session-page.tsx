@@ -8,6 +8,7 @@ import { z } from "zod";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertValidationSessionSchema, insertScannedItemSchema } from "@shared/schema";
+import { parseQRCode } from "@/lib/qr-code-parser";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -234,18 +235,37 @@ export default function ValidationSessionPage() {
   const handleScanSubmit = () => {
     if (!scanInput.trim()) return;
     
-    // Simple parsing for demonstration - in a real implementation, 
-    // you'd use a proper barcode parser library to extract GTIN, serial, lot, and expiration
-    const mockParsedData = {
-      gtin: scanInput.substring(0, 14) || "0123456789123",
-      serialNumber: scanInput.substring(15, 25) || "SN" + Math.floor(Math.random() * 10000),
-      lotNumber: "LOT" + Math.floor(Math.random() * 1000),
-      expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-      rawData: scanInput,
-      scannedVia: "mobile"
-    };
-    
-    submitScanMutation.mutate(mockParsedData);
+    try {
+      // Parse the DataMatrix code
+      const parsedData = parseQRCode(scanInput);
+      
+      if (!parsedData) {
+        toast({
+          title: "Invalid Barcode",
+          description: "Could not parse the barcode data. Please try again or use manual entry.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Convert parsed data to the format expected by the API
+      const scanData = {
+        gtin: parsedData.gtin,
+        serialNumber: parsedData.serialNumber,
+        lotNumber: parsedData.lotNumber,
+        expirationDate: new Date(parsedData.expirationDate),
+        rawData: scanInput,
+        scannedVia: "mobile" as const
+      };
+      
+      submitScanMutation.mutate(scanData);
+    } catch (error) {
+      toast({
+        title: "Parsing Error",
+        description: "Failed to parse barcode. Please use manual entry.",
+        variant: "destructive",
+      });
+    }
   };
   
   // Calculate statistics

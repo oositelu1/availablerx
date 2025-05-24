@@ -181,29 +181,42 @@ inventoryRouter.post("/ship", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
     
-    // For demo, create a mock response - later we'll replace with actual storage calls
-    const updatedItem = {
-      id: 101,
-      gtin: '00301430957010',
-      serialNumber,
-      lotNumber: '24052241',
-      expirationDate: '2026-09-30',
-      status: 'shipped',
-      notes: notes || "",
-      salesOrderId: soId,
-      shippedAt: new Date(),
-      lastScannedAt: new Date(),
-      lastScannedBy: req.user?.id,
-      createdAt: new Date('2025-05-15T10:30:00'),
-      receivedAt: new Date('2025-05-15T10:30:00'),
-      createdBy: 1,
-      ndc: '30143095701',
-      productName: "SODIUM FERRIC GLUCONATE",
-      manufacturer: "WEST-WARD PHARMACEUTICALS",
-      packageType: 'item'
-    };
+    // Find the inventory item by serial number
+    const inventoryItem = await storage.getInventoryBySerialNumber(serialNumber);
+    if (!inventoryItem) {
+      return res.status(404).json({ message: "Product not found in inventory" });
+    }
     
-    res.json(updatedItem);
+    // Check if already shipped
+    if (inventoryItem.status === 'shipped') {
+      return res.status(400).json({ message: "Product already shipped" });
+    }
+    
+    // Create inventory transaction for shipment
+    const transaction = await storage.createInventoryTransaction({
+      inventoryId: inventoryItem.id,
+      type: 'shipped',
+      quantity: -1, // Negative for outgoing
+      salesOrderId: soId,
+      notes: notes || `Shipped for sales order ${soId}`,
+      performedBy: req.user?.id || 1,
+      performedAt: new Date()
+    });
+    
+    // Update inventory status
+    const updatedItem = await storage.updateInventory(inventoryItem.id, {
+      status: 'shipped',
+      salesOrderId: soId,
+      shippedAt: new Date()
+    });
+    
+    console.log(`Shipped product ${serialNumber} for sales order ${soId}`);
+    console.log(`Created transaction: ${transaction.id}`);
+    
+    res.json({
+      ...updatedItem,
+      transaction
+    });
   } catch (error: any) {
     console.error("Error shipping product:", error);
     res.status(500).json({ message: error.message });

@@ -30,6 +30,8 @@ export const partners = pgTable("partners", {
   as2To: text("as2_to"),     // Partner's AS2 identity
   as2Url: text("as2_url"),   // Partner's AS2 endpoint URL
   as2ConnectorId: text("as2_connector_id"),   // AWS Transfer for AS2 connector ID
+  as2ServerId: text("as2_server_id"),   // AWS Transfer Server ID (for receivers)
+  s3Prefix: text("s3_prefix"),   // S3 prefix for this receiver (e.g., "receivers/partner-gln/")
   signingCertificate: text("signing_certificate"), // Certificate for signing outgoing messages
   encryptionCertificate: text("encryption_certificate"), // Certificate for encrypting outgoing messages
   partnerSigningCertificate: text("partner_signing_certificate"), // Partner's certificate for verifying their signatures
@@ -296,7 +298,12 @@ export const scannedItems = pgTable("scanned_items", {
 
 export const insertScannedItemSchema = createInsertSchema(scannedItems).omit({
   id: true,
-  scannedAt: true
+  scannedAt: true,
+  scannedBy: true,
+  productItemId: true,
+  matchResult: true,
+  mismatchReason: true,
+  poId: true
 });
 
 // Validation/scan session for batch validation
@@ -320,7 +327,8 @@ export const insertValidationSessionSchema = createInsertSchema(validationSessio
   completedAt: true,
   totalScanned: true,
   totalMatched: true, 
-  totalMismatched: true
+  totalMismatched: true,
+  startedBy: true
 });
 
 // Using the existing invoice schema defined below
@@ -516,271 +524,3 @@ export type InsertInventory = z.infer<typeof insertInventorySchema>;
 
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
 export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
-
-// T3 Transaction Information schema
-export const transactionInformation = pgTable("transaction_information", {
-  id: serial("id").primaryKey(),
-  // Primary identifier
-  transactionId: varchar("transaction_id", { length: 100 }).notNull().unique(),
-  
-  // Related inventory transaction
-  inventoryTransactionId: integer("inventory_transaction_id").references(() => inventoryTransactions.id),
-  
-  // Product identifiers
-  gtin: varchar("gtin", { length: 50 }).notNull(),
-  ndc: varchar("ndc", { length: 20 }),
-  productName: varchar("product_name", { length: 200 }).notNull(),
-  dosageForm: varchar("dosage_form", { length: 100 }),
-  strength: varchar("strength", { length: 100 }),
-  
-  // Lot information
-  lotNumber: varchar("lot_number", { length: 50 }).notNull(),
-  expirationDate: date("expiration_date").notNull(),
-  quantity: integer("quantity").notNull(),
-  
-  // Transaction details
-  transactionDate: timestamp("transaction_date").notNull(),
-  shippingInformation: jsonb("shipping_information"), // Ship to/from addresses
-  
-  // Reference IDs
-  salesOrderId: integer("sales_order_id").references(() => salesOrders.id),
-  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id),
-  
-  // File reference
-  epcisFileId: integer("epcis_file_id").references(() => files.id),
-  
-  // Sender/receiver GLNs
-  senderGln: varchar("sender_gln", { length: 50 }).notNull(),
-  receiverGln: varchar("receiver_gln", { length: 50 }).notNull(),
-
-  // Ownership details
-  currentOwner: integer("current_owner").references(() => partners.id),
-  previousOwner: integer("previous_owner").references(() => partners.id),
-  
-  // Audit trail
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-  lastUpdatedAt: timestamp("last_updated_at"),
-  lastUpdatedBy: integer("last_updated_by").references(() => users.id),
-});
-
-// T3 Transaction History schema
-export const transactionHistory = pgTable("transaction_history", {
-  id: serial("id").primaryKey(),
-  
-  // Transaction sequence 
-  transactionInformationId: integer("transaction_information_id").notNull().references(() => transactionInformation.id),
-  sequenceNumber: integer("sequence_number").notNull(), // Position in chain of ownership
-  
-  // Transaction details - a copy of the TI at that point in time
-  transactionDate: timestamp("transaction_date").notNull(),
-  senderGln: varchar("sender_gln", { length: 50 }).notNull(),
-  receiverGln: varchar("receiver_gln", { length: 50 }).notNull(),
-  
-  // Partner identifiers
-  senderId: integer("sender_id").references(() => partners.id),
-  receiverId: integer("receiver_id").references(() => partners.id),
-  
-  // Full transaction details
-  transactionDetails: jsonb("transaction_details"), // Complete copy of transaction at this point
-  
-  // Source verification
-  sourceVerified: boolean("source_verified").default(false),
-  sourceVerificationDate: timestamp("source_verification_date"),
-  sourceVerificationMethod: varchar("source_verification_method", { length: 50 }),
-  
-  // Audit trail
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-});
-
-// T3 Transaction Statement schema
-export const transactionStatements = pgTable("transaction_statements", {
-  id: serial("id").primaryKey(),
-  
-  // Related transaction
-  transactionInformationId: integer("transaction_information_id").notNull().references(() => transactionInformation.id),
-  
-  // Standard DSCSA transaction statement text
-  // Per the PRD, this contains standard language that is non-editable except for signer name
-  statementText: text("statement_text").notNull(),
-  
-  // Signing information
-  signedBy: varchar("signed_by", { length: 200 }).notNull(), // Name of signer
-  signerTitle: varchar("signer_title", { length: 100 }),
-  signerCompany: varchar("signer_company", { length: 200 }).notNull(),
-  signatureDate: timestamp("signature_date").notNull(),
-  
-  // Digital signature (if applicable)
-  digitalSignature: text("digital_signature"),
-  signatureVerification: jsonb("signature_verification"), // Verification details
-  
-  // Audit trail
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-});
-
-// T3 Document Bundle - for tracking complete T3 packages
-export const t3Bundles = pgTable("t3_bundles", {
-  id: serial("id").primaryKey(),
-  
-  // Bundle identifier
-  bundleId: varchar("bundle_id", { length: 100 }).notNull().unique(),
-  
-  // Related transaction and document IDs
-  transactionInformationId: integer("transaction_information_id").notNull().references(() => transactionInformation.id),
-  
-  // Generation and transmission details
-  format: varchar("format", { length: 20 }).notNull().default("xml"), // xml, json, pdf
-  generatedAt: timestamp("generated_at").notNull().defaultNow(),
-  generatedBy: integer("generated_by").notNull().references(() => users.id),
-  
-  // File storage information
-  filePath: varchar("file_path", { length: 255 }), // Where the bundle is stored
-  fileHash: varchar("file_hash", { length: 100 }), // For integrity verification
-  
-  // Delivery status
-  deliveryMethod: varchar("delivery_method", { length: 20 }).notNull(), // as2, https, presigned_url
-  deliveredTo: integer("delivered_to").references(() => partners.id),
-  deliveryStatus: varchar("delivery_status", { length: 20 }).notNull().default("pending"), // pending, sent, delivered, failed
-  deliveryReference: varchar("delivery_reference", { length: 255 }), // Reference ID for delivery (AS2 message ID, etc.)
-  
-  // Expiration for pre-signed URLs
-  expiresAt: timestamp("expires_at"),
-  
-  // Audit trail
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-});
-
-// Insert schemas for our new tables
-export const insertTransactionInformationSchema = createInsertSchema(transactionInformation).omit({
-  id: true,
-  createdAt: true,
-  lastUpdatedAt: true,
-  lastUpdatedBy: true
-});
-
-export const insertTransactionHistorySchema = createInsertSchema(transactionHistory).omit({
-  id: true,
-  createdAt: true
-});
-
-export const insertTransactionStatementSchema = createInsertSchema(transactionStatements).omit({
-  id: true,
-  createdAt: true
-});
-
-export const insertT3BundleSchema = createInsertSchema(t3Bundles).omit({
-  id: true,
-  generatedAt: true,
-  createdAt: true
-});
-
-// Export new T3 types
-export type TransactionInformation = typeof transactionInformation.$inferSelect;
-export type InsertTransactionInformation = z.infer<typeof insertTransactionInformationSchema>;
-
-export type TransactionHistory = typeof transactionHistory.$inferSelect;
-export type InsertTransactionHistory = z.infer<typeof insertTransactionHistorySchema>;
-
-export type TransactionStatement = typeof transactionStatements.$inferSelect;
-export type InsertTransactionStatement = z.infer<typeof insertTransactionStatementSchema>;
-
-export type T3Bundle = typeof t3Bundles.$inferSelect;
-export type InsertT3Bundle = z.infer<typeof insertT3BundleSchema>;
-
-// Invoice Management Tables
-export const invoices = pgTable("invoices", {
-  id: serial("id").primaryKey(),
-  
-  // Basic invoice information
-  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
-  invoiceDate: date("invoice_date").notNull(),
-  dueDate: date("due_date"),
-  
-  // File information
-  filename: varchar("filename", { length: 255 }).notNull(),
-  filepath: varchar("filepath", { length: 255 }).notNull(),
-  
-  // Relationship with PO
-  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id),
-  
-  // Vendor information
-  vendorId: integer("vendor_id").references(() => partners.id),
-  vendorName: varchar("vendor_name", { length: 255 }),
-  vendorAddress: text("vendor_address"),
-  
-  // Invoice data
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
-  tax: decimal("tax", { precision: 10, scale: 2 }),
-  shipping: decimal("shipping", { precision: 10, scale: 2 }),
-  discount: decimal("discount", { precision: 10, scale: 2 }),
-  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-  
-  // Extracted data
-  extractedData: jsonb("extracted_data"),
-  
-  // OCR processing metadata
-  matchScore: decimal("match_score", { precision: 5, scale: 4 }),
-  issues: jsonb("issues"),
-  
-  // Processing status
-  status: varchar("status", { length: 20 }).notNull().default("uploaded"),
-  // Status values: uploaded, processing, processed, needs_review, reconciled, paid, error
-  
-  // Audit information
-  uploadedBy: integer("uploaded_by").notNull().references(() => users.id),
-  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
-  processedAt: timestamp("processed_at"),
-  reconciledBy: integer("reconciled_by").references(() => users.id),
-  reconciledAt: timestamp("reconciled_at"),
-  notes: text("notes"),
-});
-
-export const invoiceItems = pgTable("invoice_items", {
-  id: serial("id").primaryKey(),
-  invoiceId: integer("invoice_id").notNull().references(() => invoices.id),
-  
-  // Product information
-  description: text("description").notNull(),
-  productCode: varchar("product_code", { length: 100 }),
-  ndc: varchar("ndc", { length: 20 }),
-  lotNumber: varchar("lot_number", { length: 50 }).notNull(),
-  expiryDate: date("expiry_date").notNull(),
-  
-  // Quantity and pricing
-  quantity: integer("quantity").notNull(),
-  uom: varchar("uom", { length: 20 }).notNull(),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
-  
-  // Matching with PO items
-  purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id),
-  matchScore: decimal("match_score", { precision: 5, scale: 4 }),
-  
-  // Status
-  status: varchar("status", { length: 20 }).notNull().default("pending"),
-  // Status values: pending, matched, discrepancy, reconciled
-  
-  // Additional information
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({
-  id: true,
-  uploadedAt: true,
-  processedAt: true,
-  reconciledAt: true
-});
-
-export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
-  id: true,
-  createdAt: true
-});
-
-export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
-export type Invoice = typeof invoices.$inferSelect;
-export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
-export type InvoiceItem = typeof invoiceItems.$inferSelect;

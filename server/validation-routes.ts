@@ -3,6 +3,7 @@ import { storage } from './storage';
 import { insertValidationSessionSchema, insertScannedItemSchema } from '@shared/schema';
 import { TypedRequestBody } from './types';
 import { z } from 'zod';
+import { cache, cacheKeys, cacheTTL } from './cache-service';
 
 // Validation Session routes
 export const validationRouter = Router();
@@ -21,10 +22,16 @@ validationRouter.post(
   isAuthenticated,
   async (req: TypedRequestBody<z.infer<typeof insertValidationSessionSchema>>, res: Response) => {
     try {
+      console.log('Validation session request body:', req.body);
+      
       // Validate the request body
       const validation = insertValidationSessionSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ error: 'Invalid validation session data', details: validation.error });
+        console.error('Validation session validation failed:', validation.error.errors);
+        return res.status(400).json({ 
+          error: 'Invalid validation session data', 
+          details: validation.error.errors 
+        });
       }
       
       // Verify purchase order exists
@@ -36,8 +43,8 @@ validationRouter.post(
       // Add creator info
       const sessionData = {
         ...validation.data,
-        createdBy: req.user!.id,
-        status: 'IN_PROGRESS' // Default status
+        startedBy: req.user!.id,
+        status: 'in_progress' // Default status (lowercase to match schema)
       };
 
       // Create validation session
@@ -170,10 +177,17 @@ validationRouter.post(
         return res.status(404).json({ error: 'Validation session not found' });
       }
 
+      // Log request body for debugging
+      console.log('Scanned item request body:', req.body);
+      
       // Validate the request body
       const validation = insertScannedItemSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ error: 'Invalid scanned item data', details: validation.error });
+        console.error('Scanned item validation failed:', validation.error.errors);
+        return res.status(400).json({ 
+          error: 'Invalid scanned item data', 
+          details: validation.error.errors 
+        });
       }
 
       // Add session ID and scanner info
@@ -214,8 +228,9 @@ validationRouter.post(
       // Update the scanned item data with match information
       const finalScannedItemData = {
         ...scannedItemData,
-        matchStatus,
-        matchedItemId
+        matchResult: matchStatus,  // Database field is match_result not matchStatus
+        productItemId: matchedItemId,  // Database field is product_item_id
+        poId: session.poId  // Link to the PO being validated
       };
 
       // Create the scanned item
@@ -236,6 +251,7 @@ validationRouter.post(
 
       res.status(201).json({
         ...scannedItem,
+        matchStatus: scannedItem.matchResult,  // Map for client compatibility
         matchedItem: matchedItemId ? await storage.getProductItem(matchedItemId) : null
       });
     } catch (error) {
@@ -261,10 +277,16 @@ validationRouter.get('/:id/scans', isAuthenticated, async (req: Request, res: Re
 
     const scannedItems = await storage.listScannedItemsForSession(sessionId);
     
+    // Map database field names to what client expects
+    const mappedItems = scannedItems.map(item => ({
+      ...item,
+      matchStatus: item.matchResult  // Client expects matchStatus, DB has match_result
+    }));
+    
     // Get detailed info for matched product items
-    const enhancedItems = await Promise.all(scannedItems.map(async (item) => {
-      if (item.matchedItemId) {
-        const productItem = await storage.getProductItem(item.matchedItemId);
+    const enhancedItems = await Promise.all(mappedItems.map(async (item) => {
+      if (item.productItemId) {
+        const productItem = await storage.getProductItem(item.productItemId);
         return {
           ...item,
           matchedItem: productItem

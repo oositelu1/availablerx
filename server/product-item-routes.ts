@@ -3,6 +3,7 @@ import { storage } from './storage';
 import { insertProductItemSchema } from '@shared/schema';
 import { TypedRequestBody } from './types';
 import { z } from 'zod';
+import { cache, cacheKeys, cacheTTL } from './cache-service';
 
 // Product Item routes
 export const productItemRouter = Router();
@@ -86,7 +87,14 @@ productItemRouter.get('/:id', isAuthenticated, async (req: Request, res: Respons
       return res.status(400).json({ error: 'Invalid product item ID' });
     }
 
-    const item = await storage.getProductItem(id);
+    // Try cache first
+    const cacheKey = `product-item:${id}`;
+    const item = await cache.getOrFetch(
+      cacheKey,
+      () => storage.getProductItem(id),
+      cacheTTL.medium
+    );
+    
     if (!item) {
       return res.status(404).json({ error: 'Product item not found' });
     }
@@ -147,7 +155,14 @@ productItemRouter.get('/sgtin/:gtin/:serialNumber', isAuthenticated, async (req:
   try {
     const { gtin, serialNumber } = req.params;
     
-    const item = await storage.findProductItemBySGTIN(gtin, serialNumber);
+    // Cache key for SGTIN lookups
+    const cacheKey = `sgtin:${gtin}:${serialNumber}`;
+    const item = await cache.getOrFetch(
+      cacheKey,
+      () => storage.findProductItemBySGTIN(gtin, serialNumber),
+      cacheTTL.long // These rarely change
+    );
+    
     if (!item) {
       return res.status(404).json({ error: 'Product item not found' });
     }

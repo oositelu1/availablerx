@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocumentTracker - Static Version</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .info-card h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .workflow {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .workflow ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .workflow li {
+            margin: 10px 0;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .solution {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 DocumentTracker</h1>
+        
+        <div class="error">
+            <h2>⚠️ Server Connection Issue</h2>
+            <p>The Node.js server cannot bind to localhost due to macOS security restrictions.</p>
+        </div>
+
+        <div class="solution">
+            <h2>✅ Solution: Use Static Files</h2>
+            <p>Since the server isn't working due to system restrictions, here's what the app does:</p>
+        </div>
+
+        <div class="status">
+            <h2>🚀 App Overview</h2>
+            <p>DocumentTracker is a DSCSA-compliant inventory management system that tracks pharmaceutical products through EPCIS files.</p>
+        </div>
+
+        <div class="workflow">
+            <h2>📋 Simplified Workflow</h2>
+            <ol>
+                <li><strong>Upload EPCIS Files</strong> - Contains product shipment data</li>
+                <li><strong>Create Sales Orders</strong> - Link to specific EPCIS files</li>
+                <li><strong>Scan Products Out</strong> - Validate against linked EPCIS files</li>
+                <li><strong>Track Inventory</strong> - Monitor products in vs out</li>
+            </ol>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>Recent Changes</h3>
+                <ul>
+                    <li>Simplified sales order creation</li>
+                    <li>Removed complex inventory allocation</li>
+                    <li>Direct EPCIS file linking</li>
+                    <li>Streamlined scan-out process</li>
+                </ul>
+            </div>
+            
+            <div class="info-card">
+                <h3>Key Features</h3>
+                <ul>
+                    <li>EPCIS file processing</li>
+                    <li>DataMatrix barcode scanning</li>
+                    <li>Sales order management</li>
+                    <li>Inventory tracking</li>
+                    <li>DSCSA compliance</li>
+                </ul>
+            </div>
+            
+            <div class="info-card">
+                <h3>Technical Stack</h3>
+                <ul>
+                    <li>React + TypeScript</li>
+                    <li>Express.js backend</li>
+                    <li>SQLite database</li>
+                    <li>Tailwind CSS</li>
+                    <li>shadcn/ui components</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="solution">
+            <h2>🔧 To Fix the Server Issue</h2>
+            <p>Run these commands in Terminal:</p>
+            <pre><code>sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /opt/homebrew/bin/node
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /opt/homebrew/bin/node</code></pre>
+            <p>Then try: <code>npm run dev</code></p>
+        </div>
+    </div>
+</body>
+</html>

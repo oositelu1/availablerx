@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DocumentTracker Quick Start</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 DocumentTracker Setup</h1>
+        
+        <div class="alert">
+            <strong>⚠️ Localhost Connection Issue Detected</strong><br>
+            Your system is blocking localhost connections. This is a macOS security/firewall issue.
+        </div>
+
+        <h2>🔧 Fix Option 1: Disable Firewall Temporarily</h2>
+        <ol>
+            <li>Open <strong>System Settings</strong> (Apple menu → System Settings)</li>
+            <li>Go to <strong>Network</strong> → <strong>Firewall</strong></li>
+            <li>Turn <strong>OFF</strong> the firewall</li>
+            <li>Try running the app again</li>
+            <li>Turn the firewall back <strong>ON</strong> when done</li>
+        </ol>
+
+        <h2>🌐 Fix Option 2: Use Network IP Instead</h2>
+        <p>Your computer's network IP is: <strong>192.168.1.152</strong></p>
+        <p>After starting the server, try:</p>
+        <pre>http://192.168.1.152:3000</pre>
+
+        <h2>💻 Fix Option 3: Reset Network Settings</h2>
+        <p>Run these commands in Terminal:</p>
+        <pre>sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder</pre>
+
+        <h2>🚨 Fix Option 4: Check Your /etc/hosts File</h2>
+        <p>Run this command to check your hosts file:</p>
+        <pre>cat /etc/hosts | grep localhost</pre>
+        <p>You should see:</p>
+        <pre>127.0.0.1       localhost
+::1             localhost</pre>
+
+        <h2>📱 Alternative: Deploy to Cloud (Free)</h2>
+        <p>Since localhost isn't working, you could deploy DocumentTracker to:</p>
+        <ul>
+            <li><strong>Vercel</strong> - vercel.com (free tier)</li>
+            <li><strong>Railway</strong> - railway.app (free tier)</li>
+            <li><strong>Render</strong> - render.com (free tier)</li>
+        </ul>
+
+        <div class="success">
+            <h3>📋 Your App Credentials (Save These!)</h3>
+            <p><strong>Database:</strong> ✅ Connected to Neon</p>
+            <p><strong>Username:</strong> admin</p>
+            <p><strong>Password:</strong> admin123</p>
+        </div>
+
+        <h2>🆘 Last Resort: Complete Network Reset</h2>
+        <ol>
+            <li>Restart your Mac</li>
+            <li>Reset PRAM/NVRAM (hold Option+Command+P+R during startup)</li>
+            <li>Safe Mode boot (hold Shift during startup)</li>
+        </ol>
+    </div>
+</body>
+</html>

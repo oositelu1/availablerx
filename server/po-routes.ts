@@ -4,6 +4,8 @@ import { insertPurchaseOrderSchema } from '@shared/schema';
 import { TypedRequestBody } from './types';
 import { z } from 'zod';
 import { isAdmin } from './auth';
+import { getPurchaseOrderWithDetails } from './optimized-queries';
+import { cache, cacheTTL } from './cache-service';
 
 // Purchase Order routes
 export const poRouter = Router();
@@ -138,22 +140,40 @@ poRouter.patch('/:id', isAuthenticated, async (req: Request, res: Response) => {
   }
 });
 
+// Test endpoint to verify routing
+poRouter.get('/test', async (req: Request, res: Response) => {
+  res.json({ message: 'Purchase orders route is working' });
+});
+
 // List purchase orders with optional filtering
-// For development, remove auth check
-poRouter.get('/', async (req: Request, res: Response) => {
+poRouter.get('/', isAuthenticated, async (req: Request, res: Response) => {
+  console.log('GET /api/purchase-orders called');
+  console.log('User authenticated:', req.isAuthenticated());
+  console.log('User:', req.user);
+  
   try {
-    // For invoice testing, include a PO specifically for the invoice we're uploading (PO-43121)
-    const hardcodedOrders = [
-      {
-        id: 1,
-        poNumber: "43121", // Match exact PO number format from invoice
-        status: "RECEIVED",
-        orderDate: new Date("2025-04-15"),
-        supplierName: "Eugia US LLC (f/k/a AuroMedics Pharma LLC)" // Exact supplier name from invoice
-      }
-    ];
+    const { status, supplier, customer, limit, page } = req.query;
     
-    res.json({ orders: hardcodedOrders });
+    const filters: any = {};
+    if (status) filters.status = status as string;
+    if (supplier) filters.supplier = supplier as string;
+    if (customer) filters.customer = customer as string;
+    
+    const limitNum = limit ? parseInt(limit as string) : 50;
+    const pageNum = page ? parseInt(page as string) : 1;
+    const offset = (pageNum - 1) * limitNum;
+    
+    filters.limit = limitNum;
+    filters.offset = offset;
+    
+    const result = await storage.listPurchaseOrders(filters);
+    
+    res.json({
+      orders: result.orders,
+      total: result.total,
+      page: pageNum,
+      limit: limitNum
+    });
   } catch (error) {
     console.error('Error retrieving purchase orders:', error);
     res.status(500).json({ error: 'Error retrieving purchase orders' });

@@ -16,6 +16,18 @@ interface ManualBarcodeEntryProps {
 export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcodeEntryProps) {
   const [barcodeData, setBarcodeData] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Example barcodes that match the latest EPCIS file
+  const exampleBarcodes = [
+    {
+      name: "West-Ward Item (matches EPCIS)",
+      value: "(01)00301439570103(17)260531(10)24052241(21)10016550749981"
+    },
+    {
+      name: "iPhone Scanner Format",
+      value: "GTIN: 00301439570103\nLot Number: 24052241\nExpiration Date: 05/31/2026\nSerial Number: 10016550749981"
+    }
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,22 +137,26 @@ export default function ManualBarcodeEntry({ onSubmit, onCancel }: ManualBarcode
     onSubmit(formattedData);
   };
 
-  // Example codes to help users
+  // Example codes to help users - updated to match Nivagen EPCIS file
   const exampleCodes = [
     {
-      label: "iPhone Scanner App Output",
-      example: `Content
-01503014395701082110000005921417260930102405
-
-Parsed GS1
-GTIN: 0150301439570
-Lot Number: 08211
-Expiration Date: 02/60/93
-Serial Number: 0102405`
+      label: "Your Scanned Barcode (Format Variation)",
+      example: "(01)00375834314013(17)260731(10)B1029001(21)655243026830"
     },
     {
-      label: "Standard GS1 Format",
-      example: "(01)00301430957010(10)24052241(17)260930(21)10018521666433"
+      label: "Same Product in EPCIS Format",
+      example: "(01)00375834031401(17)260731(10)B1029001(21)655243026830"
+    },
+    {
+      label: "Nivagen ½ GRAIN 30mg (Item)",
+      example: "(01)00375834031101(17)261031(10)B1026002(21)780765745347"
+    },
+    {
+      label: "iPhone Scanner Format",
+      example: `GTIN: 00375834031401
+Lot Number: B1029001
+Expiration Date: 07/31/2026
+Serial Number: 655243026830`
     }
   ];
 
@@ -202,8 +218,19 @@ Serial Number: 0102405`
             <div className="space-y-2">
               {exampleCodes.map((code, index) => (
                 <div key={index} className="bg-background p-2 rounded text-xs">
-                  <div className="font-medium mb-1">{code.label}:</div>
-                  <code className="block font-mono bg-primary/5 p-1 rounded overflow-x-auto">
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="font-medium">{code.label}:</div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-2 text-xs"
+                      onClick={() => setBarcodeData(code.example)}
+                    >
+                      Use
+                    </Button>
+                  </div>
+                  <code className="block font-mono bg-primary/5 p-1 rounded overflow-x-auto whitespace-pre-wrap">
                     {code.example}
                   </code>
                 </div>

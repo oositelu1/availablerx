@@ -24,14 +24,6 @@ import InventoryDashboard from "@/pages/inventory/index";
 import ScanProductInPage from "@/pages/inventory/scan-in";
 import ScanProductOutPage from "@/pages/inventory/scan-out";
 import InventoryLedgerPage from "@/pages/inventory/ledger";
-import T3ListPage from "@/pages/t3-list-page";
-import T3Page from "@/pages/t3-page";
-import T3CreatePage from "@/pages/t3-create-page";
-import T3LedgerPage from "@/pages/t3-ledger-page";
-import EnhancedT3Page from "@/pages/enhanced-t3-page";
-import MultiPageT3View from "@/pages/multi-page-t3-view";
-import InvoiceUploadPage from "@/pages/invoice-upload-page";
-import InvoicePreviewPage from "@/pages/invoice-preview-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ThemeProvider } from "next-themes";
 
@@ -63,18 +55,6 @@ function Router() {
       <ProtectedRoute path="/inventory/scan-in" component={ScanProductInPage} />
       <ProtectedRoute path="/inventory/scan-out" component={ScanProductOutPage} />
       <ProtectedRoute path="/inventory/ledger" component={InventoryLedgerPage} />
-      
-      {/* T3 Document Pages */}
-      <ProtectedRoute path="/t3" component={T3ListPage} />
-      <ProtectedRoute path="/t3/create" component={T3CreatePage} />
-      <ProtectedRoute path="/t3/ledger" component={T3LedgerPage} />
-      <ProtectedRoute path="/t3/enhanced/:bundleId" component={EnhancedT3Page} />
-      <ProtectedRoute path="/t3/multi-page/:bundleId" component={MultiPageT3View} />
-      <ProtectedRoute path="/t3/:bundleId" component={T3Page} />
-      
-      {/* Invoice Management */}
-      <ProtectedRoute path="/invoices/upload" component={InvoiceUploadPage} />
-      <ProtectedRoute path="/invoices/preview" component={InvoicePreviewPage} />
       
       <Route path="/qr-test" component={QrTest} />
       <Route component={NotFound} />

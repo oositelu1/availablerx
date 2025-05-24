@@ -3,8 +3,7 @@ import {
   purchaseOrders, purchaseOrderItems, salesOrders, salesOrderItems, 
   epcisPoAssociations, productItems, scannedItems,
   inventory, inventoryTransactions,
-  validationSessions, auditLogs,
-  invoices, invoiceItems
+  validationSessions, auditLogs
 } from "@shared/schema";
 import type { 
   User, InsertUser, Partner, InsertPartner, PartnerLocation, InsertPartnerLocation,
@@ -14,8 +13,7 @@ import type {
   EpcisPoAssociation, InsertEpcisPoAssociation,
   ProductItem, InsertProductItem, ScannedItem, InsertScannedItem,
   Inventory, InsertInventory, InventoryTransaction, InsertInventoryTransaction,
-  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog,
-  Invoice, InsertInvoice, InvoiceItem, InsertInvoiceItem
+  ValidationSession, InsertValidationSession, AuditLog, InsertAuditLog
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
@@ -42,6 +40,8 @@ export interface IStorage {
   updatePartner(id: number, partner: Partial<Partner>): Promise<Partner | undefined>;
   listPartners(activeOnly?: boolean): Promise<Partner[]>;
   deletePartner(id: number): Promise<boolean>;
+  getPartnerByGLN(gln: string): Promise<Partner | null>;
+  getAllActiveAS2Receivers(): Promise<Partner[]>;
   
   // Inventory management
   getInventoryStats(): Promise<{

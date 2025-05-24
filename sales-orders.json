@@ -1,0 +1,77 @@
+[
+  {
+    "id": 1748060313147,
+    "soNumber": "so-8976",
+    "customerId": 1,
+    "customer": "Pharm House Supply",
+    "status": "approved",
+    "orderDate": "2025-05-24",
+    "totalItems": 0,
+    "shipToLocation": "",
+    "createdAt": "2025-05-24T04:18:33.147Z",
+    "updatedAt": "2025-05-24T04:18:33.147Z",
+    "items": []
+  },
+  {
+    "id": 1748089651982,
+    "soNumber": "so-2345",
+    "customerId": 1,
+    "customer": "Pharm House Supply",
+    "status": "approved",
+    "orderDate": "2025-05-24",
+    "totalItems": 0,
+    "shipToLocation": "",
+    "createdAt": "2025-05-24T12:27:31.982Z",
+    "updatedAt": "2025-05-24T12:27:31.982Z"
+  },
+  {
+    "id": 1748089775509,
+    "soNumber": "0904",
+    "customerId": 1,
+    "customer": "Pharm House Supply",
+    "status": "draft",
+    "orderDate": "2025-05-24",
+    "totalItems": 0,
+    "shipToLocation": "",
+    "createdAt": "2025-05-24T12:29:35.509Z",
+    "updatedAt": "2025-05-24T12:29:35.509Z",
+    "items": []
+  },
+  {
+    "id": 1748089856432,
+    "soNumber": "87987",
+    "customerId": 1,
+    "customer": "Pharm House Supply",
+    "status": "draft",
+    "orderDate": "2025-05-24",
+    "totalItems": 0,
+    "shipToLocation": "",
+    "createdAt": "2025-05-24T12:30:56.432Z",
+    "updatedAt": "2025-05-24T12:30:56.432Z"
+  },
+  {
+    "id": 1748089967272,
+    "soNumber": "6341",
+    "customerId": 1,
+    "customer": "Pharm House Supply",
+    "status": "draft",
+    "orderDate": "2025-05-24",
+    "totalItems": 0,
+    "shipToLocation": "",
+    "createdAt": "2025-05-24T12:32:47.272Z",
+    "updatedAt": "2025-05-24T12:32:47.272Z",
+    "items": []
+  },
+  {
+    "id": 1748090739827,
+    "soNumber": "1235",
+    "customerId": 1,
+    "customer": "Pharm House Supply",
+    "status": "draft",
+    "orderDate": "2025-05-24",
+    "totalItems": 0,
+    "shipToLocation": "",
+    "createdAt": "2025-05-24T12:45:39.827Z",
+    "updatedAt": "2025-05-24T12:45:39.827Z"
+  }
+]
