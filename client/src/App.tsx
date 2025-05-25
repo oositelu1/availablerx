@@ -13,11 +13,8 @@ import AuthPage from "@/pages/auth-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
 import PurchaseOrderDetailPage from "@/pages/purchase-order-detail-page";
 import ValidationSessionPage from "@/pages/validation-session-page";
-import SalesOrdersPage from "@/pages/sales-orders-page";
-import SalesOrderDetailPage from "@/pages/sales-order-detail-page";
 import InventoryPage from "@/pages/inventory-page";
 import AddInventoryPage from "@/pages/add-inventory-page";
-import DirectSalesOrderForm from "@/pages/direct-sales-order-form";
 import ScannerTestPage from "@/pages/scanner-test-page";
 import QrTest from "@/pages/qr-test";
 import InventoryDashboard from "@/pages/inventory/index";
@@ -42,9 +39,6 @@ function Router() {
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrderDetailPage} />
       <ProtectedRoute path="/purchase-orders/:id/validate" component={ValidationSessionPage} />
-      <ProtectedRoute path="/sales-orders" component={SalesOrdersPage} />
-      <ProtectedRoute path="/create-sales-order" component={DirectSalesOrderForm} />
-      <ProtectedRoute path="/sales-orders/:id" component={SalesOrderDetailPage} />
       
       {/* Original inventory pages */}
       <ProtectedRoute path="/inventory-original" component={InventoryPage} />

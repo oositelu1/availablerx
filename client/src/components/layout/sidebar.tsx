@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { 
   Home, 
   Upload, 
-  Send, 
   Users, 
   History, 
   Settings, 
@@ -80,7 +79,6 @@ export function Sidebar() {
     { path: "/files", label: "File History", icon: <History className="mr-3 h-5 w-5" /> },
     { path: "/partners", label: "Partners", icon: <Users className="mr-3 h-5 w-5" /> },
     { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart className="mr-3 h-5 w-5" /> },
-    { path: "/sales-orders", label: "Sales Orders", icon: <Send className="mr-3 h-5 w-5" /> },
     // Inventory section with collapsible menu
     { 
       path: "/inventory", 

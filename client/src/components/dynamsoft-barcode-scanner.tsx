@@ -68,9 +68,14 @@ export default function DynamsoftBarcodeScanner({ onScanSuccess, onCancel }: Dyn
           throw new Error('Dynamsoft library not properly loaded');
         }
 
-        console.log('Applying Dynamsoft license...');
-        // Apply license - must be done before creating instance
-        window.Dynamsoft.DBR.BarcodeReader.license = LICENSE_KEY;
+        // Only set license if not already set
+        if (!window.Dynamsoft.DBR.BarcodeScanner.license) {
+          console.log('Applying Dynamsoft license...');
+          // Apply license - must be done before creating instance
+          window.Dynamsoft.DBR.BarcodeScanner.license = LICENSE_KEY;
+        } else {
+          console.log('License already set, skipping...');
+        }
 
         console.log('Creating scanner instance...');
         // Create scanner instance - ensure we use the same pattern as the working example
@@ -90,11 +95,16 @@ export default function DynamsoftBarcodeScanner({ onScanSuccess, onCancel }: Dyn
 
         // Set result callback - matching the working example
         scanner.onUnduplicatedRead = (txt: string, result: any) => {
-          console.log('Barcode scanned:', txt);
-          // Parse the barcode data immediately
+          console.log('Dynamsoft scanner - Barcode detected:', txt);
+          console.log('Dynamsoft scanner - Result object:', result);
+          
+          // Parse the barcode data immediately for display
           const parsedData = parseQRCode(txt);
+          console.log('Dynamsoft scanner - Local parsed data:', parsedData);
           setLastScannedData(parsedData);
-          // Still call the original callback with raw data
+          
+          // Call the parent callback with raw data
+          console.log('Dynamsoft scanner - Calling onScanSuccess callback');
           onScanSuccess(txt);
         };
 
@@ -130,13 +140,19 @@ export default function DynamsoftBarcodeScanner({ onScanSuccess, onCancel }: Dyn
         try {
           // First close the scanner if it's open
           if (scannerRef.current.isOpen && typeof scannerRef.current.isOpen === 'function') {
-            scannerRef.current.close().catch(() => {
-              // Ignore close errors during cleanup
-            });
+            const closePromise = scannerRef.current.close();
+            if (closePromise && typeof closePromise.catch === 'function') {
+              closePromise.catch(() => {
+                // Ignore close errors during cleanup
+              });
+            }
           } else if (scannerRef.current.close && typeof scannerRef.current.close === 'function') {
-            scannerRef.current.close().catch(() => {
-              // Ignore close errors during cleanup
-            });
+            const closePromise = scannerRef.current.close();
+            if (closePromise && typeof closePromise.catch === 'function') {
+              closePromise.catch(() => {
+                // Ignore close errors during cleanup
+              });
+            }
           }
           
           // Then destroy the instance

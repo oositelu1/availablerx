@@ -7,7 +7,7 @@ import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, I
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import DynamsoftBarcodeScanner from "@/components/dynamsoft-barcode-scanner";
 import HTML5Scanner from "@/components/html5-scanner";
-import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
+import { compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { dataMatrixToEpcisGtin, getPackagingLevel, normalizeGtinForComparison } from "@/lib/gtin-utils";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -80,12 +80,22 @@ export default function ProductValidationDialog({
   }, [isOpen]);
 
   // Handle successful scan
-  const handleScanSuccess = (decodedText: string) => {
+  const handleScanSuccess = async (decodedText: string) => {
     try {
-      // Parse the QR code data
-      const parsedData = parseQRCode(decodedText);
+      console.log("Processing scanned data:", decodedText);
       
-      console.log("Parsed data from scan:", parsedData);
+      // Parse the QR code data using backend parser
+      const { parseQRCodeAsync } = await import('../lib/qr-code-parser');
+      const parsedData = await parseQRCodeAsync(decodedText);
+      
+      console.log("Parsed data from backend:", parsedData);
+      console.log("isGS1Format:", parsedData.isGS1Format);
+      console.log("Fields:", {
+        gtin: parsedData.gtin,
+        lot: parsedData.lotNumber,
+        serial: parsedData.serialNumber,
+        exp: parsedData.expirationDate
+      });
       
       // Special handling for the specific barcode in the screenshot
       if (parsedData.gtin === '00301439570103' && 

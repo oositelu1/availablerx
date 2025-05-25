@@ -408,6 +408,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: 'Cache cleared successfully' });
   });
 
+  // === DataMatrix Parser ===
+  app.post("/api/parse-datamatrix", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    
+    const { rawData } = req.body;
+    console.log('DataMatrix parse request received:', rawData);
+    
+    if (!rawData) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No data provided' 
+      });
+    }
+    
+    try {
+      // Call Python parser
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      const pythonScript = path.join(process.cwd(), 'server', 'utils', 'datamatrix_parser.py');
+      console.log('Calling Python script:', pythonScript);
+      
+      const { stdout, stderr } = await execAsync(`python3 "${pythonScript}" "${rawData}"`);
+      
+      if (stderr) {
+        console.error('Python parser stderr:', stderr);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Parser error', 
+          error: stderr 
+        });
+      }
+      
+      console.log('Python parser stdout:', stdout);
+      const result = JSON.parse(stdout);
+      
+      if (result.error) {
+        return res.status(400).json({ 
+          success: false, 
+          message: result.error 
+        });
+      }
+      
+      console.log('Sending parsed result:', result);
+      res.json({
+        success: true,
+        data: result
+      });
+      
+    } catch (error: any) {
+      console.error('DataMatrix parser error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to parse DataMatrix',
+        error: error.message
+      });
+    }
+  });
+
   // === AS2 Monitoring Service Control ===
   app.get("/api/as2/monitor/status", isAdmin, async (req, res) => {
     // Return the current status of the S3 monitoring service

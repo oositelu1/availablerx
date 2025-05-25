@@ -14,6 +14,7 @@
 
 import { dataMatrixToEpcisGtin } from './gtin-utils';
 import { compareGTINsFlexibly, isSameBaseProduct, parseGTINFormat } from './gtin-validation';
+import axios from 'axios';
 
 export interface ParsedQRData {
   raw: string;
@@ -25,6 +26,64 @@ export interface ParsedQRData {
   serialNumber?: string;
   quantity?: string;
   isGS1Format: boolean;
+  ndc?: string;             // NDC extracted from GTIN
+}
+
+/**
+ * Parse QR/DataMatrix code using backend Python parser for accuracy
+ * @param qrData Raw scanned data
+ * @returns Promise with parsed data
+ */
+export async function parseQRCodeAsync(qrData: string): Promise<ParsedQRData> {
+  try {
+    console.log("Parsing QR code with backend parser:", qrData);
+    
+    // Call backend parser
+    const response = await axios.post('/api/parse-datamatrix', {
+      rawData: qrData
+    });
+    
+    console.log("Backend response:", response.data);
+    
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to parse');
+    }
+    
+    const parsed = response.data.data;
+    console.log("Parsed data from backend:", parsed);
+    
+    // Convert backend response to our format
+    const result: ParsedQRData = {
+      raw: qrData,
+      gtin: parsed.gtin || undefined,
+      lotNumber: parsed.lot_number || undefined,
+      expirationDate: parsed.expiration_date || undefined,
+      serialNumber: parsed.serial_number || undefined,
+      ndc: parsed.ndc || undefined,
+      isGS1Format: !!(parsed.gtin || parsed.lot_number || parsed.serial_number)  // If we have any field, it's GS1
+    };
+    
+    // Add EPCIS GTIN conversion if we have a GTIN
+    if (result.gtin) {
+      result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
+      
+      // Normalize GTIN for comparison
+      const gtinInfo = parseGTINFormat(result.gtin);
+      if (gtinInfo.isCase) {
+        result.normalizedGtin = gtinInfo.itemGTIN;
+      }
+    }
+    
+    console.log("Final parser result:", result);
+    return result;
+    
+  } catch (error: any) {
+    console.error("Backend parser error:", error);
+    console.error("Error details:", error.response?.data || error.message);
+    console.log("Falling back to local parser");
+    // Fallback to local parser
+    return parseQRCode(qrData);
+  }
 }
 
 export function parseQRCode(qrData: string): ParsedQRData {
@@ -290,33 +349,35 @@ export function parseQRCode(qrData: string): ParsedQRData {
           }
         }
       }
-  
-    // Handle URL or JSON formats as a fallback
-    try {
-      // Check if it's a URL with parameters
-      if (qrData.includes('://') && qrData.includes('?')) {
-        const url = new URL(qrData);
-        
-        if (url.searchParams.has('gtin')) result.gtin = url.searchParams.get('gtin') || undefined;
-        if (url.searchParams.has('lot')) result.lotNumber = url.searchParams.get('lot') || undefined;
-        if (url.searchParams.has('exp')) result.expirationDate = url.searchParams.get('exp') || undefined;
-        if (url.searchParams.has('serial')) result.serialNumber = url.searchParams.get('serial') || undefined;
-      }
-      // Check if it's JSON format
-      else if (qrData.startsWith('{') && qrData.endsWith('}')) {
-        try {
-          const jsonData = JSON.parse(qrData);
-          if (jsonData.gtin) result.gtin = jsonData.gtin;
-          if (jsonData.lotNumber) result.lotNumber = jsonData.lotNumber;
-          if (jsonData.expirationDate) result.expirationDate = jsonData.expirationDate;
-          if (jsonData.serialNumber) result.serialNumber = jsonData.serialNumber;
-        } catch (e) {
-          // Not valid JSON
-        }
-      }
-    } catch (e) {
-      // Not a valid URL
     }
+  }
+  
+  // Handle URL or JSON formats as a fallback
+  try {
+    // Check if it's a URL with parameters
+    if (qrData.includes('://') && qrData.includes('?')) {
+      const url = new URL(qrData);
+      
+      if (url.searchParams.has('gtin')) result.gtin = url.searchParams.get('gtin') || undefined;
+      if (url.searchParams.has('lot')) result.lotNumber = url.searchParams.get('lot') || undefined;
+      if (url.searchParams.has('exp')) result.expirationDate = url.searchParams.get('exp') || undefined;
+      if (url.searchParams.has('serial')) result.serialNumber = url.searchParams.get('serial') || undefined;
+    }
+    // Check if it's JSON format
+    else if (qrData.startsWith('{') && qrData.endsWith('}')) {
+      try {
+        const jsonData = JSON.parse(qrData);
+        if (jsonData.gtin) result.gtin = jsonData.gtin;
+        if (jsonData.lotNumber) result.lotNumber = jsonData.lotNumber;
+        if (jsonData.expirationDate) result.expirationDate = jsonData.expirationDate;
+        if (jsonData.serialNumber) result.serialNumber = jsonData.serialNumber;
+      } catch (e) {
+        // Not valid JSON
+      }
+    }
+  } catch (e) {
+    // Not a valid URL
+  }
   }
 
   return result;

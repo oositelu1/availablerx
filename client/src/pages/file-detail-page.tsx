@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, Link as WouterLink, useLocation } from "wouter";
+import { useParams, Link as WouterLink } from "wouter";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,6 @@ import { Separator } from "@/components/ui/separator";
 import { SendFileModal } from "@/components/send-file-modal";
 import { isCase } from "@/lib/gtin-utils";
 import { PresignedLinks } from "@/components/presigned-links";
-import { AssociatePODialog } from "@/components/associate-po-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
@@ -42,12 +41,12 @@ import {
   Link as LinkIcon,
   FileText,
   Tag,
-  Package,
   ArrowRightLeft,
   ChevronDown,
-  ShoppingCart,
   QrCode,
   ScanLine,
+  Package,
+  ShoppingCart,
 } from "lucide-react";
 import { useState } from "react";
 import { formatDate, gtinToNDC } from "@/lib/utils";
@@ -99,7 +98,6 @@ export default function FileDetailPage() {
   const { toast } = useToast();
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
-  const [associatePODialogOpen, setAssociatePODialogOpen] = useState(false);
   const [expandedBizTransactions, setExpandedBizTransactions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("details");
 
@@ -151,41 +149,6 @@ export default function FileDetailPage() {
     },
   });
 
-  // For navigation
-  const [, setLocation] = useLocation();
-
-  // Create inventory items from EPCIS file
-  const createInventoryMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/inventory/from-epcis/${fileId}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create inventory items");
-      }
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Inventory Created",
-        description: `Successfully created ${data.itemsCreated} inventory items from this EPCIS file.`,
-      });
-      // Navigate to inventory page to see the newly created items
-      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
-      
-      // Navigate to the inventory page to see the newly created items
-      setTimeout(() => {
-        setLocation("/inventory");
-      }, 1000);
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to Create Inventory",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    }
-  });
-
   // Download file mutation
   const downloadMutation = useMutation({
     mutationFn: async () => {
@@ -223,10 +186,6 @@ export default function FileDetailPage() {
 
   const handleOpenValidationDialog = () => {
     setValidationDialogOpen(true);
-  };
-
-  const handleAssociateWithPO = () => {
-    setAssociatePODialogOpen(true);
   };
 
   const toggleBizTransaction = (id: string) => {
@@ -350,30 +309,6 @@ export default function FileDetailPage() {
             Send
           </Button>
           
-          <Button
-            variant="outline"
-            className="flex items-center gap-2"
-            onClick={handleAssociateWithPO}
-          >
-            <ShoppingCart className="h-4 w-4" />
-            Associate PO
-          </Button>
-
-          {(productItems && productItems.length > 0) && (
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={() => createInventoryMutation.mutate()}
-              disabled={createInventoryMutation.isPending}
-            >
-              {createInventoryMutation.isPending ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Package className="h-4 w-4" />
-              )}
-              Create Inventory
-            </Button>
-          )}
         </div>
       </div>
 
@@ -744,16 +679,8 @@ export default function FileDetailPage() {
                   </Table>
                 </div>
               ) : (
-                <div className="py-12 text-center border rounded-md flex flex-col items-center gap-4">
-                  <p className="text-muted-foreground mb-2">No purchase orders are associated with this file yet</p>
-                  <Button 
-                    variant="outline"
-                    className="flex items-center gap-2"
-                    onClick={handleAssociateWithPO}
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    Associate with a PO
-                  </Button>
+                <div className="py-12 text-center border rounded-md">
+                  <p className="text-muted-foreground">No purchase orders are associated with this file yet</p>
                 </div>
               )}
             </CardContent>
@@ -837,13 +764,6 @@ export default function FileDetailPage() {
           isOpen={validationDialogOpen}
           onClose={() => setValidationDialogOpen(false)}
           productItems={productItems || []}
-        />
-      )}
-      
-      {associatePODialogOpen && (
-        <AssociatePODialog
-          fileId={Number(fileId)}
-          onClose={() => setAssociatePODialogOpen(false)}
         />
       )}
       
