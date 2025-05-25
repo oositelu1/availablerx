@@ -150,7 +150,6 @@ export function parseQRCode(qrData: string): ParsedQRData {
         }
       }
     }
-  }
   // Check if it's in GS1 format (begins with an Application Identifier in parentheses)
   else if (qrData.includes('(')) {
     console.log('Detected GS1 format');
@@ -196,85 +195,103 @@ export function parseQRCode(qrData: string): ParsedQRData {
       result.quantity = quantityMatch[1];
     }
   } 
-  // Try to parse raw numeric content (typical DataMatrix raw format)
-  else if (/^[0-9]{14,}/.test(qrData)) {
-    console.log('Detected raw numeric format');
+  // Try to parse raw DataMatrix content without parentheses
+  else {
+    console.log('Attempting to parse raw DataMatrix format');
     
-    // First 14 digits are likely GTIN
-    result.gtin = qrData.substring(0, 14);
-    console.log("Extracted GTIN from raw format:", result.gtin);
+    // Raw DataMatrix codes often contain FNC1 separators (ASCII 29) or are concatenated
+    // Common patterns:
+    // 1. 01GTIN17YYMMDD10LOT21SERIAL
+    // 2. 01GTIN + FNC1 + 17YYMMDD + FNC1 + 10LOT + FNC1 + 21SERIAL
     
-    // Convert DataMatrix GTIN to EPCIS format
-    result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
-    console.log("Converted DataMatrix GTIN", result.gtin, "to EPCIS format:", result.epcisGtin);
+    // Replace FNC1 characters with a marker we can use
+    const fnc1 = String.fromCharCode(29);
+    const cleanData = qrData.replace(new RegExp(fnc1, 'g'), '|');
     
-    // Check if there's more data after GTIN
-    if (qrData.length > 14) {
-      const remainder = qrData.substring(14);
+    // Try to find AIs without parentheses
+    // GTIN - AI 01 (14 digits)
+    const gtinMatch = cleanData.match(/(?:^|\|)?01(\d{14})(?:\||$)/);
+    if (!gtinMatch) {
+      // Fallback: Check if it starts with 14 digits
+      const rawGtinMatch = cleanData.match(/^(\d{14})/);
+      if (rawGtinMatch) {
+        result.gtin = rawGtinMatch[1];
+        result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
+        console.log("Extracted GTIN from start of code:", result.gtin);
+      }
+    } else {
+      result.gtin = gtinMatch[1];
+      result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
+      console.log("Extracted GTIN with AI 01:", result.gtin);
+    }
+    
+    // Expiration Date - AI 17 (6 digits YYMMDD)
+    const expMatch = cleanData.match(/(?:^|\|)?17(\d{6})(?:\||$)/);
+    if (expMatch) {
+      const yymmdd = expMatch[1];
+      const year = parseInt(`20${yymmdd.substring(0, 2)}`);
+      const month = parseInt(yymmdd.substring(2, 4)) - 1;
+      const day = parseInt(yymmdd.substring(4, 6));
       
-      // Try to parse remainder as lot/serial numbers
-      // This is a simplistic approach and may need refinement
-      if (/^[0-9]{6}/.test(remainder)) {
-        // If next 6 digits look like a date (YYMMDD)
-        const dateStr = remainder.substring(0, 6);
-        const year = parseInt(`20${dateStr.substring(0, 2)}`);
-        const month = parseInt(dateStr.substring(2, 4)) - 1;
-        const day = parseInt(dateStr.substring(4, 6));
+      const date = new Date(year, month, day);
+      result.expirationDate = date.toISOString().split('T')[0];
+      console.log("Extracted expiration date with AI 17:", result.expirationDate);
+    }
+    
+    // Lot Number - AI 10 (variable length, up to 20 chars)
+    const lotMatch = cleanData.match(/(?:^|\|)?10([A-Za-z0-9]{1,20})(?:\||$|(?=\d{2}[A-Za-z0-9]))/);
+    if (lotMatch) {
+      result.lotNumber = lotMatch[1];
+      console.log("Extracted lot number with AI 10:", result.lotNumber);
+    }
+    
+    // Serial Number - AI 21 (variable length, up to 20 chars)
+    const serialMatch = cleanData.match(/(?:^|\|)?21([A-Za-z0-9]{1,20})(?:\||$|(?=\d{2}[A-Za-z0-9]))/);
+    if (serialMatch) {
+      result.serialNumber = serialMatch[1];
+      console.log("Extracted serial number with AI 21:", result.serialNumber);
+    }
+    
+    // If we found at least a GTIN, mark as GS1 format
+    if (result.gtin) {
+      result.isGS1Format = true;
+    }
+    
+    // Fallback parsing for concatenated format without clear AIs
+    if (!result.gtin && /^\d{14}/.test(cleanData)) {
+      // Try the legacy parsing approach
+      result.gtin = cleanData.substring(0, 14);
+      result.epcisGtin = dataMatrixToEpcisGtin(result.gtin);
+      console.log("Fallback: Extracted GTIN from raw format:", result.gtin);
+      
+      if (cleanData.length > 14) {
+        const remainder = cleanData.substring(14);
         
-        const date = new Date(year, month, day);
-        result.expirationDate = date.toISOString().split('T')[0];
-        console.log("Extracted expiration date from raw format:", result.expirationDate);
-        
-        // Remainder might be lot or serial
-        if (remainder.length > 6) {
-          // If the remainder has letters, it's probably a lot number
-          const rest = remainder.substring(6);
-          if (/[A-Za-z]/.test(rest)) {
-            // Look for alphanumeric pattern that might be a lot
-            const lotMatch = rest.match(/([A-Za-z0-9]+)/);
-            if (lotMatch) {
-              result.lotNumber = lotMatch[1];
-              console.log("Extracted lot number from raw format:", result.lotNumber);
-              
-              // Anything after might be a serial
-              const afterLot = rest.substring(lotMatch[1].length);
-              if (afterLot.length > 0) {
-                result.serialNumber = afterLot;
-                console.log("Extracted serial number from raw format:", result.serialNumber);
-              }
-            }
-          } else {
-            // If it's all numbers, assume it's a serial
-            result.serialNumber = rest;
-            console.log("Extracted serial number from raw format:", result.serialNumber);
-          }
-        }
-      } else {
-        // If no date pattern, try to determine lot and serial
-        if (/[A-Za-z]/.test(remainder)) {
-          // Look for alphanumeric pattern that might be a lot
-          const lotMatch = remainder.match(/([A-Za-z0-9]+)/);
-          if (lotMatch) {
-            result.lotNumber = lotMatch[1];
-            console.log("Extracted lot number from raw format:", result.lotNumber);
-            
-            // Anything after might be a serial
-            const afterLot = remainder.substring(lotMatch[1].length);
-            if (afterLot.length > 0) {
-              result.serialNumber = afterLot;
-              console.log("Extracted serial number from raw format:", result.serialNumber);
+        // Look for date pattern YYMMDD
+        if (/^\d{6}/.test(remainder)) {
+          const dateStr = remainder.substring(0, 6);
+          const year = parseInt(`20${dateStr.substring(0, 2)}`);
+          const month = parseInt(dateStr.substring(2, 4)) - 1;
+          const day = parseInt(dateStr.substring(4, 6));
+          
+          const date = new Date(year, month, day);
+          result.expirationDate = date.toISOString().split('T')[0];
+          console.log("Fallback: Extracted expiration date:", result.expirationDate);
+          
+          // Rest might be lot/serial
+          if (remainder.length > 6) {
+            const rest = remainder.substring(6);
+            // Simple heuristic: if it contains letters, probably lot number
+            if (/[A-Za-z]/.test(rest)) {
+              result.lotNumber = rest.match(/([A-Za-z0-9]+)/)?.[1] || '';
+            } else {
+              result.serialNumber = rest;
             }
           }
-        } else {
-          // If it's all numbers, assume it's a serial
-          result.serialNumber = remainder;
-          console.log("Extracted serial number from raw format:", result.serialNumber);
         }
       }
-    }
-  }
-  // Handle URL or JSON formats as a fallback
-  else {
+  
+    // Handle URL or JSON formats as a fallback
     try {
       // Check if it's a URL with parameters
       if (qrData.includes('://') && qrData.includes('?')) {

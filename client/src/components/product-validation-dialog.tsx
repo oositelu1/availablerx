@@ -3,8 +3,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon, Camera } from "lucide-react";
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
+import DynamsoftBarcodeScanner from "@/components/dynamsoft-barcode-scanner";
+import HTML5Scanner from "@/components/html5-scanner";
 import { parseQRCode, compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { dataMatrixToEpcisGtin, getPackagingLevel, normalizeGtinForComparison } from "@/lib/gtin-utils";
 import { Separator } from "@/components/ui/separator";
@@ -50,8 +52,8 @@ export default function ProductValidationDialog({
   poId,
   fileMetadata
 }: ProductValidationDialogProps) {
-  // Simplified state - we're only using manual entry now
-  const [showManualEntry, setShowManualEntry] = useState(true);
+  // State for switching between manual entry and camera scanning
+  const [scanMode, setScanMode] = useState<'selection' | 'manual' | 'camera'>('selection');
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -73,7 +75,7 @@ export default function ProductValidationDialog({
   useEffect(() => {
     if (!isOpen) {
       setScanResult(null);
-      setShowManualEntry(true);
+      setScanMode('selection');
     }
   }, [isOpen]);
 
@@ -144,8 +146,8 @@ export default function ProductValidationDialog({
         matches
       });
       
-      // Hide manual entry once we have a result
-      setShowManualEntry(false);
+      // Switch to results view
+      setScanMode('selection');
     } catch (error) {
       console.error("Error processing scan:", error);
       // Could display an error message to the user here
@@ -377,10 +379,10 @@ export default function ProductValidationDialog({
     return undefined;
   };
 
-  // Reset validation to show manual entry again
+  // Reset validation to show selection again
   const handleReset = () => {
     setScanResult(null);
-    setShowManualEntry(true);
+    setScanMode('selection');
   };
 
   // Format a date for display
@@ -395,17 +397,85 @@ export default function ProductValidationDialog({
 
   // We don't derive NDC from GTIN anymore - only use what's in the file metadata
 
-  // Content to display - simplified to just manual entry
+  // Content to display
   const renderContent = () => {
-    if (showManualEntry) {
+    // Show scan mode selection
+    if (scanMode === 'selection' && !scanResult) {
+      return (
+        <div className="space-y-6 py-4">
+          <div className="text-center">
+            <Scan className="h-12 w-12 text-primary/60 mx-auto mb-3" />
+            <h3 className="text-lg font-medium mb-1">Choose Scanning Method</h3>
+            <p className="text-sm text-muted-foreground">
+              Select how you want to validate products
+            </p>
+          </div>
+          
+          <div className="grid gap-4">
+            <Button
+              variant="outline"
+              className="h-auto p-6 justify-start"
+              onClick={() => setScanMode('camera')}
+            >
+              <Camera className="h-8 w-8 mr-4 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Camera Scanner</div>
+                <div className="text-sm text-muted-foreground">
+                  Use your camera to scan DataMatrix barcodes
+                </div>
+              </div>
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="h-auto p-6 justify-start"
+              onClick={() => setScanMode('manual')}
+            >
+              <KeyboardIcon className="h-8 w-8 mr-4 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Manual Entry</div>
+                <div className="text-sm text-muted-foreground">
+                  Type or paste barcode data manually
+                </div>
+              </div>
+            </Button>
+          </div>
+          
+          <div className="bg-muted/40 rounded-md p-3 text-sm">
+            <h4 className="font-medium mb-2">What Can Be Validated:</h4>
+            <ul className="space-y-1 list-disc pl-5 text-muted-foreground">
+              <li>Product GTIN (Global Trade Item Number)</li>
+              <li>Lot/Batch number</li>
+              <li>Serial number</li>
+              <li>Expiration date</li>
+            </ul>
+          </div>
+        </div>
+      );
+    }
+    
+    // Show camera scanner
+    if (scanMode === 'camera') {
+      return (
+        <DynamsoftBarcodeScanner
+          onScanSuccess={(data) => {
+            console.log("Camera scan received:", data);
+            handleScanSuccess(data);
+          }}
+          onCancel={() => setScanMode('selection')}
+        />
+      );
+    }
+    
+    // Show manual entry
+    if (scanMode === 'manual') {
       return (
         <ManualBarcodeEntry
           onSubmit={(data) => {
             console.log("Manual entry submit received:", data);
-            setShowManualEntry(false);
             handleScanSuccess(data);
           }}
-          onCancel={() => onClose()}
+          onCancel={() => setScanMode('selection')}
         />
       );
     }
@@ -540,26 +610,31 @@ export default function ProductValidationDialog({
                 <h4 className="text-sm font-medium mb-1">Match Details</h4>
                 <div className="border rounded-md p-3 bg-muted/30">
                   <div className="flex flex-wrap gap-2 mb-2">
-                    <Badge variant={bestMatch.matchResult.gtinMatch ? "success" : bestMatch.matchResult.gtinSimilar ? "secondary" : "destructive"}>
+                    <Badge variant={bestMatch.matchResult.gtinMatch ? "default" : bestMatch.matchResult.gtinSimilar ? "secondary" : "destructive"} 
+                           className={bestMatch.matchResult.gtinMatch ? "bg-green-100 text-green-800 border-green-200" : ""}>
                       {bestMatch.matchResult.gtinMatch ? "GTIN Match" : 
                        bestMatch.matchResult.gtinSimilar ? "Format Variation" : 
                        "GTIN Mismatch"}
                     </Badge>
-                    <Badge variant={bestMatch.matchResult.lotMatch ? "success" : "destructive"}>
+                    <Badge variant={bestMatch.matchResult.lotMatch ? "default" : "destructive"}
+                           className={bestMatch.matchResult.lotMatch ? "bg-green-100 text-green-800 border-green-200" : ""}>
                       {bestMatch.matchResult.lotMatch ? "Lot Match" : "Lot Mismatch"}
                     </Badge>
                     {bestMatch.matchResult.serialMatch !== undefined && (
-                      <Badge variant={bestMatch.matchResult.serialMatch ? "success" : "destructive"}>
+                      <Badge variant={bestMatch.matchResult.serialMatch ? "default" : "destructive"}
+                             className={bestMatch.matchResult.serialMatch ? "bg-green-100 text-green-800 border-green-200" : ""}>
                         {bestMatch.matchResult.serialMatch ? "Serial Match" : "Serial Mismatch"}
                       </Badge>
                     )}
                     {bestMatch.matchResult.expirationMatch !== undefined && (
-                      <Badge variant={bestMatch.matchResult.expirationMatch ? "success" : "destructive"}>
+                      <Badge variant={bestMatch.matchResult.expirationMatch ? "default" : "destructive"}
+                             className={bestMatch.matchResult.expirationMatch ? "bg-green-100 text-green-800 border-green-200" : ""}>
                         {bestMatch.matchResult.expirationMatch ? "Expiration Match" : "Expiration Mismatch"}
                       </Badge>
                     )}
                     {bestMatch.matchResult.matchScore !== undefined && (
-                      <Badge variant={bestMatch.matchResult.matchScore >= 60 ? "success" : "secondary"}>
+                      <Badge variant={bestMatch.matchResult.matchScore >= 60 ? "default" : "secondary"}
+                             className={bestMatch.matchResult.matchScore >= 60 ? "bg-green-100 text-green-800 border-green-200" : ""}>
                         Score: {bestMatch.matchResult.matchScore}%
                       </Badge>
                     )}
@@ -832,29 +907,6 @@ export default function ProductValidationDialog({
         </div>
       );
     }
-    
-    // This code should not be reached since we're always showing either the manual entry or scan results
-    return (
-      <div className="space-y-6 py-4">
-        <div className="text-center">
-          <Scan className="h-12 w-12 text-primary/60 mx-auto mb-3" />
-          <h3 className="text-lg font-medium mb-1">Enter Product Code</h3>
-          <p className="text-sm text-muted-foreground">
-            Enter a product's barcode data to validate it against the EPCIS data.
-          </p>
-        </div>
-        
-        <div className="bg-muted/40 rounded-md p-3 text-sm">
-          <h4 className="font-medium mb-2">What Can Be Validated:</h4>
-          <ul className="space-y-1 list-disc pl-5 text-muted-foreground">
-            <li>Product GTIN (Global Trade Item Number)</li>
-            <li>Lot/Batch number</li>
-            <li>Serial number</li>
-            <li>Expiration date</li>
-          </ul>
-        </div>
-      </div>
-    );
   };
 
   return (
