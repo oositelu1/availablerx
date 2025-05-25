@@ -1,7 +1,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseStringPromise } from 'xml2js';
+import { parseStringPromise, processors } from 'xml2js';
 import { insertProductItemSchema, type ProductItem } from '@shared/schema';
 import { z } from 'zod';
 import { parseEpcisFileStreaming } from './streaming-xml-parser';
@@ -54,43 +54,48 @@ export interface EpcisMetadata {
 /**
  * Validate an EPCIS file against the XSD schema
  */
-export async function validateEpcisFile(filePath: string): Promise<ValidationResult> {
+export async function validateEpcisFile(filePathOrBuffer: string | Buffer): Promise<ValidationResult> {
+  let xmlBuffer: Buffer;
+  let xmlData: any;
+
   try {
-    // Check file size to determine parsing strategy
-    const stats = fs.statSync(filePath);
-    const fileSizeInMB = stats.size / (1024 * 1024);
-    
-    // Use streaming parser for files larger than 10MB
-    if (fileSizeInMB > 10) {
-      console.log(`Using streaming parser for large file (${fileSizeInMB.toFixed(2)}MB)`);
-      try {
-        const metadata = await parseEpcisFileStreaming(filePath);
-        return { valid: true, metadata };
-      } catch (streamError) {
-        console.error('Streaming parser failed, falling back to regular parser:', streamError);
-        // Fall through to regular parser
-      }
-    }
-    
-    // Parse the XML with xml2js for structured data access
-    const xmlBuffer = fs.readFileSync(filePath);
-    const xmlData = await parseStringPromise(xmlBuffer, {
-      explicitArray: false,
-      explicitCharkey: false,
-      mergeAttrs: false,
-      // Don't normalize namespace prefixes
-      normalizeTags: false,
-      // Keep attributes for better handling of namespaced elements
-      attrNameProcessors: [
-        (name: string) => {
-          return name;
+    if (typeof filePathOrBuffer === 'string') {
+      const filePath = filePathOrBuffer;
+      // Check file size to determine parsing strategy
+      const stats = fs.statSync(filePath);
+      const fileSizeInMB = stats.size / (1024 * 1024);
+
+      // Use streaming parser for files larger than 10MB
+      if (fileSizeInMB > 10) {
+        console.log(`Using streaming parser for large file (${fileSizeInMB.toFixed(2)}MB)`);
+        try {
+          const metadata = await parseEpcisFileStreaming(filePath);
+          return { valid: true, metadata };
+        } catch (streamError) {
+          console.error('Streaming parser failed, falling back to regular parser:', streamError);
+          // Fall through to regular parser, read the file into buffer
+          xmlBuffer = fs.readFileSync(filePath);
         }
-      ]
+      } else {
+        xmlBuffer = fs.readFileSync(filePath);
+      }
+    } else {
+      xmlBuffer = filePathOrBuffer;
+    }
+
+    // Parse the XML with xml2js for structured data access
+    xmlData = await parseStringPromise(xmlBuffer, {
+      explicitArray: true, // Ensure elements are always arrays
+      explicitCharkey: false, // Use '_' for text content
+      mergeAttrs: false, // Keep attributes separate
+      normalizeTags: false, // Preserve case and namespaces
+      attrNameProcessors: [processors.stripPrefix], // Strip namespace prefixes from attributes for easier access
+      tagNameProcessors: [processors.stripPrefix] // Strip namespace prefixes from tags
     });
 
     // Debug - show the parsed XML structure
     console.log('XML Data root keys:', Object.keys(xmlData));
-    
+
     // If parsing succeeds, check if it's a valid EPCIS document
     // EPCIS documents can have different root structures
     if (!xmlData) {
@@ -100,52 +105,12 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
         errorMessage: 'Could not parse XML. The file may be malformed or corrupted.'
       };
     }
-    
+
     // Look for the EPCIS root element - it could be directly at root or nested
-    let epcisRoot = null;
-    
-    // Try to find the EPCIS element
-    if (xmlData.epcis) {
-      console.log('Found epcis at root');
-      epcisRoot = xmlData.epcis;
-    } else if (xmlData.EPCISDocument) {
-      console.log('Found EPCISDocument at root');
-      epcisRoot = xmlData.EPCISDocument;
-    } else if (xmlData['epcis:EPCISDocument']) {
-      console.log('Found namespaced epcis:EPCISDocument at root');
-      epcisRoot = xmlData['epcis:EPCISDocument'];
-    } else {
-      // Try alternate root element names
-      const rootKeys = Object.keys(xmlData);
-      
-      for (const key of rootKeys) {
-        console.log(`Checking root key: ${key}`);
-        
-        // Check if this is an EPCIS root with a namespace
-        if (key.toLowerCase().includes('epcis')) {
-          console.log(`Found EPCIS root with namespace: ${key}`);
-          epcisRoot = xmlData[key];
-          break;
-        }
-        
-        // Check if this is a document with an EPCIS child
-        if (xmlData[key] && typeof xmlData[key] === 'object') {
-          const childKeys = Object.keys(xmlData[key]);
-          for (const childKey of childKeys) {
-            if (childKey.toLowerCase().includes('epcis')) {
-              console.log(`Found EPCIS as child element: ${key}.${childKey}`);
-              epcisRoot = xmlData[key][childKey];
-              break;
-            }
-          }
-          
-          if (epcisRoot) break;
-        }
-      }
-    }
-    
-    // Check if we found an EPCIS element
-    if (!epcisRoot) {
+    // With tagNameProcessors: [processors.stripPrefix], namespaces are removed from tag names.
+    const epcisDocument = xmlData.EPCISDocument?.[0] || xmlData.epcisDocument?.[0];
+
+    if (!epcisDocument) {
       return {
         valid: false,
         errorCode: ERROR_CODES.NOT_EPCIS,
@@ -155,14 +120,15 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
 
     // Extract EPCIS version
     let schemaVersion = '1.0'; // Default to 1.0 if not specified
-    if (epcisRoot.$ && epcisRoot.$.schemaVersion) {
-      schemaVersion = epcisRoot.$.schemaVersion;
+    if (epcisDocument.$ && epcisDocument.$.schemaVersion) {
+      schemaVersion = epcisDocument.$.schemaVersion;
     }
     console.log(`Detected EPCIS schema version: ${schemaVersion}`);
 
     // Extract EPCIS body and header
-    const epcisBody = epcisRoot.EPCISBody;
-    const epcisHeader = epcisRoot.EPCISHeader;
+    // With explicitArray: true, these will be arrays.
+    const epcisHeader = epcisDocument.EPCISHeader?.[0];
+    const epcisBody = epcisDocument.EPCISBody?.[0];
 
     // Initialize metadata
     const metadata: EpcisMetadata = {
@@ -180,90 +146,39 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
     if (epcisHeader) {
       try {
         console.log('Attempting to extract sender GLN from header...');
-        console.log('EPCISHeader keys:', Object.keys(epcisHeader));
-        
-        // Try to extract sender GLN and other sender identifiers
-        if (epcisHeader.sender) {
-          metadata.senderGln = epcisHeader.sender;
-          console.log('Found sender in header:', metadata.senderGln);
-        } else if (epcisHeader.senderIdentification) {
-          metadata.senderGln = epcisHeader.senderIdentification;
-          console.log('Found senderIdentification in header:', metadata.senderGln);
-        } else if (epcisHeader['sbdh:StandardBusinessDocumentHeader']) {
-          // Try to extract from standard business document header with namespace
-          const sbdh = epcisHeader['sbdh:StandardBusinessDocumentHeader'];
-          
-          if (sbdh && sbdh['sbdh:Sender']) {
-            const sender = sbdh['sbdh:Sender'];
-            if (sender['sbdh:Identifier']) {
-              const identifier = sender['sbdh:Identifier'];
-              
-              // Get the actual value which may be in different formats
-              if (typeof identifier === 'string') {
-                metadata.senderGln = identifier;
-              } else if (identifier._ && typeof identifier._ === 'string') {
-                metadata.senderGln = identifier._;
-              } else if (identifier['#text'] && typeof identifier['#text'] === 'string') {
-                metadata.senderGln = identifier['#text'];
-              }
-              
-              console.log('Found sender GLN in SBDH with namespace:', metadata.senderGln);
-            }
+        // With explicitArray: true and processors.stripPrefix, access is simpler.
+        const sbdh = epcisHeader.StandardBusinessDocumentHeader?.[0];
+        if (sbdh?.Sender?.[0]?.Identifier?.[0]) {
+          let identifier = sbdh.Sender[0].Identifier[0];
+          if (typeof identifier === 'object' && identifier._) {
+            identifier = identifier._; // Handle cases where value is in '_'
           }
-        } else if (epcisHeader.StandardBusinessDocumentHeader) {
-          // Try to extract from standard business document header without namespace
-          const sbdh = epcisHeader.StandardBusinessDocumentHeader;
-          
-          if (sbdh && sbdh.Sender) {
-            const sender = sbdh.Sender;
-            if (sender.Identifier) {
-              const identifier = sender.Identifier;
-              
-              // Get the actual value which may be in different formats
-              if (typeof identifier === 'string') {
-                metadata.senderGln = identifier;
-              } else if (identifier._ && typeof identifier._ === 'string') {
-                metadata.senderGln = identifier._;
-              } else if (identifier['#text'] && typeof identifier['#text'] === 'string') {
-                metadata.senderGln = identifier['#text'];
-              }
-              
-              console.log('Found sender GLN in SBDH without namespace:', metadata.senderGln);
-            }
-          }
-        }
-        
-        // Additional check - if we have a GLN value, clean it up
-        if (metadata.senderGln && metadata.senderGln !== 'unknown') {
-          // If it's an EPC URI, extract just the GLN part
-          if (metadata.senderGln.startsWith('urn:epc:id:sgln:')) {
+          metadata.senderGln = identifier;
+          console.log('Found sender GLN in SBDH:', metadata.senderGln);
+
+          if (metadata.senderGln && metadata.senderGln.startsWith('urn:epc:id:sgln:')) {
             const glnParts = metadata.senderGln.replace('urn:epc:id:sgln:', '').split('.');
             if (glnParts.length >= 2) {
-              // Combine company prefix and location reference
               const companyPrefix = glnParts[0];
               const locationReference = glnParts[1];
-              
-              // Format properly as standard GLN
               metadata.senderGln = `${companyPrefix}${locationReference.padStart(5, '0')}`;
               console.log('Extracted clean GLN from SGLN:', metadata.senderGln);
             }
           }
+        } else {
+          console.log('Sender GLN not found in StandardBusinessDocumentHeader');
         }
-        
       } catch (error) {
         console.error('Error extracting sender info:', error);
       }
 
       // DSCSA transaction statement validation
       try {
-        if (epcisHeader['gs1ushc:dscsaTransactionStatement']) {
-          const transactionStatement = epcisHeader['gs1ushc:dscsaTransactionStatement'];
-          if (transactionStatement['gs1ushc:affirmTransactionStatement'] === 'true' || 
-              transactionStatement['gs1ushc:affirmTransactionStatement'] === true) {
-            console.log('Valid DSCSA transaction statement found');
-          } else {
-            console.warn('Transaction statement present but not affirmed');
-          }
+        const transactionStatement = epcisHeader.dscsaTransactionStatement?.[0];
+        if (transactionStatement?.affirmTransactionStatement?.[0] === 'true') {
+          console.log('Valid DSCSA transaction statement found');
+        } else if (transactionStatement) {
+          console.warn('Transaction statement present but not affirmed');
         } else {
           console.warn('Warning: Missing transaction statement, but proceeding for testing');
         }
@@ -274,565 +189,254 @@ export async function validateEpcisFile(filePath: string): Promise<ValidationRes
       // Extract product/drug info from header master data
       try {
         console.log('Attempting to extract product info from XML');
-        
-        // Find the master data section
-        const masterData = epcisHeader.extension && epcisHeader.extension.EPCISMasterData;
-        if (!masterData) {
-          console.log('No master data found in EPCIS header');
-        } else if (!masterData.VocabularyList) {
-          console.log('No vocabulary list found in master data');
-        } else {
-          if (!masterData.VocabularyList.Vocabulary) {
-            console.log('No vocabularies found in master data');
-          } else {
-            const vocabularies = Array.isArray(masterData.VocabularyList.Vocabulary) 
-              ? masterData.VocabularyList.Vocabulary 
-              : [masterData.VocabularyList.Vocabulary];
-            
-            console.log(`Found ${vocabularies.length} vocabularies to process`);
-            
-            for (const vocab of vocabularies) {
-              // Look for EPCClass vocabulary which contains product info
-              let typeValue = vocab.type || (vocab.$ && vocab.$.type) || (vocab.ATTRS && vocab.ATTRS.type);
-              
-              if (!typeValue) {
-                console.log('Vocabulary missing type attribute');
-                continue;
-              }
-              
-              console.log('Vocabulary type:', JSON.stringify(typeValue));
-              
-              // Look for EPCClass vocabulary which contains drug information
-              const typeString = typeof typeValue === 'string' ? typeValue : typeValue.value || JSON.stringify(typeValue);
-              if (typeString.includes('EPCClass')) {
-                console.log('Found EPCClass vocabulary, extracting product info');
-                
-                // Handle VocabularyElementList wrapper if present
-                let elements = [];
-                if (vocab.VocabularyElementList && vocab.VocabularyElementList.VocabularyElement) {
-                  const vocabEls = vocab.VocabularyElementList.VocabularyElement;
-                  elements = Array.isArray(vocabEls) ? vocabEls : [vocabEls];
-                } else if (vocab.VocabularyElement) {
-                  const vocabEls = vocab.VocabularyElement;
-                  elements = Array.isArray(vocabEls) ? vocabEls : [vocabEls];
-                }
-                
-                if (elements.length === 0) {
-                  console.log('No vocabulary elements found');
-                  continue;
-                }
-                
-                console.log(`Found ${elements.length} VocabularyElement(s)`);
-                
+        const masterData = epcisHeader.extension?.[0]?.EPCISMasterData?.[0];
+        const vocabularies = masterData?.VocabularyList?.[0]?.Vocabulary;
+
+        if (vocabularies) {
+          console.log(`Found ${vocabularies.length} vocabularies to process`);
+          for (const vocab of vocabularies) {
+            const vocabType = vocab.$?.type || vocab.type?.[0];
+            if (typeof vocabType === 'string' && vocabType.includes('EPCClass')) {
+              console.log('Found EPCClass vocabulary, extracting product info');
+              const elements = vocab.VocabularyElementList?.[0]?.VocabularyElement || vocab.VocabularyElement;
+              if (elements) {
                 for (const element of elements) {
-                  // Extract attributes
                   const attributes = element.attribute;
-                  if (!attributes) {
-                    console.log('No attributes found in vocabulary element');
-                    continue;
-                  }
-                  
-                  const attrList = Array.isArray(attributes) ? attributes : [attributes];
-                  console.log(`Processing ${attrList.length} attributes`);
-                  
-                  // Map to store attribute values
-                  const attributeMap = new Map<string, string>();
-                  
-                  for (const attr of attrList) {
-                    try {
-                      // Get ID - handle direct property or attribute format
-                      let id = attr.id || (attr.$ && attr.$.id) || (attr.ATTRS && attr.ATTRS.id);
-                      
-                      if (!id) {
-                        console.log('Attribute has no ID');
-                        continue;
+                  if (attributes) {
+                    const attributeMap = new Map<string, string>();
+                    for (const attr of attributes) {
+                      const id = attr.$?.id || attr.id?.[0];
+                      // Value can be in attr._ or attr (if simple content)
+                      let value = attr._ || (typeof attr === 'string' ? attr : undefined);
+                      if (attr && typeof attr === 'object' && !value && Object.keys(attr).length === 1 && attr._ === undefined && attr.$ === undefined) {
+                         // Handle cases like <attribute id="urn:...">Value</attribute>
+                         value = attr[Object.keys(attr)[0]]?.[0];
                       }
-                      
-                      if (typeof id !== 'string') {
-                        console.log('Attribute ID is an object:', JSON.stringify(id));
-                        id = id.value || JSON.stringify(id);
+
+
+                      if (id && value !== undefined) {
+                        console.log(`Attribute ${id} = ${value}`);
+                        attributeMap.set(id, String(value));
+                      } else {
+                        console.log('Attribute missing ID or Value:', JSON.stringify(attr));
                       }
-                      
-                      // Get value - handle text content or direct property
-                      let value = attr._ || attr['#text'] || attr.value || attr;
-                      if (typeof value === 'object' && value._) {
-                        value = value._;
-                      }
-                      if (typeof value === 'object' && !Array.isArray(value)) {
-                        // If still an object, try to extract string representation
-                        value = value.value || value.toString();
-                      }
-                      if (typeof value !== 'string') {
-                        value = String(value);
-                      }
-                      
-                      console.log(`Attribute ${id} = ${value}`);
-                      attributeMap.set(id, value);
-                    } catch (attrError) {
-                      console.error('Error processing attribute:', attrError);
                     }
-                  }
-                  
-                  // Debug log to see all attributes
-                  console.log('All attribute map keys:', Array.from(attributeMap.keys()));
-                  
-                  // Extract product information from attributes
-                  if (attributeMap.has('urn:epcglobal:cbv:mda#regulatedProductName')) {
-                    metadata.productInfo.name = attributeMap.get('urn:epcglobal:cbv:mda#regulatedProductName');
-                    console.log('Found product name:', metadata.productInfo.name);
-                  } else {
-                    console.log('No regulatedProductName found in attributes');
-                  }
-                  
-                  if (attributeMap.has('urn:epcglobal:cbv:mda#dosageFormType')) {
-                    metadata.productInfo.dosageForm = attributeMap.get('urn:epcglobal:cbv:mda#dosageFormType');
-                  }
-                  
-                  if (attributeMap.has('urn:epcglobal:cbv:mda#strengthDescription')) {
-                    metadata.productInfo.strength = attributeMap.get('urn:epcglobal:cbv:mda#strengthDescription');
-                  }
-                  
-                  if (attributeMap.has('urn:epcglobal:cbv:mda#additionalTradeItemIdentification')) {
-                    metadata.productInfo.ndc = attributeMap.get('urn:epcglobal:cbv:mda#additionalTradeItemIdentification');
-                  }
-                  
-                  if (attributeMap.has('urn:epcglobal:cbv:mda#netContentDescription')) {
-                    metadata.productInfo.netContent = attributeMap.get('urn:epcglobal:cbv:mda#netContentDescription');
-                  }
-                  
-                  if (attributeMap.has('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName')) {
-                    metadata.productInfo.manufacturer = attributeMap.get('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName');
-                    console.log('Found manufacturer:', metadata.productInfo.manufacturer);
-                  } else {
-                    console.log('No manufacturerOfTradeItemPartyName found in attributes');
+
+                    if (attributeMap.has('urn:epcglobal:cbv:mda#regulatedProductName')) {
+                      metadata.productInfo.name = attributeMap.get('urn:epcglobal:cbv:mda#regulatedProductName');
+                      console.log('Found product name:', metadata.productInfo.name);
+                    }
+                    if (attributeMap.has('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName')) {
+                      metadata.productInfo.manufacturer = attributeMap.get('urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName');
+                      console.log('Found manufacturer:', metadata.productInfo.manufacturer);
+                    }
+                    if (attributeMap.has('urn:epcglobal:cbv:mda#additionalTradeItemIdentification')) {
+                      const ndcValue = attributeMap.get('urn:epcglobal:cbv:mda#additionalTradeItemIdentification');
+                      const ndcType = attributeMap.get('urn:epcglobal:cbv:mda#additionalTradeItemIdentificationType');
+                      if (ndcType === 'NDC' || ndcType === 'DRUG_IDENTIFICATION_NUMBER') {
+                        metadata.productInfo.ndc = ndcValue;
+                        console.log('Found NDC:', metadata.productInfo.ndc);
+                      } else {
+                        console.warn(`Found additionalTradeItemIdentification (${ndcValue}) but type is not NDC (type: ${ndcType}).`);
+                      }
+                    }
+                     if (attributeMap.has('urn:epcglobal:cbv:mda#dosageFormType')) {
+                        metadata.productInfo.dosageForm = attributeMap.get('urn:epcglobal:cbv:mda#dosageFormType');
+                    }
+                    if (attributeMap.has('urn:epcglobal:cbv:mda#strengthDescription')) {
+                        metadata.productInfo.strength = attributeMap.get('urn:epcglobal:cbv:mda#strengthDescription');
+                    }
+                    if (attributeMap.has('urn:epcglobal:cbv:mda#netContentDescription')) {
+                        metadata.productInfo.netContent = attributeMap.get('urn:epcglobal:cbv:mda#netContentDescription');
+                    }
                   }
                 }
               }
             }
           }
+        } else {
+          console.log('No vocabularies found in master data or master data structure is not as expected.');
         }
       } catch (error) {
         console.error('Error extracting product info:', error);
       }
-      
+
       // Extract serial numbers and PO numbers from events
       try {
-        // Use the existing epcisBody variable from the outer scope
         if (epcisBody) {
-          console.log('EPCIS Body keys:', Object.keys(epcisBody));
-          
-          // First, look for EventList wrapper
-          let allEvents = [];
-          
-          // Different EPCIS files may have different event structures
-          if (epcisBody.EventList) {
-            console.log('Found EventList structure in EPCIS body');
-            
-            // Handle ObjectEvents
-            if (epcisBody.EventList.ObjectEvent) {
-              const objectEvents = Array.isArray(epcisBody.EventList.ObjectEvent) ? 
-                epcisBody.EventList.ObjectEvent : [epcisBody.EventList.ObjectEvent];
-              allEvents = [...allEvents, ...objectEvents];
-              console.log(`Added ${objectEvents.length} object events from EventList`);
-            }
-            
-            // Handle AggregationEvents 
-            if (epcisBody.EventList.AggregationEvent) {
-              const aggEvents = Array.isArray(epcisBody.EventList.AggregationEvent) ? 
-                epcisBody.EventList.AggregationEvent : [epcisBody.EventList.AggregationEvent];
-              allEvents = [...allEvents, ...aggEvents];
-              console.log(`Added ${aggEvents.length} aggregation events from EventList`);
-            }
-            
-            // Handle TransactionEvents
-            if (epcisBody.EventList.TransactionEvent) {
-              const transEvents = Array.isArray(epcisBody.EventList.TransactionEvent) ? 
-                epcisBody.EventList.TransactionEvent : [epcisBody.EventList.TransactionEvent];
-              allEvents = [...allEvents, ...transEvents];
-              console.log(`Added ${transEvents.length} transaction events from EventList`);
-            }
-            
-            // Handle TransformationEvents
-            if (epcisBody.EventList.TransformationEvent) {
-              const transformEvents = Array.isArray(epcisBody.EventList.TransformationEvent) ? 
-                epcisBody.EventList.TransformationEvent : [epcisBody.EventList.TransformationEvent];
-              allEvents = [...allEvents, ...transformEvents];
-              console.log(`Added ${transformEvents.length} transformation events from EventList`);
-            }
-          } 
-          // Check for direct object events (no EventList wrapper)
-          else if (epcisBody.ObjectEvent || epcisBody['epcis:ObjectEvent']) {
-            const objectEvents = epcisBody.ObjectEvent || epcisBody['epcis:ObjectEvent'];
-            const events = Array.isArray(objectEvents) ? objectEvents : [objectEvents];
-            allEvents = [...allEvents, ...events];
-            console.log(`Added ${events.length} direct object events`);
+          const eventList = epcisBody.EventList?.[0];
+          let allEvents: any[] = [];
+
+          if (eventList) {
+            // Consolidate all event types. explicitArray ensures these are arrays.
+            allEvents = [
+              ...(eventList.ObjectEvent || []),
+              ...(eventList.AggregationEvent || []),
+              ...(eventList.TransactionEvent || []),
+              ...(eventList.TransformationEvent || [])
+            ];
+            console.log(`Collected ${allEvents.length} events from EventList`);
+          } else if (epcisBody.ObjectEvent) { // Handle direct ObjectEvents if no EventList
+             allEvents = [...(epcisBody.ObjectEvent || [])];
+             console.log(`Collected ${allEvents.length} direct object events`);
           }
-          
+
+
           console.log(`Total events to process: ${allEvents.length}`);
-          
-          // Process all collected events
+
           for (const event of allEvents) {
-            console.log('Event keys:', Object.keys(event));
-              
-            // Extract serial numbers from EPCs
-            // Try different formats for epcList
-            let epcList;
-            if (event.epcList) {
-              epcList = event.epcList;
-            } else if (event['epcis:epcList']) {
-              epcList = event['epcis:epcList'];
-            } else if (event.extension && event.extension.epcList) {
-              epcList = event.extension.epcList;
-            } else if (event.extension && event.extension['epcis:epcList']) {
-              epcList = event.extension['epcis:epcList'];
-            }
-            
+            const epcList = event.epcList?.[0]?.epc;
             if (epcList) {
-              // Try different formats for epc elements
-              let epcs;
-              if (epcList.epc) {
-                epcs = epcList.epc;
-              } else if (epcList['epcis:epc']) {
-                epcs = epcList['epcis:epc'];
-              }
-              
-              if (epcs) {
-                const epcArray = Array.isArray(epcs) ? epcs : [epcs];
-                console.log(`Found ${epcArray.length} EPCs/serial numbers`);
-                
-                for (const epc of epcArray) {
-                  // Extract SGTIN components: company prefix, item reference, and serial number
-                  // Format: urn:epc:id:sgtin:CompanyPrefix.ItemReference.SerialNumber
-                  try {
-                    let epcValue;
-                    if (typeof epc === 'string') {
-                      epcValue = epc;
-                    } else if (epc._ !== undefined) {
-                      epcValue = epc._;
-                    } else if (epc.value) {
-                      epcValue = epc.value;
-                    } else {
-                      epcValue = epc.toString();
-                    }
+              for (const epc of epcList) {
+                const epcValue = typeof epc === 'string' ? epc : epc._;
+                if (epcValue && epcValue.includes(':sgtin:')) {
+                  const parts = epcValue.split(':').pop()?.split('.');
+                  if (parts && parts.length >= 3) {
+                    const companyPrefix = parts[0];
+                    const itemReferenceWithIndicator = parts[1]; // This includes the indicator digit
+                    const serialNumber = parts.slice(2).join('.'); // Serial can contain dots
+
+                    // Correct GTIN formation: Company Prefix + Item Reference (without indicator) + Check Digit (not available here)
+                    // For SGTIN URN, the itemReference part already includes the indicator digit.
+                    // The full GTIN-14 is formed by padding companyPrefix + itemReference to 13 digits and then adding a check digit.
+                    // Here, we concatenate companyPrefix and itemReference directly as per typical representations.
+                    // The '0' prepended previously was incorrect for SGTIN URN structure.
+                    // A common way to represent the GTIN from SGTIN is CompanyPrefix + ItemReference.
+                    // Example: 0614141.107346 -> GTIN 0614141107346 (ItemReference's first digit is indicator)
+                    const gtin = `${companyPrefix}${itemReferenceWithIndicator}`;
                     
-                    console.log(`Processing EPC: ${epcValue}`);
-                    
-                    if (epcValue.includes('sgtin')) {
-                      // Example: urn:epc:id:sgtin:0614141.107346.2017
-                      const parts = epcValue.split(':');
-                      if (parts.length >= 5) { // At least "urn:epc:id:sgtin:prefix.item.serial"
-                        // Get the last part which should be "prefix.item.serial" or just the whole identifier
-                        const sgtinPart = parts[parts.length-1];
-                        const sgtinParts = sgtinPart.split('.');
-                        
-                        if (sgtinParts.length >= 3) {
-                          const companyPrefix = sgtinParts[0];
-                          const itemReference = sgtinParts[1];
-                          const serialNumber = sgtinParts[2];
-                          
-                          // Construct GTIN from company prefix and item reference
-                          // Include the indicator digit for packaging level identification
-                          // Format: prefix digit (0) + companyPrefix + itemReference 
-                          // Where itemReference starts with the indicator digit (0 for item/each, 5 for case)
-                          // For GS1 formatted data, we need to prepend '0' to make it a 14-digit GTIN
-                          const indicatorDigit = itemReference.charAt(0); // '0' for unit, '5' for case
-                          const gtin = `0${companyPrefix}${itemReference}`;
-                          console.log(`GTIN Construction: companyPrefix=${companyPrefix}, itemReference=${itemReference}, indicator digit=${indicatorDigit}`);
-                          
-                          console.log(`Extracted SGTIN: GTIN=${gtin}, Serial=${serialNumber}`);
-                          
-                          // Add to product items if not already present
-                          const existingItemIndex = metadata.productItems.findIndex(
-                            item => item.gtin === gtin && item.serialNumber === serialNumber
-                          );
-                          
-                          if (existingItemIndex === -1) {
-                            // Get event time
-                            const eventTime = event.eventTime || event['epcis:eventTime'] || new Date().toISOString();
-                            
-                            // Look for lot number and expiration date in ilmd
-                            let lotNumber = metadata.productInfo.lotNumber || null;
-                            let expirationDate = metadata.productInfo.expirationDate || null;
-                            
-                            // Try to get lot number and expiration date from ilmd if available in this event
-                            if (event.extension && event.extension.ilmd) {
-                              const ilmd = event.extension.ilmd;
-                              if (ilmd['cbvmda:lotNumber']) {
-                                const rawLotNumber = ilmd['cbvmda:lotNumber'];
-                                // Handle complex objects with underscore property
-                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber && rawLotNumber._ 
-                                  ? rawLotNumber._ 
-                                  : rawLotNumber;
-                              } else if (ilmd.lotNumber) {
-                                const rawLotNumber = ilmd.lotNumber;
-                                lotNumber = typeof rawLotNumber === 'object' && rawLotNumber && rawLotNumber._ 
-                                  ? rawLotNumber._ 
-                                  : rawLotNumber;
-                              }
-                              
-                              if (ilmd['cbvmda:itemExpirationDate']) {
-                                const rawExpirationDate = ilmd['cbvmda:itemExpirationDate'];
-                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate && rawExpirationDate._ 
-                                  ? rawExpirationDate._ 
-                                  : rawExpirationDate;
-                              } else if (ilmd.itemExpirationDate) {
-                                const rawExpirationDate = ilmd.itemExpirationDate;
-                                expirationDate = typeof rawExpirationDate === 'object' && rawExpirationDate && rawExpirationDate._ 
-                                  ? rawExpirationDate._ 
-                                  : rawExpirationDate;
-                              }
-                            }
-                            
-                            // Also check for complex object structure in productInfo if it exists
-                            if (metadata.productInfo && metadata.productInfo.lotNumber) {
-                              const productInfoLot = metadata.productInfo.lotNumber;
-                              if (typeof productInfoLot === 'object' && productInfoLot && 'hasOwnProperty' in productInfoLot && productInfoLot._) {
-                                metadata.productInfo.lotNumber = productInfoLot._;
-                              }
-                            }
-                            
-                            if (metadata.productInfo && metadata.productInfo.expirationDate) {
-                              const productInfoExp = metadata.productInfo.expirationDate;
-                              if (typeof productInfoExp === 'object' && productInfoExp && 'hasOwnProperty' in productInfoExp && productInfoExp._) {
-                                metadata.productInfo.expirationDate = productInfoExp._;
-                              }
-                            }
-                            
-                            // Create new product item
-                            const productItem = {
-                              gtin,
-                              serialNumber,
-                              eventTime,
-                              lotNumber: lotNumber || 'unknown',
-                              expirationDate: expirationDate || 'unknown',
-                              sourceGln: null,
-                              destinationGln: null,
-                              bizTransactionList: []
-                            };
-                            
-                            // Add source GLN if available
-                            if (event.bizLocation && event.bizLocation.id) {
-                              productItem.sourceGln = event.bizLocation.id;
-                            }
-                            
-                            // Add destination GLN if available from destination list
-                            if (event.extension && event.extension.destinationList) {
-                              const destinations = event.extension.destinationList.destination;
-                              if (destinations && Array.isArray(destinations) && destinations.length > 0) {
-                                productItem.destinationGln = destinations[0].id || destinations[0];
-                              } else if (destinations) {
-                                productItem.destinationGln = destinations.id || destinations;
-                              }
-                            }
-                            
-                            metadata.productItems.push(productItem);
-                            console.log(`Added product item with serial number: ${serialNumber}`);
-                          }
-                        }
+                    console.log(`Extracted SGTIN: GTIN=${gtin}, Serial=${serialNumber}`);
+
+                    if (!metadata.productItems.find(item => item.gtin === gtin && item.serialNumber === serialNumber)) {
+                      const eventTime = event.eventTime?.[0] || new Date().toISOString();
+                      let lotNumber = metadata.productInfo.lotNumber || null;
+                      let expirationDate = metadata.productInfo.expirationDate || null;
+
+                      const ilmd = event.extension?.[0]?.ilmd?.[0];
+                      if (ilmd) {
+                        lotNumber = ilmd.lotNumber?.[0]?._ || ilmd.lotNumber?.[0] || lotNumber;
+                        expirationDate = ilmd.itemExpirationDate?.[0]?._ || ilmd.itemExpirationDate?.[0] || expirationDate;
                       }
+                      
+                       // Ensure lotNumber and expirationDate from productInfo (master data) are strings if they are objects
+                        if (typeof metadata.productInfo.lotNumber === 'object' && metadata.productInfo.lotNumber && metadata.productInfo.lotNumber._) {
+                            lotNumber = metadata.productInfo.lotNumber._;
+                        }
+                        if (typeof metadata.productInfo.expirationDate === 'object' && metadata.productInfo.expirationDate && metadata.productInfo.expirationDate._) {
+                            expirationDate = metadata.productInfo.expirationDate._;
+                        }
+
+
+                      metadata.productItems.push({
+                        gtin,
+                        serialNumber,
+                        eventTime,
+                        lotNumber: lotNumber || 'unknown',
+                        expirationDate: expirationDate || 'unknown',
+                        sourceGln: event.bizLocation?.[0]?.id?.[0] || null,
+                        destinationGln: event.extension?.[0]?.destinationList?.[0]?.destination?.[0]?.id?.[0] || null,
+                        bizTransactionList: []
+                      });
+                      console.log(`Added product item with serial number: ${serialNumber}`);
                     }
-                  } catch (epcError) {
-                    console.error('Error processing EPC:', epcError);
                   }
                 }
-              } else {
-                console.log('No epc elements found in epcList');
               }
             }
-            
-            // Extract PO numbers from business transactions
-            // Try different formats and structures for bizTransactionList
-            let bizTransactionList;
-            if (event.bizTransactionList) {
-              bizTransactionList = event.bizTransactionList;
-            } else if (event['epcis:bizTransactionList']) {
-              bizTransactionList = event['epcis:bizTransactionList'];
-            } else if (event.extension && event.extension.bizTransactionList) {
-              bizTransactionList = event.extension.bizTransactionList;
-            } else if (event.extension && event.extension['epcis:bizTransactionList']) {
-              bizTransactionList = event.extension['epcis:bizTransactionList'];
-            }
-            
+
+            const bizTransactionList = event.bizTransactionList?.[0]?.bizTransaction;
             if (bizTransactionList) {
-              console.log('Found bizTransactionList:', Object.keys(bizTransactionList));
-              
-              // Try different formats for bizTransaction element
-              let bizTransactions;
-              if (bizTransactionList.bizTransaction) {
-                bizTransactions = bizTransactionList.bizTransaction;
-              } else if (bizTransactionList['epcis:bizTransaction']) {
-                bizTransactions = bizTransactionList['epcis:bizTransaction'];
-              }
-              
-              if (bizTransactions) {
-                const transactions = Array.isArray(bizTransactions) ? bizTransactions : [bizTransactions];
-                console.log(`Found ${transactions.length} business transactions`);
-                
-                for (const transaction of transactions) {
-                  try {
-                    // Extract the transaction ID and type
-                    // Different EPCIS implementations may use different formats
-                    let transactionValue;
-                    let type = 'unknown';
-                    
-                    if (typeof transaction === 'string') {
-                      // Simple string value
-                      transactionValue = transaction;
-                    } else if (transaction._ !== undefined) {
-                      // Object with text value in _ property
-                      transactionValue = transaction._;
-                      if (transaction.$ && transaction.$.type) {
-                        type = transaction.$.type;
-                      }
-                    } else if (transaction.type && transaction.value) {
-                      // Object with explicit type and value properties
-                      type = transaction.type;
-                      transactionValue = transaction.value;
-                    } else {
-                      // Try to convert to string
-                      transactionValue = transaction.toString();
-                    }
-                    
-                    // If the transaction is an object with $ (attributes)
-                    if (transaction.$ && !type) {
-                      type = transaction.$.type || 'unknown';
-                    }
-                    
-                    console.log(`Business Transaction: type=${type}, value=${transactionValue}`);
-                    
-                    // Check if this is a PO reference by looking for 'po' or 'purchase-order' in the type
-                    if (type.toLowerCase().includes('po') || 
-                        type.toLowerCase().includes('purchase-order') || 
-                        type.toLowerCase().includes('purchase_order')) {
-                      console.log(`Found Purchase Order reference: ${transactionValue}`);
-                      
-                      // Extract just the PO number from the reference
-                      // Format could be urn:epcglobal:cbv:bt:companyPrefix:poNumber
-                      let poNumber = transactionValue;
-                      if (poNumber && poNumber.includes(':')) {
-                        // Extract last part after colon
-                        poNumber = poNumber.split(':').pop() || poNumber;
-                      }
-                      
-                      // Add to PO numbers list if not already present
-                      if (poNumber && !metadata.poNumbers.includes(poNumber)) {
-                        metadata.poNumbers.push(poNumber);
-                        console.log(`Added PO number: ${poNumber}`);
-                      }
-                      
-                      // Also add this PO reference to all product items in this event
-                      if (metadata.productItems.length > 0) {
-                        for (const item of metadata.productItems) {
-                          if (!item.bizTransactionList) {
-                            item.bizTransactionList = [];
-                          }
-                          if (!item.bizTransactionList.includes(poNumber)) {
-                            item.bizTransactionList.push(poNumber);
-                          }
-                        }
-                      }
-                    }
-                  } catch (transactionError) {
-                    console.error('Error processing business transaction:', transactionError);
+              for (const transaction of bizTransactionList) {
+                const type = transaction.$?.type || 'unknown';
+                const transactionValue = typeof transaction === 'string' ? transaction : transaction._;
+                if (transactionValue && (type.toLowerCase().includes('po') || type.toLowerCase().includes('purchaseorder'))) {
+                  let poNumber = transactionValue;
+                  if (poNumber.includes(':')) {
+                    poNumber = poNumber.split(':').pop() || poNumber;
                   }
+                  if (!metadata.poNumbers.includes(poNumber)) {
+                    metadata.poNumbers.push(poNumber);
+                    console.log(`Added PO number: ${poNumber}`);
+                  }
+                  metadata.productItems.forEach(item => {
+                    if (item.serialNumber && epcList?.some(epc => (typeof epc === 'string' ? epc : epc._).includes(item.serialNumber))) {
+                        if(!item.bizTransactionList) item.bizTransactionList = [];
+                        if(!item.bizTransactionList.includes(poNumber)) item.bizTransactionList.push(poNumber);
+                    }
+                  });
                 }
-              } else {
-                console.log('No bizTransaction elements found in bizTransactionList');
-              }
-            }
-            
-            // Check for lot number and expiry date in ILMD extension
-            if (event.extension && event.extension.ilmd) {
-              const ilmd = event.extension.ilmd;
-              console.log('Checking for lot number and expiry date:');
-              
-              // Look for lot number with various namespaces
-              if (ilmd['cbvmda:lotNumber'] || ilmd.lotNumber) {
-                const lotNumber = ilmd['cbvmda:lotNumber'] || ilmd.lotNumber;
-                console.log(`Found lot number: ${lotNumber}`);
-                metadata.productInfo.lotNumber = lotNumber;
-              }
-              
-              // Look for expiration date with various namespaces
-              if (ilmd['cbvmda:itemExpirationDate'] || ilmd.itemExpirationDate) {
-                const expiryDate = ilmd['cbvmda:itemExpirationDate'] || ilmd.itemExpirationDate;
-                console.log(`Found expiration date: ${expiryDate}`);
-                metadata.productInfo.expirationDate = expiryDate;
               }
             }
           }
-          
           console.log("Extracted product items:", metadata.productItems.length);
           console.log("Extracted PO numbers:", metadata.poNumbers);
         }
       } catch (error) {
         console.error('Error extracting serial numbers and PO:', error);
       }
-      
-      // Try to extract lot number and expiry date from ILMD in ObjectEvents
-      try {
-        if (epcisBody && epcisBody.ObjectEvent) {
-          const objectEvents = Array.isArray(epcisBody.ObjectEvent) ? 
-            epcisBody.ObjectEvent : [epcisBody.ObjectEvent];
-          
-          for (const event of objectEvents) {
-            if (event.extension && event.extension.ilmd) {
-              const ilmd = event.extension.ilmd;
-              
-              // Look for lot number with various namespaces
-              const lotCandidates = [
-                ilmd.lotNumber,
-                ilmd['epcis:lotNumber'],
-                ilmd['cbvmda:lotNumber']
-              ];
-              
-              for (const lotValue of lotCandidates) {
-                if (lotValue) {
-                  console.log(`Found lot number: ${lotValue}`);
-                  metadata.productInfo.lotNumber = lotValue;
-                  break;
-                }
-              }
-              
-              // Look for expiration date with various namespaces
-              const expiryCandidates = [
-                ilmd.itemExpirationDate,
-                ilmd['epcis:itemExpirationDate'],
-                ilmd['cbvmda:itemExpirationDate']
-              ];
-              
-              for (const expiryValue of expiryCandidates) {
-                if (expiryValue) {
-                  console.log(`Found expiration date: ${expiryValue}`);
-                  metadata.productInfo.expirationDate = expiryValue;
-                  break;
-                }
-              }
-            } else {
-              console.log('No ilmd found in the object event');
-            }
-          }
-        }
-      } catch (error) {
-        console.log('Error extracting lot/expiry info:', error);
-        // Don't fail validation just because we couldn't extract product info
-      }
-      
-      // In a production environment, we would validate against XSD schema
-      // For testing, skip XSD validation and consider the file valid if it has
-      // the basic EPCIS structure
-      console.log('XSD validation is disabled for testing');
-      
-      // Return valid result with metadata
-      return { valid: true, metadata };
-    }
+    } // end if(epcisHeader)
     
+    // Fallback for product info if not in header (e.g. from ILMD in events)
+    // This part might be redundant if productInfo is expected only from MasterData,
+    // but kept for robustness if ILMD in events is a valid source.
+    if (!metadata.productInfo.name || !metadata.productInfo.manufacturer || !metadata.productInfo.ndc) {
+        console.log("Attempting to find product info in event ILMD as fallback.");
+        const eventList = epcisBody?.EventList?.[0];
+        let allEvents: any[] = [];
+         if (eventList) {
+            allEvents = [
+              ...(eventList.ObjectEvent || []),
+              ...(eventList.AggregationEvent || []),
+              ...(eventList.TransactionEvent || []),
+              ...(eventList.TransformationEvent || [])
+            ];
+        } else if (epcisBody?.ObjectEvent) {
+             allEvents = [...(epcisBody.ObjectEvent || [])];
+        }
+
+        for (const event of allEvents) {
+            const ilmd = event.extension?.[0]?.ilmd?.[0];
+            if (ilmd) {
+                if (!metadata.productInfo.name && (ilmd.regulatedProductName?.[0]?._ || ilmd.regulatedProductName?.[0])) {
+                    metadata.productInfo.name = ilmd.regulatedProductName[0]._ || ilmd.regulatedProductName[0];
+                    console.log('Found product name in event ILMD:', metadata.productInfo.name);
+                }
+                if (!metadata.productInfo.manufacturer && (ilmd.manufacturerOfTradeItemPartyName?.[0]?._ || ilmd.manufacturerOfTradeItemPartyName?.[0])) {
+                    metadata.productInfo.manufacturer = ilmd.manufacturerOfTradeItemPartyName[0]._ || ilmd.manufacturerOfTradeItemPartyName[0];
+                    console.log('Found manufacturer in event ILMD:', metadata.productInfo.manufacturer);
+                }
+                // Note: NDC is typically not found in event ILMD, but included for completeness if structure allows
+                if (!metadata.productInfo.ndc && (ilmd.additionalTradeItemIdentification?.[0]?._ || ilmd.additionalTradeItemIdentification?.[0])) {
+                     const ndcValue = ilmd.additionalTradeItemIdentification[0]._ || ilmd.additionalTradeItemIdentification[0];
+                     const ndcType = ilmd.additionalTradeItemIdentificationType?.[0]?._ || ilmd.additionalTradeItemIdentificationType?.[0];
+                     if (ndcType === 'NDC' || ndcType === 'DRUG_IDENTIFICATION_NUMBER') {
+                        metadata.productInfo.ndc = ndcValue;
+                        console.log('Found NDC in event ILMD:', metadata.productInfo.ndc);
+                     }
+                }
+                 if (!metadata.productInfo.lotNumber && (ilmd.lotNumber?.[0]?._ || ilmd.lotNumber?.[0])) {
+                    metadata.productInfo.lotNumber = ilmd.lotNumber[0]._ || ilmd.lotNumber[0];
+                }
+                if (!metadata.productInfo.expirationDate && (ilmd.itemExpirationDate?.[0]?._ || ilmd.itemExpirationDate?.[0])) {
+                    metadata.productInfo.expirationDate = ilmd.itemExpirationDate[0]._ || ilmd.itemExpirationDate[0];
+                }
+            }
+            // Stop if all essential info found
+            if (metadata.productInfo.name && metadata.productInfo.manufacturer && metadata.productInfo.ndc) break;
+        }
+    }
+
+
+    console.log('XSD validation is disabled for testing');
+    return { valid: true, metadata, xmlBuffer: typeof filePathOrBuffer !== 'string' ? filePathOrBuffer : undefined };
+
   } catch (error) {
-    console.error('Error parsing XML:', error);
+    const err = error as Error;
+    console.error('Error parsing XML:', err.message, err.stack);
     return {
       valid: false,
       errorCode: ERROR_CODES.XML_PARSE_ERROR,
-      errorMessage: 'Could not parse XML. The file may be malformed or corrupted.'
+      errorMessage: `Could not parse XML. The file may be malformed or corrupted. Details: ${err.message}`
     };
   }
 }
@@ -845,60 +449,35 @@ export function computeSHA256(buffer: Buffer): string {
 /**
  * Validate a ZIP file containing EPCIS XML
  * Note: Currently we're telling users to extract and upload XML directly,
- * so this function just returns an error, but it could be expanded to 
+ * so this function just returns an error, but it could be expanded to
  * properly extract and validate ZIP files with EPCIS content
  */
 export async function validateZipContents(zipBuffer: Buffer): Promise<ValidationResult> {
   return {
-    valid: false, 
+    valid: false,
     errorCode: ERROR_CODES.FILE_READ_ERROR,
     errorMessage: 'ZIP files are not currently supported. Please extract and upload the XML file directly.'
   };
 }
 
 /**
- * Legacy function for compatibility with existing code
- * Simply calls validateEpcisFile after saving to a temp file
+ * Validates XML from a buffer.
+ * This function now directly calls validateEpcisFile with the buffer,
+ * avoiding temporary file creation for buffered data.
  */
 export async function validateXml(xmlBuffer: Buffer): Promise<ValidationResult> {
-  // Create temp file
-  const tempDir = path.join(process.cwd(), 'tmp');
-  const fsPromises = fs.promises;
-  
   try {
-    await fsPromises.mkdir(tempDir, { recursive: true });
+    // Directly call validateEpcisFile with the buffer
+    const result = await validateEpcisFile(xmlBuffer);
+    // Ensure the original buffer is returned as part of the result, as validateEpcisFile might not always add it.
+    return { ...result, xmlBuffer: result.xmlBuffer || xmlBuffer };
   } catch (error) {
-    console.error('Error creating temp directory:', error);
-  }
-  
-  const tempFilePath = path.join(tempDir, `temp_${Date.now()}.xml`);
-  
-  try {
-    await fsPromises.writeFile(tempFilePath, xmlBuffer);
-    const result = await validateEpcisFile(tempFilePath);
-    
-    // Clean up
-    try {
-      await fsPromises.unlink(tempFilePath);
-    } catch (error) {
-      console.error('Error removing temp file:', error);
-    }
-    
-    return { ...result, xmlBuffer };
-  } catch (error) {
-    console.error('Error in validateXml:', error);
-    
-    // Clean up
-    try {
-      await fsPromises.unlink(tempFilePath);
-    } catch (cleanupError) {
-      console.error('Error removing temp file during error cleanup:', cleanupError);
-    }
-    
+    const err = error as Error;
+    console.error('Error in validateXml:', err.message, err.stack);
     return {
       valid: false,
       errorCode: ERROR_CODES.INTERNAL_ERROR,
-      errorMessage: 'Internal error processing XML file.'
+      errorMessage: `Internal error processing XML file. Details: ${err.message}`
     };
   }
 }

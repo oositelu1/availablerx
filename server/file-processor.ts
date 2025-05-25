@@ -10,180 +10,13 @@ import { InsertFile, InsertTransmission, File } from '@shared/schema';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { sendFileShareNotification } from './email-service';
-import { parseStringPromise } from 'xml2js';
 import { as2Service } from './as2-service';
 
 const exec = promisify(execCb);
 
-// Create a temporary directory for file processing
-const TMP_DIR = path.join(process.cwd(), 'tmp');
-
-// Ensure temp directory exists
-async function ensureTempDir() {
-  try {
-    await fs.mkdir(TMP_DIR, { recursive: true });
-  } catch (error) {
-    console.error('Error creating temp directory:', error);
-  }
-}
-
 // Generate a unique file name
 function generateUniqueFileName(): string {
   return `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-}
-
-/**
- * Extract product details directly from EPCIS XML buffer
- * Focuses on extracting product name, manufacturer, and NDC information
- */
-export async function extractProductDetails(xmlBuffer: Buffer): Promise<{ name?: string; manufacturer?: string; ndc?: string }> {
-  try {
-    // Parse the XML with specific options to preserve namespaces
-    const parsedXml = await parseStringPromise(xmlBuffer, {
-      explicitArray: true,      // Set to true to handle arrays consistently
-      explicitCharkey: true,    // Set to true to ensure text content is consistent
-      mergeAttrs: false,        // Keep attributes separate
-      normalizeTags: false,     // Preserve case and namespaces
-      xmlns: true,              // Track namespaces
-      tagNameProcessors: []     // Don't process tag names
-    });
-    
-    console.log('Extracting product details from XML');
-    
-    // Initialize result
-    const result: { name?: string; manufacturer?: string; ndc?: string } = {};
-    
-    try {
-      // Handle all possible namespace versions
-      const epcisDocument = parsedXml['epcis:EPCISDocument'] || 
-                           parsedXml['EPCISDocument'] || 
-                           parsedXml['ns3:EPCISDocument'];
-      if (!epcisDocument) {
-        console.log('No EPCISDocument found at root');
-        return result;
-      }
-      
-      // First try to find master data in the header
-      const epcisHeader = epcisDocument['EPCISHeader'] || epcisDocument['epcis:EPCISHeader'];
-      if (epcisHeader && epcisHeader[0]) {
-        const extension = epcisHeader[0]['extension'];
-        if (extension && extension[0]) {
-          const masterData = extension[0]['EPCISMasterData'];
-          if (masterData && masterData[0]) {
-            const vocabList = masterData[0]['VocabularyList'];
-            if (vocabList && vocabList[0]) {
-              const vocabularies = vocabList[0]['Vocabulary'];
-              if (vocabularies) {
-                // Process each vocabulary
-                for (const vocabulary of vocabularies) {
-                  // Look for EPCClass vocabulary which contains product info
-                  const vocabType = vocabulary.$ && vocabulary.$.type || vocabulary.type;
-                  const typeValue = typeof vocabType === 'object' ? vocabType.value : vocabType;
-                  
-                  if (typeValue === 'urn:epcglobal:epcis:vtype:EPCClass') {
-                    console.log('Found EPCClass vocabulary in master data');
-                    const elemList = vocabulary['VocabularyElementList'];
-                    if (elemList && elemList[0]) {
-                      const elements = elemList[0]['VocabularyElement'];
-                      if (elements) {
-                        // Process each vocabulary element
-                        for (const element of elements) {
-                          const attributes = element['attribute'];
-                          if (attributes) {
-                            // Check each attribute for product info
-                            for (const attr of attributes) {
-                              // Get attribute ID - handle different formats
-                              let attrId = '';
-                              if (attr.$ && attr.$.id) {
-                                attrId = typeof attr.$.id === 'object' ? attr.$.id.value : attr.$.id;
-                              } else if (attr.id) {
-                                attrId = typeof attr.id === 'object' ? attr.id.value : attr.id;
-                              }
-                              
-                              // Extract value - handle different ways it might be stored
-                              let attrValue = '';
-                              if (attr._) {
-                                attrValue = typeof attr._ === 'object' ? (attr._._ || attr._) : attr._;
-                              } else if (attr.value) {
-                                attrValue = attr.value;
-                              } else if (typeof attr === 'string') {
-                                attrValue = attr;
-                              }
-                              
-                              // Match product name
-                              if (attrId === 'urn:epcglobal:cbv:mda#regulatedProductName') {
-                                console.log('Found product name in EPCISHeader:', attrValue);
-                                result.name = attrValue;
-                              }
-                              
-                              // Match manufacturer
-                              if (attrId === 'urn:epcglobal:cbv:mda#manufacturerOfTradeItemPartyName') {
-                                console.log('Found manufacturer in EPCISHeader:', attrValue);
-                                result.manufacturer = attrValue;
-                              }
-                              
-                              // Match NDC
-                              if (attrId === 'urn:epcglobal:cbv:mda#additionalTradeItemIdentification') {
-                                console.log('Found NDC in EPCISHeader:', attrValue);
-                                result.ndc = attrValue;
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      
-      // If we haven't found the data yet, try other methods
-      if (!result.name || !result.manufacturer) {
-        const epcisBody = epcisDocument['EPCISBody'] || epcisDocument['epcis:EPCISBody'];
-        if (epcisBody && epcisBody[0]) {
-          // Look for object events with ilmd extension which might contain product info
-          const eventList = epcisBody[0]['EventList'];
-          if (eventList && eventList[0]) {
-            const objectEvents = eventList[0]['ObjectEvent'] || [];
-            for (const event of objectEvents) {
-              if (event['ilmd'] && event['ilmd'][0]) {
-                // Check ilmd attributes
-                const ilmd = event['ilmd'][0];
-                Object.keys(ilmd).forEach(key => {
-                  // Look for attributes with namespaces (might be different formats)
-                  if (key.includes('regulatedProductName') || key === 'cbvmda:regulatedProductName') {
-                    const value = ilmd[key][0]._ || (ilmd[key][0].$ && ilmd[key][0].$.value);
-                    if (value) {
-                      console.log('Found product name in ilmd:', value);
-                      result.name = value;
-                    }
-                  }
-                  if (key.includes('manufacturerOfTradeItemPartyName') || key === 'cbvmda:manufacturerOfTradeItemPartyName') {
-                    const value = ilmd[key][0]._ || (ilmd[key][0].$ && ilmd[key][0].$.value);
-                    if (value) {
-                      console.log('Found manufacturer in ilmd:', value);
-                      result.manufacturer = value;
-                    }
-                  }
-                });
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error while parsing XML structure:', err);
-    }
-    
-    console.log('Product extraction result:', result);
-    return result;
-  } catch (error) {
-    console.error('Error extracting product details:', error);
-    return {};
-  }
 }
 
 // Process uploaded file
@@ -199,9 +32,6 @@ export async function processFile(
   errorMessage?: string;
   schemaErrors?: string[];
 }> {
-  // Ensure temp directory exists
-  await ensureTempDir();
-  
   try {
     // Determine file type from extension if MIME type is ambiguous
     const extension = path.extname(originalFilename).toLowerCase();
@@ -230,21 +60,10 @@ export async function processFile(
       xmlBuffer = fileBuffer;
     }
     
-    // Save XML to temp file for validation
-    await ensureTempDir();
-    const tempFilePath = path.join(TMP_DIR, `temp_${Date.now()}.xml`);
-    await fs.writeFile(tempFilePath, xmlBuffer);
-    
-    // Validate the XML content against EPCIS 1.2 schema
-    // Use validateXml which has the improved namespacing support
+    // Validate the XML content. validateXml is expected to handle
+    // its own temporary file management if it operates on file paths,
+    // or work directly with the buffer.
     const xmlValidation = await validateXml(xmlBuffer);
-    
-    // Clean up temp file - we don't need it anymore since validateXml handles temp files
-    try {
-      await fs.unlink(tempFilePath);
-    } catch (error) {
-      console.error('Error removing temp file:', error);
-    }
     
     if (!xmlValidation.valid) {
       return {
@@ -258,50 +77,20 @@ export async function processFile(
     // Generate SHA-256 for the original file
     const sha256 = computeSHA256(fileBuffer);
     
-    // Create a unique storage path for the file
+    // Create a unique storage path for the file, always as .xml
     const uniqueFileName = generateUniqueFileName();
-    const storagePath = `${uniqueFileName}${isZip ? '.zip' : '.xml'}`;
+    const storagePath = `${uniqueFileName}.xml`;
     
-    // Extract product name and manufacturer directly from the XML
-    try {
-      const extractResult = await extractProductDetails(xmlBuffer);
-      console.log('Direct extraction result:', extractResult);
-      
-      if (xmlValidation.metadata && xmlValidation.metadata.productInfo) {
-        if (extractResult.name) {
-          console.log('Setting product name from direct extraction:', extractResult.name);
-          xmlValidation.metadata.productInfo.name = extractResult.name;
-        }
-        
-        if (extractResult.manufacturer) {
-          console.log('Setting manufacturer from direct extraction:', extractResult.manufacturer);
-          xmlValidation.metadata.productInfo.manufacturer = extractResult.manufacturer;
-        }
-        
-        if (extractResult.ndc) {
-          console.log('Setting NDC from direct extraction:', extractResult.ndc);
-          xmlValidation.metadata.productInfo.ndc = extractResult.ndc;
-        }
-      } else if (xmlValidation.metadata) {
-        xmlValidation.metadata.productInfo = {
-          name: extractResult.name || undefined, 
-          manufacturer: extractResult.manufacturer || undefined,
-          ndc: extractResult.ndc || undefined
-        };
-      }
-    } catch (error) {
-      console.error('Error during direct product extraction:', error);
-    }
-    
-    // Save file data
+    // Save file data, always as 'XML' type
     const fileData: InsertFile = {
       originalName: originalFilename,
       storagePath: storagePath,
       fileSize: fileBuffer.length,
-      fileType: isZip ? 'ZIP' : 'XML',
+      fileType: 'XML', // File type is always XML as ZIPs are rejected
       sha256,
       status: 'validated',
-      metadata: xmlValidation.metadata,
+      // Product info (name, manufacturer, NDC) is now expected to be in xmlValidation.metadata.productInfo
+      metadata: xmlValidation.metadata, 
       uploadedBy: userId
     };
     

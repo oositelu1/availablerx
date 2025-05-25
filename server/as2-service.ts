@@ -14,21 +14,51 @@ export enum AS2Status {
   SENT = 'sent',
   RECEIVED = 'received',
   FAILED = 'failed',
-  MDN_RECEIVED = 'mdn_received'
+  MDN_RECEIVED = 'mdn_received', // General MDN received status
+  MDN_SUCCESS = 'mdn_success',   // Specific status for successful MDN
+  MDN_FAILURE = 'mdn_failure'    // Specific status for failed MDN
 }
 
-// Interface for AS2 message
+// Interface for AS2 message (application's internal representation before persistence)
 export interface AS2Message {
-  id: string;
-  sender: string;
-  receiver: string;
-  subject?: string;
-  fileName: string;
-  filePath: string;
+  id: string; // Application-generated UUID
+  fileId: number;
+  partnerId: number;
   status: AS2Status;
+  senderAs2Id: string;
+  receiverAs2Id: string;
   sentAt?: Date;
-  mdn?: string;
-  error?: string;
+  mdnReceivedAt?: Date;
+  originalMessageId?: string | null; // Message-ID header of the actual AS2 message
+  mdnContent?: string;
+  errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  // For local OpenAS2, we might still need filePath temporarily if not using S3 for staging
+  filePath?: string; 
+  subject?: string; // Keep subject for notifications or logging
+  fileName?: string; // Keep original filename for notifications or logging
+}
+
+// Interface for the simulated database record, closely matching the conceptual schema
+interface SimulatedAS2MessageDbRecord {
+  id: string; // UUID, primary key (application-generated)
+  fileId: number; // foreign key to files table
+  partnerId: number; // foreign key to partners table
+  status: AS2Status;
+  senderAs2Id: string;
+  receiverAs2Id: string;
+  sentAt: Date | null;
+  mdnReceivedAt: Date | null;
+  originalMessageId: string | null; // Message-ID header of the actual AS2 message
+  mdnContent: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  // These might not be directly in the DB table but useful for the service layer logic
+  filePath?: string; // Temporary path for local OpenAS2 before send
+  subject?: string;
+  fileName?: string;
 }
 
 /**
@@ -37,7 +67,7 @@ export interface AS2Message {
  */
 export class AS2Service {
   private static instance: AS2Service;
-  private messages: Map<string, AS2Message> = new Map();
+  private simulatedAs2MessagesDb: Array<SimulatedAS2MessageDbRecord> = [];
   private tmpDir: string = '';
   private as2ConfigDir: string = '';
   private useAwsTransfer: boolean = false;
@@ -46,42 +76,36 @@ export class AS2Service {
   private awsRegion: string = '';
   private awsServerId: string = '';
   private awsBucket: string = '';
-  
+
   private constructor() {
-    // Create temp directory for AS2 operations
+    // Create temp directory for AS2 operations (still needed for local OpenAS2 staging)
     this.tmpDir = path.join(os.tmpdir(), 'epcis-as2');
     this.as2ConfigDir = process.env.AS2_CONFIG_DIR || './as2-config';
-    
+
     // Determine if we should use AWS Transfer for AS2
     this.useAwsTransfer = process.env.USE_AWS_TRANSFER === 'true';
-    
-    // If using AWS Transfer, initialize AWS SDK
+
     if (this.useAwsTransfer) {
-      // Check for required AWS environment variables
       if (!process.env.AWS_REGION || !process.env.AWS_TRANSFER_SERVER_ID || !process.env.AWS_S3_BUCKET) {
         console.error('AWS Transfer for AS2 is enabled but required environment variables are missing');
         console.error('Required: AWS_REGION, AWS_TRANSFER_SERVER_ID, AWS_S3_BUCKET');
         throw new Error('AWS Transfer configuration incomplete');
       }
-      
       this.awsRegion = process.env.AWS_REGION;
       this.awsServerId = process.env.AWS_TRANSFER_SERVER_ID;
       this.awsBucket = process.env.AWS_S3_BUCKET;
-      
-      // Initialize AWS services
       AWS.config.update({ region: this.awsRegion });
       this.transfer = new AWS.Transfer();
       this.s3 = new AWS.S3();
-      
       console.log('Initialized AWS Transfer for AS2 service');
     } else {
-      // Ensure directories exist for local OpenAS2
+      // Ensure temp directory exists for local OpenAS2
       if (!fs.existsSync(this.tmpDir)) {
         fs.mkdirSync(this.tmpDir, { recursive: true });
       }
       console.log('Initialized local OpenAS2 service');
     }
-    
+
     if (!fs.existsSync(this.as2ConfigDir)) {
       fs.mkdirSync(this.as2ConfigDir, { recursive: true });
     }
@@ -193,158 +217,199 @@ export class AS2Service {
         throw new Error('File data not found');
       }
       
-      // Generate a unique message ID
-      const messageId = uuidv4();
-      
-      // Create an AS2 message record
-      const message: AS2Message = {
-        id: messageId,
-        sender: partner.as2From || 'DEFAULT',
-        receiver: partner.as2To,
-        subject: `EPCIS File: ${file.originalName}`,
-        fileName: file.originalName,
-        filePath: '', // Will be updated based on storage method
+      // Generate a unique application-level message ID
+      const appMessageId = uuidv4();
+      const now = new Date();
+
+      // Create an AS2 message record for the simulated DB
+      const dbRecord: SimulatedAS2MessageDbRecord = {
+        id: appMessageId,
+        fileId: file.id,
+        partnerId: partner.id,
         status: AS2Status.PENDING,
+        senderAs2Id: partner.as2From || 'DEFAULT_SENDER_AS2_ID', // Ensure a value
+        receiverAs2Id: partner.as2To,
+        sentAt: null,
+        mdnReceivedAt: null,
+        originalMessageId: 'pending_actual_message_id', // Placeholder
+        mdnContent: null,
+        errorMessage: null,
+        createdAt: now,
+        updatedAt: now,
+        fileName: file.originalName,
+        subject: `EPCIS File: ${file.originalName}`
       };
-      
+
       if (this.useAwsTransfer && this.s3 && this.transfer) {
         // Using AWS Transfer for AS2
         try {
           console.log(`Using AWS Transfer for AS2 to send file to ${partner.name} (${partner.as2To})`);
+
+          if (!partner.as2ConnectorId) {
+            const errorMsg = `AWS Transfer for AS2: No connector ID configured for partner ${partner.name}. Cannot send file.`;
+            console.error(errorMsg);
+            dbRecord.status = AS2Status.FAILED;
+            dbRecord.errorMessage = errorMsg;
+            dbRecord.updatedAt = new Date();
+            this.simulatedAs2MessagesDb.push(dbRecord);
+            return { messageId: appMessageId, success: false, error: errorMsg };
+          }
           
           // First upload the file to S3
-          const s3Key = `as2-outbound/${messageId}/${file.originalName}`;
-          const s3Instance = this.s3; // Create local reference to avoid null check in every line
-          await s3Instance.putObject({
+          const s3Key = `as2-outbound/${appMessageId}/${file.originalName}`;
+          await this.s3.putObject({
             Bucket: this.awsBucket,
             Key: s3Key,
             Body: fileData
           }).promise();
           
-          message.filePath = `s3://${this.awsBucket}/${s3Key}`;
+          dbRecord.filePath = `s3://${this.awsBucket}/${s3Key}`; // Store S3 path if needed
+
+          // Start the file transfer using the configured connector
+          const startFileTransferResponse = await this.transfer.startFileTransfer({
+            ConnectorId: partner.as2ConnectorId,
+            SendFilePaths: [s3Key] // AWS SDK expects an array of paths relative to the bucket root
+          }).promise();
           
-          // Check if partner has an AWS connector ID configured
-          const transferInstance = this.transfer; // Create local reference
-          if (partner.as2ConnectorId) {
-            try {
-              // Start the file transfer using the configured connector
-              const startFileTransfer = await transferInstance.startFileTransfer({
-                ConnectorId: partner.as2ConnectorId,
-                SendFilePaths: [s3Key]
-              }).promise();
-              
-              console.log(`AWS Transfer for AS2: Started file transfer ${JSON.stringify(startFileTransfer)}`);
-              
-              // Update message status
-              message.status = AS2Status.SENT;
-              message.sentAt = new Date();
-              
-            } catch (transferError) {
-              console.error('Error starting file transfer:', transferError);
-              message.status = AS2Status.FAILED;
-              message.error = `Transfer failed: ${transferError instanceof Error ? transferError.message : String(transferError)}`;
-            }
-          } else {
-            // Partner doesn't have a connector ID configured
-            console.log(`AWS Transfer for AS2: No connector ID configured for partner ${partner.name}`);
-            console.log(`To send files, create an AWS AS2 connector for this partner and add the connector ID to the partner record`);
-            
-            // Set status to sent for testing purposes
-            // In production, you would set a different status to indicate missing connector
-            message.status = AS2Status.SENT;
-            message.sentAt = new Date();
-          }
+          console.log(`AWS Transfer for AS2: Started file transfer ${JSON.stringify(startFileTransferResponse)}`);
           
-          // Store the message
-          this.messages.set(messageId, message);
+          // Capture the MessageId from AWS Transfer if available
+          // For this subtask, the SDK response structure for startFileTransfer is not detailed.
+          // Assuming it does not directly return the AS2 Message-ID.
+          // In a real scenario, this might come from an EventBridge event or by listing executions.
+          dbRecord.originalMessageId = "aws_transfer_message_id_placeholder"; 
+          dbRecord.status = AS2Status.SENT;
+          dbRecord.sentAt = new Date();
+          dbRecord.updatedAt = new Date();
+          
+          this.simulatedAs2MessagesDb.push(dbRecord);
           
           return { 
-            messageId, 
-            success: message.status === AS2Status.SENT,
-            error: message.error
+            messageId: appMessageId, 
+            success: true,
+            error: undefined // Explicitly undefined on success
           };
+
         } catch (awsError) {
+          const errorMsg = `AWS Transfer for AS2 error: ${awsError instanceof Error ? awsError.message : String(awsError)}`;
           console.error('Error sending file via AWS Transfer for AS2:', awsError);
-          return {
-            messageId: '',
-            success: false,
-            error: `AWS Transfer for AS2 error: ${awsError instanceof Error ? awsError.message : String(awsError)}`
-          };
+          dbRecord.status = AS2Status.FAILED;
+          dbRecord.errorMessage = errorMsg;
+          dbRecord.updatedAt = new Date();
+          this.simulatedAs2MessagesDb.push(dbRecord);
+          return { messageId: appMessageId, success: false, error: errorMsg };
         }
       } else {
         // Using local OpenAS2
-        // Write file to temp directory
-        const tempFilePath = path.join(this.tmpDir, `${messageId}_${file.originalName}`);
+        const tempFilePath = path.join(this.tmpDir, `${appMessageId}_${file.originalName}`);
         fs.writeFileSync(tempFilePath, fileData);
         
-        message.filePath = tempFilePath;
+        dbRecord.filePath = tempFilePath; // Temporary path for local file
         
-        // Store the message
-        this.messages.set(messageId, message);
-        
-        // In a production environment, we would call the actual OpenAS2 
-        // command to send the file. For this example, we'll simulate it.
         console.log(`Simulating OpenAS2 send: ${tempFilePath} to ${partner.name} (${partner.as2To})`);
         
-        // Update message status
-        message.status = AS2Status.SENT;
-        message.sentAt = new Date();
+        // Simulate OpenAS2 producing a unique Message-ID
+        dbRecord.originalMessageId = `openas2_simulated_message_id_${uuidv4()}`;
+        dbRecord.status = AS2Status.SENT;
+        dbRecord.sentAt = new Date();
+        dbRecord.updatedAt = new Date();
         
-        // In a real implementation, we would monitor for MDN receipt
+        this.simulatedAs2MessagesDb.push(dbRecord);
         
-        return { messageId, success: true };
+        return { messageId: appMessageId, success: true };
       }
     } catch (error) {
-      console.error('Error sending file via AS2:', error);
-      return { 
-        messageId: '', 
-        success: false, 
-        error: `Error sending file via AS2: ${error instanceof Error ? error.message : String(error)}` 
-      };
+      const errorMsg = `Error sending file via AS2: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMsg);
+      // Attempt to record the failure if appMessageId was generated
+      const appMessageId = uuidv4(); // Generate a new one if it failed before dbRecord creation
+      const existingRecord = this.simulatedAs2MessagesDb.find(m => m.id === appMessageId);
+      if (existingRecord) {
+        existingRecord.status = AS2Status.FAILED;
+        existingRecord.errorMessage = errorMsg;
+        existingRecord.updatedAt = new Date();
+      } else if (fileId && partnerId) { // Only add if we have enough info for a minimal record
+         const now = new Date();
+         this.simulatedAs2MessagesDb.push({
+            id: appMessageId,
+            fileId,
+            partnerId,
+            status: AS2Status.FAILED,
+            senderAs2Id: 'unknown',
+            receiverAs2Id: 'unknown',
+            sentAt: null,
+            mdnReceivedAt: null,
+            originalMessageId: null,
+            mdnContent: null,
+            errorMessage: errorMsg,
+            createdAt: now,
+            updatedAt: now,
+         });
+      }
+      return { messageId: appMessageId, success: false, error: errorMsg };
     }
   }
   
   /**
-   * Get status of an AS2 message
-   * @param messageId The unique message ID
+   * Get status of an AS2 message by its application-generated ID
+   * @param appMessageId The unique application-level message ID
    */
-  public getMessageStatus(messageId: string): AS2Message | undefined {
-    return this.messages.get(messageId);
+  public getMessageStatus(appMessageId: string): SimulatedAS2MessageDbRecord | undefined {
+    return this.simulatedAs2MessagesDb.find(m => m.id === appMessageId);
   }
   
   /**
-   * Process an incoming MDN for an AS2 message
-   * @param messageId The message ID
-   * @param mdn The MDN content
+   * Process an incoming MDN, correlating by the original AS2 Message-ID.
+   * @param originalMessageId The Message-ID header from the received MDN.
+   * @param mdnProperties Parsed properties from the MDN.
    */
-  public processMDN(messageId: string, mdn: string): boolean {
-    const message = this.messages.get(messageId);
-    if (!message) {
-      console.error(`MDN received for unknown message: ${messageId}`);
+  public processMDNByOriginalMessageId(
+    originalMessageId: string, 
+    mdnProperties: { mdnContent: string; receivedAt: Date; isSuccess: boolean; mic?: string }
+  ): boolean {
+    const messageIndex = this.simulatedAs2MessagesDb.findIndex(m => m.originalMessageId === originalMessageId);
+    
+    if (messageIndex === -1) {
+      console.error(`MDN received for unknown original AS2 Message-ID: ${originalMessageId}`);
       return false;
     }
     
-    message.mdn = mdn;
-    message.status = AS2Status.MDN_RECEIVED;
+    const message = this.simulatedAs2MessagesDb[messageIndex];
+    message.mdnContent = mdnProperties.mdnContent;
+    message.mdnReceivedAt = mdnProperties.receivedAt;
+    message.status = mdnProperties.isSuccess ? AS2Status.MDN_SUCCESS : AS2Status.MDN_FAILURE;
+    if (!mdnProperties.isSuccess) {
+        message.errorMessage = message.errorMessage ? `${message.errorMessage}; MDN indicates failure.` : 'MDN indicates failure.';
+    }
+    message.updatedAt = new Date();
+    
+    // In a real scenario, you might also verify the MIC (Message Integrity Check) if provided.
+    console.log(`Processed MDN for originalMessageId ${originalMessageId}. Success: ${mdnProperties.isSuccess}. MIC (if available): ${mdnProperties.mic}`);
+    
+    this.simulatedAs2MessagesDb[messageIndex] = message; // Update the record in the simulated DB
     return true;
   }
   
   /**
-   * Clean up temporary files for a message
-   * @param messageId The message ID
+   * Clean up temporary files for a message and remove from simulated DB.
+   * @param appMessageId The application-level message ID
    */
-  public cleanupMessage(messageId: string): boolean {
-    const message = this.messages.get(messageId);
-    if (!message) {
+  public cleanupMessage(appMessageId: string): boolean {
+    const messageIndex = this.simulatedAs2MessagesDb.findIndex(m => m.id === appMessageId);
+    if (messageIndex === -1) {
       return false;
     }
     
+    const message = this.simulatedAs2MessagesDb[messageIndex];
+    
     try {
-      if (fs.existsSync(message.filePath)) {
+      // filePath might be on S3 (s3://...) or local. Only attempt fs.unlinkSync for local files.
+      if (message.filePath && !message.filePath.startsWith('s3://') && fs.existsSync(message.filePath)) {
         fs.unlinkSync(message.filePath);
+        console.log(`Cleaned up local temp file: ${message.filePath}`);
       }
       
-      this.messages.delete(messageId);
+      this.simulatedAs2MessagesDb.splice(messageIndex, 1); // Remove from simulated DB
       return true;
     } catch (error) {
       console.error(`Error cleaning up message ${messageId}:`, error);

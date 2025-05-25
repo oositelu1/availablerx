@@ -64,7 +64,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   private hashPassword(password: string): string {
-    return crypto.createHash('sha256').update(password).digest('hex');
+    // Generate a 16-byte random salt
+    const salt = crypto.randomBytes(16).toString('hex');
+    // Hash the password using PBKDF2
+    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    // Return in salt:hash format
+    return `${salt}:${hash}`;
   }
   
   async getUser(id: number): Promise<User | undefined> {
