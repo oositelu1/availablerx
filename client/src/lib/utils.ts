@@ -9,12 +9,8 @@ export function formatDate(dateString: string | Date): string {
   // Handle date-only strings (like "2026-09-30") without timezone conversion
   if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric'
-    });
+    // Return the date directly without creating a Date object
+    return `${month}/${day}/${year}`;
   }
   
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
