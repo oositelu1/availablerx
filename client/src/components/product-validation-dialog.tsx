@@ -603,7 +603,7 @@ export default function ProductValidationDialog({
                 
                 <div className="bg-muted p-2 rounded">
                   <span className="text-xs text-muted-foreground block">Expiration Date:</span>
-                  <span className="font-mono">{scannedData.expirationDate ? formatDate(scannedData.expirationDate) : 'N/A'}</span>
+                  <span className="font-mono">{scannedData.expirationDate || 'N/A'}</span>
                 </div>
                 
                 <div className="bg-muted p-2 rounded">
@@ -825,7 +825,7 @@ export default function ProductValidationDialog({
                               </TooltipProvider>
                             )}
                           </p>
-                          <p className="font-mono text-sm">{formatDate(bestMatch.productItem.expirationDate)}</p>
+                          <p className="font-mono text-sm">{bestMatch.productItem.expirationDate}</p>
                         </div>
                       </div>
                     </div>
