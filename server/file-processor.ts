@@ -353,9 +353,9 @@ export async function processFile(
               gtin: gtin,
               serialNumber: serialNumber,
               lotNumber: lotNumber,
-              // Convert to ISO string and extract just the date part (YYYY-MM-DD)
+              // Keep date string as-is if it's already in YYYY-MM-DD format
               expirationDate: expirationDate 
-                ? new Date(expirationDate).toISOString().split('T')[0]
+                ? (expirationDate.match(/^\d{4}-\d{2}-\d{2}$/) ? expirationDate : new Date(expirationDate).toISOString().split('T')[0])
                 : new Date().toISOString().split('T')[0],
               eventTime: new Date(item.eventTime || Date.now()),
               sourceGln: item.sourceGln || null,
