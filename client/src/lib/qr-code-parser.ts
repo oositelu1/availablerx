@@ -288,12 +288,12 @@ export function parseQRCode(qrData: string): ParsedQRData {
     const expMatch = cleanData.match(/(?:^|\|)?17(\d{6})(?:\||$)/);
     if (expMatch) {
       const yymmdd = expMatch[1];
-      const year = parseInt(`20${yymmdd.substring(0, 2)}`);
-      const month = parseInt(yymmdd.substring(2, 4)) - 1;
-      const day = parseInt(yymmdd.substring(4, 6));
+      const year = `20${yymmdd.substring(0, 2)}`;
+      const month = yymmdd.substring(2, 4);
+      const day = yymmdd.substring(4, 6);
       
-      const date = new Date(year, month, day);
-      result.expirationDate = date.toISOString().split('T')[0];
+      // Keep as YYYY-MM-DD string to avoid timezone issues
+      result.expirationDate = `${year}-${month}-${day}`;
       console.log("Extracted expiration date with AI 17:", result.expirationDate);
     }
     
@@ -329,12 +329,12 @@ export function parseQRCode(qrData: string): ParsedQRData {
         // Look for date pattern YYMMDD
         if (/^\d{6}/.test(remainder)) {
           const dateStr = remainder.substring(0, 6);
-          const year = parseInt(`20${dateStr.substring(0, 2)}`);
-          const month = parseInt(dateStr.substring(2, 4)) - 1;
-          const day = parseInt(dateStr.substring(4, 6));
+          const year = `20${dateStr.substring(0, 2)}`;
+          const month = dateStr.substring(2, 4);
+          const day = dateStr.substring(4, 6);
           
-          const date = new Date(year, month, day);
-          result.expirationDate = date.toISOString().split('T')[0];
+          // Keep as YYYY-MM-DD string to avoid timezone issues
+          result.expirationDate = `${year}-${month}-${day}`;
           console.log("Fallback: Extracted expiration date:", result.expirationDate);
           
           // Rest might be lot/serial
