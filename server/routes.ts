@@ -23,10 +23,12 @@ import { partnerLocationRouter } from './partner-location-routes';
 import { poItemRouter } from './po-item-routes';
 import { inventoryRouter } from './inventory-routes';
 import { inventoryTransactionRouter } from './inventory-transaction-routes';
-import { salesOrderRouter } from './sales-order-routes';
-import { salesOrderItemRouter } from './sales-order-item-routes';
+// Commented out sales order routes - keeping for potential future use
+// import { salesOrderRouter } from './sales-order-routes';
+// import { salesOrderItemRouter } from './sales-order-item-routes';
 import { s3Monitor } from './s3-monitor';
 import { multiAS2Router } from './multi-as2-routes';
+import { sapTestRouter } from './sap-test-routes';
 
 // Helper function to generate proper download URLs for the current environment
 function generateDownloadUrl(uuid: string, req?: Request): string {
@@ -110,9 +112,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/purchase-order-items', poItemRouter);
   app.use('/api/inventory', inventoryRouter);
   app.use('/api/inventory-transactions', inventoryTransactionRouter);
-  app.use('/api/sales-orders', salesOrderRouter);
-  app.use('/api/sales-order-items', salesOrderItemRouter);
+  // Commented out sales order endpoints - keeping for potential future use
+  // app.use('/api/sales-orders', salesOrderRouter);
+  // app.use('/api/sales-order-items', salesOrderItemRouter);
   app.use('/api/multi-as2', multiAS2Router);
+  app.use('/api/sap-test', sapTestRouter);
   
   // === File Upload & Processing ===
   app.post("/api/files/upload", upload.single('file'), async (req, res) => {
@@ -431,7 +435,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pythonScript = path.join(process.cwd(), 'server', 'utils', 'datamatrix_parser.py');
       console.log('Calling Python script:', pythonScript);
       
-      const { stdout, stderr } = await execAsync(`python3 "${pythonScript}" "${rawData}"`);
+      // Use spawn to pass data via stdin - more reliable for special characters
+      const { spawn } = await import('child_process');
+      
+      const pythonProcess = spawn('python3', [pythonScript]);
+      
+      let stdout = '';
+      let stderr = '';
+      
+      pythonProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      pythonProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      // Send the raw data via stdin
+      pythonProcess.stdin.write(rawData);
+      pythonProcess.stdin.end();
+      
+      // Wait for the process to complete
+      await new Promise<void>((resolve, reject) => {
+        pythonProcess.on('close', (code) => {
+          if (code !== 0) {
+            reject(new Error(`Python process exited with code ${code}`));
+          } else {
+            resolve();
+          }
+        });
+        pythonProcess.on('error', reject);
+      });
       
       if (stderr) {
         console.error('Python parser stderr:', stderr);

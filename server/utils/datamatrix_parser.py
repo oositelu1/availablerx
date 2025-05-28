@@ -125,13 +125,15 @@ def parse_gs1_datamatrix(raw_data: str):
 
 def main():
     """Main entry point for command-line usage."""
-    if len(sys.argv) != 2:
-        print(json.dumps({'error': 'Usage: python datamatrix_parser.py <raw_data>'}))
-        sys.exit(1)
-    
-    raw_data = sys.argv[1]
-    
+    # Read from stdin instead of command line argument
+    # This handles special characters and long data better
     try:
+        raw_data = sys.stdin.read().strip()
+        
+        if not raw_data:
+            print(json.dumps({'error': 'No data provided'}))
+            sys.exit(1)
+        
         result = parse_gs1_datamatrix(raw_data)
         print(json.dumps(result))
     except Exception as e:
