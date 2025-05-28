@@ -306,11 +306,22 @@ export class SAPIntegrationService {
 
     } catch (error: any) {
       console.error('Failed to push to SAP inventory:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error headers:', error.response?.headers);
       
       // Handle specific SAP errors
       if (error.response?.data) {
         const sapError = error.response.data;
-        throw new Error(`SAP Error: ${sapError.error?.message?.value || 'Unknown SAP error'}`);
+        console.error('SAP Error details:', JSON.stringify(sapError, null, 2));
+        
+        // Check for different error formats
+        const errorMessage = sapError.error?.message?.value || 
+                           sapError.error?.message || 
+                           sapError.message || 
+                           JSON.stringify(sapError);
+                           
+        throw new Error(`SAP Error: ${errorMessage}`);
       }
       
       throw new Error(`Failed to push product to SAP: ${error.message}`);

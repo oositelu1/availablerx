@@ -38,6 +38,32 @@ sapTestRouter.get("/csrf-token", async (req: Request, res: Response) => {
   }
 });
 
+// Test goods and activity confirmation service
+sapTestRouter.get("/test-service", async (req: Request, res: Response) => {
+  try {
+    const sapService = getSAPService();
+    
+    // Try to access the metadata of the service
+    const metadataUrl = '/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation/$metadata';
+    const response = await (sapService as any).axiosInstance.get(metadataUrl);
+    
+    res.json({
+      success: true,
+      message: "khgoodsandactivityconfirmation service is accessible",
+      metadataAvailable: !!response.data,
+      statusCode: response.status
+    });
+  } catch (error: any) {
+    console.error("Service test error:", error);
+    res.status(500).json({
+      success: false,
+      message: `Service test failed: ${error.message}`,
+      error: error.response?.data || error.message,
+      status: error.response?.status
+    });
+  }
+});
+
 // Test SAP connection
 sapTestRouter.get("/connection", async (req: Request, res: Response) => {
   try {
@@ -143,6 +169,7 @@ sapTestRouter.post("/push-sample", async (req: Request, res: Response) => {
     };
 
     console.log("Attempting to push test product to SAP:", testProduct);
+    console.log("Request body received:", req.body);
     
     // First verify product exists in SAP
     const productExists = await sapService.verifyProductInSAP(testProduct.gtin);
