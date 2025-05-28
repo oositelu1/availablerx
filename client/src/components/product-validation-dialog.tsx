@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon, Camera, ScanLine } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon, Camera, ScanLine, Upload, Loader2 } from "lucide-react";
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import DynamsoftBarcodeScanner from "@/components/dynamsoft-barcode-scanner";
 import HardwareScanner from "@/components/hardware-scanner";
@@ -55,6 +55,8 @@ export default function ProductValidationDialog({
 }: ProductValidationDialogProps) {
   // State for switching between manual entry, camera scanning, and hardware scanner
   const [scanMode, setScanMode] = useState<'selection' | 'manual' | 'camera' | 'hardware'>('selection');
+  const [sapPushStatus, setSapPushStatus] = useState<'idle' | 'pushing' | 'success' | 'error'>('idle');
+  const [sapPushMessage, setSapPushMessage] = useState<string>('');
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -394,6 +396,48 @@ export default function ProductValidationDialog({
   const handleReset = () => {
     setScanResult(null);
     setScanMode('selection');
+    setSapPushStatus('idle');
+    setSapPushMessage('');
+  };
+  
+  // Push validated product to SAP
+  const handlePushToSAP = async (matchedProduct: any, scannedData: ParsedQRData) => {
+    setSapPushStatus('pushing');
+    setSapPushMessage('');
+    
+    try {
+      const response = await fetch('/api/sap-test/push-sample', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          gtin: scannedData.gtin,
+          serialNumber: scannedData.serialNumber,
+          lotNumber: scannedData.lotNumber,
+          expirationDate: scannedData.expirationDate,
+          productName: matchedProduct.metadata?.productInfo?.name || 
+                       fileMetadata?.productInfo?.name || 
+                       'Pharmaceutical Product',
+          ndc: scannedData.ndc,
+          warehouseLocation: 'MAIN'
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setSapPushStatus('success');
+        setSapPushMessage('Product successfully pushed to SAP!');
+      } else {
+        setSapPushStatus('error');
+        setSapPushMessage(result.message || 'Failed to push to SAP');
+      }
+    } catch (error) {
+      setSapPushStatus('error');
+      setSapPushMessage('Network error: Could not connect to SAP');
+    }
   };
 
   // Format a date for display
@@ -936,11 +980,52 @@ export default function ProductValidationDialog({
             )}
           </div>
           
-          <div className="flex justify-between mt-4 pt-4 border-t">
+          {/* SAP Push Status Message */}
+          {sapPushMessage && (
+            <Alert className={`mt-4 ${sapPushStatus === 'success' ? 'border-green-500' : sapPushStatus === 'error' ? 'border-red-500' : ''}`}>
+              {sapPushStatus === 'success' ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              )}
+              <AlertDescription>
+                {sapPushMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="flex justify-between items-center mt-4 pt-4 border-t">
             <Button onClick={handleReset} variant="outline">
               Validate Another
             </Button>
-            <Button onClick={onClose}>Done</Button>
+            <div className="flex gap-2">
+              {bestMatch && (
+                <Button 
+                  onClick={() => handlePushToSAP(bestMatch.productItem, scannedData)}
+                  disabled={sapPushStatus === 'pushing' || sapPushStatus === 'success'}
+                  variant={sapPushStatus === 'success' ? 'outline' : 'default'}
+                  className={sapPushStatus === 'success' ? 'border-green-500 text-green-600' : ''}
+                >
+                  {sapPushStatus === 'pushing' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Pushing to SAP...
+                    </>
+                  ) : sapPushStatus === 'success' ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Pushed to SAP
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Push to SAP
+                    </>
+                  )}
+                </Button>
+              )}
+              <Button onClick={onClose}>Done</Button>
+            </div>
           </div>
         </div>
       );
