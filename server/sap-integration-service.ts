@@ -78,7 +78,9 @@ export class SAPIntegrationService {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      // Important for CSRF token handling
+      withCredentials: true
     });
 
     // Add request interceptor to handle authentication and CSRF tokens
@@ -94,6 +96,11 @@ export class SAPIntegrationService {
           const csrfToken = await this.fetchCSRFToken();
           if (csrfToken) {
             config.headers['x-csrf-token'] = csrfToken;
+            // SAP also expects this header for CSRF
+            config.headers['X-Requested-With'] = 'XMLHttpRequest';
+            console.log('Adding CSRF token to request:', csrfToken);
+          } else {
+            console.warn('No CSRF token available for write operation');
           }
         }
         
@@ -175,32 +182,45 @@ export class SAPIntegrationService {
     }
 
     try {
-      // Make a GET request with x-csrf-token: Fetch header
-      const response = await axios.get(
-        `${this.config.baseUrl}/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation`,
-        {
-          headers: {
-            'x-csrf-token': 'Fetch',
-            'Authorization': this.axiosInstance.defaults.headers.common['Authorization'],
-            'Accept': 'application/json'
-          }
-        }
-      );
+      // Use a custom request that bypasses our interceptor to avoid infinite loop
+      const tokenResponse = await axios({
+        method: 'GET',
+        url: `${this.config.baseUrl}/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation`,
+        headers: {
+          'x-csrf-token': 'Fetch',
+          'Authorization': this.axiosInstance.defaults.headers.common['Authorization'] || 
+                          `Basic ${Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64')}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        // Important: we need to handle cookies for session management
+        withCredentials: true
+      });
 
       // Extract CSRF token from response headers
-      const csrfToken = response.headers['x-csrf-token'];
-      if (csrfToken) {
+      const csrfToken = tokenResponse.headers['x-csrf-token'];
+      console.log('CSRF token response headers:', tokenResponse.headers);
+      
+      if (csrfToken && csrfToken !== 'Required') {
         this.csrfToken = csrfToken;
         // CSRF tokens typically valid for 30 minutes, we'll refresh every 25 minutes
         this.csrfTokenExpiry = new Date(Date.now() + 25 * 60 * 1000);
-        console.log('CSRF token fetched successfully');
+        console.log('CSRF token fetched successfully:', csrfToken);
+        
+        // Also store any cookies from the response
+        const cookies = tokenResponse.headers['set-cookie'];
+        if (cookies) {
+          console.log('Received cookies from CSRF request');
+        }
+        
         return csrfToken;
       }
       
-      console.warn('No CSRF token received from SAP');
+      console.warn('No valid CSRF token received from SAP');
       return null;
-    } catch (error) {
-      console.error('Failed to fetch CSRF token:', error);
+    } catch (error: any) {
+      console.error('Failed to fetch CSRF token:', error.message);
+      console.error('CSRF fetch error details:', error.response?.data);
       return null;
     }
   }
