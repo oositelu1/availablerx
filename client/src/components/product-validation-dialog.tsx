@@ -421,7 +421,8 @@ export default function ProductValidationDialog({
                        fileMetadata?.productInfo?.name || 
                        'Pharmaceutical Product',
           ndc: scannedData.ndc,
-          warehouseLocation: 'MAIN'
+          warehouseLocation: 'MAIN',
+          force: true  // Force push even if product doesn't exist in SAP
         })
       });
       
