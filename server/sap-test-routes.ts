@@ -14,6 +14,30 @@ sapTestRouter.use((req, res, next) => {
   next();
 });
 
+// Test CSRF token fetching
+sapTestRouter.get("/csrf-token", async (req: Request, res: Response) => {
+  try {
+    const sapService = getSAPService();
+    
+    // Access private method through any type (for testing only)
+    const token = await (sapService as any).fetchCSRFToken();
+    
+    res.json({
+      success: true,
+      message: token ? "CSRF token fetched successfully" : "Failed to fetch CSRF token",
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0
+    });
+  } catch (error: any) {
+    console.error("CSRF token test error:", error);
+    res.status(500).json({
+      success: false,
+      message: `CSRF token test failed: ${error.message}`,
+      error: error.message
+    });
+  }
+});
+
 // Test SAP connection
 sapTestRouter.get("/connection", async (req: Request, res: Response) => {
   try {

@@ -51,6 +51,8 @@ export class SAPIntegrationService {
   private axiosInstance: AxiosInstance;
   private authToken: SAPAuthToken | null = null;
   private tokenExpiry: Date | null = null;
+  private csrfToken: string | null = null;
+  private csrfTokenExpiry: Date | null = null;
 
   constructor(config?: Partial<SAPConfig>) {
     this.config = {
@@ -79,13 +81,22 @@ export class SAPIntegrationService {
       }
     });
 
-    // Add request interceptor to handle authentication
+    // Add request interceptor to handle authentication and CSRF tokens
     this.axiosInstance.interceptors.request.use(
       async (config) => {
         const token = await this.getAuthToken();
         if (token) {
           config.headers['Authorization'] = `Bearer ${token}`;
         }
+        
+        // For POST/PUT/DELETE requests, we need CSRF token
+        if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
+          const csrfToken = await this.fetchCSRFToken();
+          if (csrfToken) {
+            config.headers['x-csrf-token'] = csrfToken;
+          }
+        }
+        
         return config;
       },
       (error) => Promise.reject(error)
@@ -155,6 +166,46 @@ export class SAPIntegrationService {
   }
 
   /**
+   * Fetch CSRF token for write operations
+   */
+  private async fetchCSRFToken(): Promise<string | null> {
+    // Check if we have a valid CSRF token
+    if (this.csrfToken && this.csrfTokenExpiry && this.csrfTokenExpiry > new Date()) {
+      return this.csrfToken;
+    }
+
+    try {
+      // Make a GET request with x-csrf-token: Fetch header
+      const response = await axios.get(
+        `${this.config.baseUrl}/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation`,
+        {
+          headers: {
+            'x-csrf-token': 'Fetch',
+            'Authorization': this.axiosInstance.defaults.headers.common['Authorization'],
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      // Extract CSRF token from response headers
+      const csrfToken = response.headers['x-csrf-token'];
+      if (csrfToken) {
+        this.csrfToken = csrfToken;
+        // CSRF tokens typically valid for 30 minutes, we'll refresh every 25 minutes
+        this.csrfTokenExpiry = new Date(Date.now() + 25 * 60 * 1000);
+        console.log('CSRF token fetched successfully');
+        return csrfToken;
+      }
+      
+      console.warn('No CSRF token received from SAP');
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch CSRF token:', error);
+      return null;
+    }
+  }
+
+  /**
    * Map DocumentTracker product data to SAP inventory format
    */
   private mapProductToSAPInventory(product: any): SAPInventoryData {
@@ -194,47 +245,55 @@ export class SAPIntegrationService {
       // Validate the data
       const validatedData = SAPInventorySchema.parse(sapData);
 
-      // Using khinbounddelivery for receiving inventory
-      const endpoint = '/sap/byd/odata/cust/v1/khinbounddelivery/InboundDeliveryCollection';
+      // Using khgoodsandactivityconfirmation for confirming goods receipt
+      const endpoint = '/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation/GoodsAndActivityConfirmationCollection';
 
-      // Prepare the inbound delivery data
-      // Note: The exact field names may need adjustment based on the service metadata
-      const inboundDelivery = {
-        // Basic delivery information
-        DeliveryDate: new Date().toISOString(),
-        SupplierID: 'EPCIS_SYSTEM', // You may need to map this to actual supplier
+      // Prepare the goods and activity confirmation data
+      // Structure optimized for EPCIS validation workflow
+      const goodsConfirmation = {
+        // Basic confirmation information
+        PostingDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         
-        // Item details
-        Item: [{
-          ProductID: validatedData.MaterialID,
-          ProductDescription: validatedData.ProductName,
-          Quantity: validatedData.Quantity,
-          QuantityUnitCode: validatedData.UnitOfMeasure,
-          
-          // Batch/Serial information
-          IdentifiedStockID: validatedData.SerialNumber,
-          IdentifiedStockType: 'SERIAL',
-          BatchID: validatedData.LotNumber,
-          ExpiryDate: `${validatedData.ExpirationDate}T00:00:00Z`,
-          
-          // Additional identifiers
-          GTIN: validatedData.GTIN,
+        // Product identification - using GTIN as primary identifier
+        ProductID: validatedData.GTIN, // Using GTIN as the product ID
+        ProductDescription: validatedData.ProductName,
+        
+        // Quantity confirmed
+        Quantity: validatedData.Quantity.toString(),
+        QuantityUnitCode: validatedData.UnitOfMeasure,
+        
+        // Batch/Serial tracking (critical for pharmaceuticals)
+        BatchID: validatedData.LotNumber,
+        SerialNumberID: validatedData.SerialNumber,
+        
+        // Expiration date in SAP format
+        ExpirationDate: validatedData.ExpirationDate, // Already in YYYY-MM-DD format
+        
+        // Activity type - confirming goods receipt from EPCIS validation
+        ActivityTypeCode: 'GOODS_RECEIPT',
+        
+        // Location where goods are received
+        LocationID: validatedData.WarehouseLocation || this.config.tenantId,
+        
+        // Reference back to EPCIS for traceability
+        ExternalReference: 'EPCIS_VALIDATION',
+        ExternalReferenceID: `${validatedData.GTIN}_${validatedData.SerialNumber}`,
+        
+        // Additional fields that might be needed
+        Note: `Validated via EPCIS on ${new Date().toISOString()}`,
+        
+        // Custom fields for additional tracking if supported
+        CustomFields: {
           NDC: validatedData.NDC,
-          
-          // Location
-          ReceivingLocationID: validatedData.WarehouseLocation || this.config.tenantId,
-          
-          // Status
-          ItemStatus: 'RECEIVED'
-        }],
-        
-        // Additional metadata
-        SourceType: validatedData.SourceType,
-        ProcessingDateTime: new Date().toISOString()
+          SourceSystem: 'EPCIS',
+          ValidationTimestamp: new Date().toISOString()
+        }
       };
 
+      console.log('Sending goods confirmation to SAP:', JSON.stringify(goodsConfirmation, null, 2));
+
       // Make the API call
-      const response = await this.axiosInstance.post(endpoint, inboundDelivery);
+      const response = await this.axiosInstance.post(endpoint, goodsConfirmation);
 
       console.log('SAP inventory push successful:', response.data);
 
