@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon, Camera } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, CircleAlert, Scan, ShoppingCart, Info, KeyboardIcon, Camera, ScanLine } from "lucide-react";
 import ManualBarcodeEntry from "@/components/manual-barcode-entry";
 import DynamsoftBarcodeScanner from "@/components/dynamsoft-barcode-scanner";
+import HardwareScanner from "@/components/hardware-scanner";
 import HTML5Scanner from "@/components/html5-scanner";
 import { compareWithEPCISData, type ParsedQRData } from "@/lib/qr-code-parser";
 import { dataMatrixToEpcisGtin, getPackagingLevel, normalizeGtinForComparison } from "@/lib/gtin-utils";
@@ -52,8 +53,8 @@ export default function ProductValidationDialog({
   poId,
   fileMetadata
 }: ProductValidationDialogProps) {
-  // State for switching between manual entry and camera scanning
-  const [scanMode, setScanMode] = useState<'selection' | 'manual' | 'camera'>('selection');
+  // State for switching between manual entry, camera scanning, and hardware scanner
+  const [scanMode, setScanMode] = useState<'selection' | 'manual' | 'camera' | 'hardware'>('selection');
   const [scanResult, setScanResult] = useState<{
     timestamp: Date;
     scannedData: ParsedQRData;
@@ -425,6 +426,20 @@ export default function ProductValidationDialog({
             <Button
               variant="outline"
               className="h-auto p-6 justify-start"
+              onClick={() => setScanMode('hardware')}
+            >
+              <ScanLine className="h-8 w-8 mr-4 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Hardware Scanner</div>
+                <div className="text-sm text-muted-foreground">
+                  Use your Tera Model D5100 scanner for fast scanning
+                </div>
+              </div>
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="h-auto p-6 justify-start"
               onClick={() => setScanMode('camera')}
             >
               <Camera className="h-8 w-8 mr-4 text-primary" />
@@ -461,6 +476,19 @@ export default function ProductValidationDialog({
             </ul>
           </div>
         </div>
+      );
+    }
+    
+    // Show hardware scanner
+    if (scanMode === 'hardware') {
+      return (
+        <HardwareScanner
+          onScanSuccess={(data) => {
+            console.log("Hardware scan received:", data);
+            handleScanSuccess(data);
+          }}
+          onCancel={() => setScanMode('selection')}
+        />
       );
     }
     
