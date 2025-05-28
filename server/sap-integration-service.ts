@@ -1,5 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { z } from 'zod';
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
 import { ProductItem } from '@shared/schema';
 
 // SAP ByDesign Inventory Field Schema
@@ -51,6 +53,7 @@ export class SAPIntegrationService {
   private axiosInstance: AxiosInstance;
   private authToken: SAPAuthToken | null = null;
   private tokenExpiry: Date | null = null;
+  private sessionCookies: string = '';
   private csrfToken: string | null = null;
   private csrfTokenExpiry: Date | null = null;
 
@@ -78,9 +81,7 @@ export class SAPIntegrationService {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      // Important for CSRF token handling
-      withCredentials: true
+      }
     });
 
     // Add request interceptor to handle authentication and CSRF tokens
@@ -91,14 +92,20 @@ export class SAPIntegrationService {
           config.headers['Authorization'] = `Bearer ${token}`;
         }
         
+        // Ensure cookies are included if we have them
+        if (this.sessionCookies) {
+          config.headers['Cookie'] = this.sessionCookies;
+        }
+        
         // For POST/PUT/DELETE requests, we need CSRF token
         if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
-          const csrfToken = await this.fetchCSRFToken();
+          // Get the endpoint from the config URL
+          const endpoint = config.url || '';
+          const csrfToken = await this.fetchCSRFToken(endpoint);
+          
           if (csrfToken) {
             config.headers['x-csrf-token'] = csrfToken;
-            // SAP also expects this header for CSRF
-            config.headers['X-Requested-With'] = 'XMLHttpRequest';
-            console.log('Adding CSRF token to request:', csrfToken);
+            console.log('Request prepared with CSRF token and session cookies');
           } else {
             console.warn('No CSRF token available for write operation');
           }
@@ -122,6 +129,19 @@ export class SAPIntegrationService {
           const originalRequest = error.config;
           if (!originalRequest._retry) {
             originalRequest._retry = true;
+            return this.axiosInstance(originalRequest);
+          }
+        } else if (error.response?.status === 403 && error.response?.data?.error?.message?.value?.includes('CSRF')) {
+          // CSRF token invalid, clear session and retry
+          console.log('CSRF token validation failed, clearing session');
+          this.csrfToken = null;
+          this.csrfTokenExpiry = null;
+          this.sessionCookies = '';
+          
+          // Retry the original request
+          const originalRequest = error.config;
+          if (!originalRequest._retryCSRF) {
+            originalRequest._retryCSRF = true;
             return this.axiosInstance(originalRequest);
           }
         }
@@ -175,52 +195,78 @@ export class SAPIntegrationService {
   /**
    * Fetch CSRF token for write operations
    */
-  private async fetchCSRFToken(): Promise<string | null> {
-    // Check if we have a valid CSRF token
+  private async fetchCSRFToken(endpoint?: string): Promise<string | null> {
+    // Check if we have a valid token
     if (this.csrfToken && this.csrfTokenExpiry && this.csrfTokenExpiry > new Date()) {
+      console.log('Using cached CSRF token');
       return this.csrfToken;
     }
 
     try {
-      // Use a custom request that bypasses our interceptor to avoid infinite loop
-      const tokenResponse = await axios({
-        method: 'GET',
-        url: `${this.config.baseUrl}/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation`,
+      const tokenEndpoint = endpoint || '/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation/GoodsAndActivityConfirmationCollection';
+      const fullUrl = `${this.config.baseUrl}${tokenEndpoint}`;
+      
+      console.log('Fetching CSRF token from:', fullUrl);
+      
+      // CRITICAL: Use the same axios instance to maintain session
+      // Remove any existing CSRF token header for this request
+      const currentCSRF = this.axiosInstance.defaults.headers.common['x-csrf-token'];
+      delete this.axiosInstance.defaults.headers.common['x-csrf-token'];
+      
+      // Make HEAD request to fetch CSRF token
+      const response = await this.axiosInstance.head(tokenEndpoint, {
         headers: {
           'x-csrf-token': 'Fetch',
-          'Authorization': this.axiosInstance.defaults.headers.common['Authorization'] || 
-                          `Basic ${Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64')}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        // Important: we need to handle cookies for session management
-        withCredentials: true
-      });
-
-      // Extract CSRF token from response headers
-      const csrfToken = tokenResponse.headers['x-csrf-token'];
-      console.log('CSRF token response headers:', tokenResponse.headers);
-      
-      if (csrfToken && csrfToken !== 'Required') {
-        this.csrfToken = csrfToken;
-        // CSRF tokens typically valid for 30 minutes, we'll refresh every 25 minutes
-        this.csrfTokenExpiry = new Date(Date.now() + 25 * 60 * 1000);
-        console.log('CSRF token fetched successfully:', csrfToken);
-        
-        // Also store any cookies from the response
-        const cookies = tokenResponse.headers['set-cookie'];
-        if (cookies) {
-          console.log('Received cookies from CSRF request');
+          'Accept': 'application/json'
         }
+      });
+      
+      // Restore previous CSRF header if any
+      if (currentCSRF) {
+        this.axiosInstance.defaults.headers.common['x-csrf-token'] = currentCSRF;
+      }
+      
+      // Extract CSRF token
+      const csrfToken = response.headers['x-csrf-token'];
+      console.log('CSRF Response Status:', response.status);
+      console.log('CSRF token received:', csrfToken ? 'Yes' : 'No');
+      
+      // Extract and store cookies
+      const setCookieHeader = response.headers['set-cookie'];
+      if (setCookieHeader) {
+        // Parse cookies and store them
+        this.sessionCookies = Array.isArray(setCookieHeader) 
+          ? setCookieHeader.join('; ') 
+          : setCookieHeader;
+        console.log('Session cookies received and stored');
         
+        // Set cookies in axios defaults
+        this.axiosInstance.defaults.headers.common['Cookie'] = this.sessionCookies;
+      }
+      
+      if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
+        this.csrfToken = csrfToken;
+        this.csrfTokenExpiry = new Date(Date.now() + 25 * 60 * 1000);
+        console.log('CSRF token stored successfully');
         return csrfToken;
       }
       
-      console.warn('No valid CSRF token received from SAP');
+      console.warn('No valid CSRF token received');
       return null;
+      
     } catch (error: any) {
+      // If it's a 403, it might mean we need to re-authenticate
+      if (error.response?.status === 403) {
+        console.log('403 received during CSRF fetch - may need to re-authenticate');
+        this.csrfToken = null;
+        this.sessionCookies = '';
+      }
+      
       console.error('Failed to fetch CSRF token:', error.message);
-      console.error('CSRF fetch error details:', error.response?.data);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
       return null;
     }
   }
