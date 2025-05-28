@@ -428,15 +428,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       // Call Python parser
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
+      const { spawn } = await import('child_process');
       
       const pythonScript = path.join(process.cwd(), 'server', 'utils', 'datamatrix_parser.py');
       console.log('Calling Python script:', pythonScript);
-      
-      // Use spawn to pass data via stdin - more reliable for special characters
-      const { spawn } = await import('child_process');
       
       const pythonProcess = spawn('python3', [pythonScript]);
       
