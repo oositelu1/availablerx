@@ -53,7 +53,7 @@ export class SAPIntegrationService {
   private axiosInstance: AxiosInstance;
   private authToken: SAPAuthToken | null = null;
   private tokenExpiry: Date | null = null;
-  private sessionCookies: string = '';
+  private cookieJar: CookieJar;
   private csrfToken: string | null = null;
   private csrfTokenExpiry: Date | null = null;
 
@@ -74,28 +74,27 @@ export class SAPIntegrationService {
       throw new Error('SAP Integration: Missing required configuration');
     }
 
-    // Create axios instance with base configuration
-    this.axiosInstance = axios.create({
+    // Create cookie jar for session management
+    this.cookieJar = new CookieJar();
+
+    // Create axios instance with cookie support
+    this.axiosInstance = wrapper(axios.create({
       baseURL: this.config.baseUrl,
       timeout: this.config.timeout,
+      jar: this.cookieJar,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
-    });
+    }));
 
     // Add request interceptor to handle authentication and CSRF tokens
     this.axiosInstance.interceptors.request.use(
       async (config) => {
-        const token = await this.getAuthToken();
-        if (token) {
-          config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        
-        // Ensure cookies are included if we have them
-        if (this.sessionCookies) {
-          config.headers['Cookie'] = this.sessionCookies;
-        }
+        // Add basic auth for all requests
+        const basicAuth = Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64');
+        config.headers['Authorization'] = `Basic ${basicAuth}`;
         
         // For POST/PUT/DELETE requests, we need CSRF token
         if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
@@ -104,11 +103,9 @@ export class SAPIntegrationService {
           const csrfToken = await this.fetchCSRFToken(endpoint);
           
           if (csrfToken) {
-            config.headers['X-CSRF-Token'] = csrfToken;  // Use uppercase as SAP expects
-            config.headers['Content-Type'] = 'application/json';
-            console.log('Request prepared with CSRF token and session cookies');
+            config.headers['X-CSRF-Token'] = csrfToken;
+            console.log('Request prepared with CSRF token');
             console.log('CSRF token being sent:', csrfToken ? 'Present' : 'Missing');
-            console.log('Cookies being sent:', this.sessionCookies ? 'Present' : 'Missing');
           } else {
             console.warn('No CSRF token available for write operation');
           }
@@ -139,7 +136,7 @@ export class SAPIntegrationService {
           console.log('CSRF token validation failed, clearing session');
           this.csrfToken = null;
           this.csrfTokenExpiry = null;
-          this.sessionCookies = '';
+          this.cookieJar.removeAllCookiesSync();
           
           // Retry the original request
           const originalRequest = error.config;
@@ -154,45 +151,10 @@ export class SAPIntegrationService {
   }
 
   /**
-   * Get or refresh authentication token
+   * Basic auth is handled in request interceptor
    */
   private async getAuthToken(): Promise<string | null> {
-    // Check if we have a valid token
-    if (this.authToken && this.tokenExpiry && this.tokenExpiry > new Date()) {
-      return this.authToken.access_token;
-    }
-
-    try {
-      // Use OAuth2 if client credentials are provided
-      if (this.config.clientId && this.config.clientSecret) {
-        const tokenUrl = `${this.config.baseUrl}/sap/bc/sec/oauth2/token`;
-        const params = new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-          scope: 'API'
-        });
-
-        const response = await axios.post(tokenUrl, params, {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        });
-
-        this.authToken = response.data;
-        // Set token expiry with 5 minute buffer
-        this.tokenExpiry = new Date(Date.now() + (this.authToken.expires_in - 300) * 1000);
-        return this.authToken.access_token;
-      } else {
-        // Fall back to basic auth
-        const basicAuth = Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64');
-        this.axiosInstance.defaults.headers.common['Authorization'] = `Basic ${basicAuth}`;
-        return null;
-      }
-    } catch (error) {
-      console.error('SAP Authentication failed:', error);
-      throw new Error('Failed to authenticate with SAP ByDesign');
-    }
+    return null; // Using basic auth via interceptor
   }
 
   /**
@@ -207,46 +169,22 @@ export class SAPIntegrationService {
 
     try {
       const tokenEndpoint = endpoint || '/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation/GoodsAndActivityConfirmationCollection';
-      const fullUrl = `${this.config.baseUrl}${tokenEndpoint}`;
       
-      console.log('Fetching CSRF token from:', fullUrl);
+      console.log('Fetching CSRF token from:', tokenEndpoint);
       
-      // CRITICAL: Use the same axios instance to maintain session
-      // Remove any existing CSRF token header for this request
-      const currentCSRF = this.axiosInstance.defaults.headers.common['x-csrf-token'];
-      delete this.axiosInstance.defaults.headers.common['x-csrf-token'];
-      
-      // Make GET request to fetch CSRF token (SAP requires GET, not HEAD)
+      // Make GET request to fetch CSRF token
       const response = await this.axiosInstance.get(tokenEndpoint, {
         headers: {
-          'X-CSRF-Token': 'Fetch',  // Use uppercase as SAP expects
+          'X-CSRF-Token': 'Fetch',
           'Accept': 'application/json'
         }
       });
-      
-      // Restore previous CSRF header if any
-      if (currentCSRF) {
-        this.axiosInstance.defaults.headers.common['x-csrf-token'] = currentCSRF;
-      }
       
       // Extract CSRF token (check both cases)
       const csrfToken = response.headers['x-csrf-token'] || response.headers['X-CSRF-Token'];
       console.log('CSRF Response Status:', response.status);
       console.log('CSRF token received:', csrfToken ? 'Yes' : 'No');
-      console.log('All response headers:', JSON.stringify(response.headers, null, 2));
-      
-      // Extract and store cookies - critical for session management
-      const setCookieHeader = response.headers['set-cookie'];
-      if (setCookieHeader) {
-        // Join cookies properly as SAP expects
-        this.sessionCookies = Array.isArray(setCookieHeader) 
-          ? setCookieHeader.join('; ') 
-          : setCookieHeader;
-        console.log('Session cookies received:', setCookieHeader);
-        console.log('Joined cookies:', this.sessionCookies);
-      } else {
-        console.warn('No session cookies received - this may cause CSRF validation to fail');
-      }
+      console.log('CSRF token value:', csrfToken);
       
       if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
         this.csrfToken = csrfToken;
@@ -259,18 +197,15 @@ export class SAPIntegrationService {
       return null;
       
     } catch (error: any) {
-      // If it's a 403, it might mean we need to re-authenticate
-      if (error.response?.status === 403) {
-        console.log('403 received during CSRF fetch - may need to re-authenticate');
-        this.csrfToken = null;
-        this.sessionCookies = '';
-      }
-      
       console.error('Failed to fetch CSRF token:', error.message);
       if (error.response) {
         console.error('Response status:', error.response.status);
         console.error('Response data:', error.response.data);
       }
+      
+      // Clear token on error
+      this.csrfToken = null;
+      this.csrfTokenExpiry = null;
       return null;
     }
   }
@@ -445,8 +380,6 @@ export class SAPIntegrationService {
    */
   async testConnection(): Promise<boolean> {
     try {
-      await this.getAuthToken();
-      
       // Try to access the metadata endpoint you provided
       const response = await this.axiosInstance.get('/sap/byd/odata/cust/v1/vmumaterial/$metadata');
       
