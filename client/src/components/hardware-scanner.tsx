@@ -38,26 +38,17 @@ export default function HardwareScanner({ onScanSuccess, onCancel }: HardwareSca
       if (event.key === 'Enter') {
         if (inputBufferRef.current.length > 0) {
           // Process the scanned data
-          let data = inputBufferRef.current;
+          const data = inputBufferRef.current;
           console.log('Hardware scanner raw data received:', data);
           
-          // Hardware scanner specific fix: 
-          // The Tera Model D5100 scanner adds "029" before the expiration date AI "17"
-          // This pattern removes that quirk to match camera scanner output
-          // Updated to handle both AI 21 and AI 2110 for serial numbers
-          const pattern = /^(01\d{14})(21(?:10)?\d+?)(029)(17\d{6})(10.+)$/;
-          const match = data.match(pattern);
-          if (match) {
-            // Reconstruct without the extra "029"
-            data = match[1] + match[2] + match[4] + match[5];
-            console.log('Hardware scanner data cleaned:', data);
-          }
+          // Note: Hardware scanner quirks (like extra "029" digits) are now handled
+          // by the backend parser for better reliability
           
           setScannedData(data);
           setLastScanTime(new Date());
           setScanCount(prev => prev + 1);
           
-          // Call the callback with cleaned data
+          // Call the callback with raw data - backend will normalize it
           onScanSuccess(data);
           
           // Clear the buffer

@@ -123,6 +123,17 @@ def parse_gs1_datamatrix(raw_data: str):
     return result
 
 
+def normalize_hardware_scanner_data(raw_data: str) -> str:
+    """
+    Normalize hardware scanner quirks.
+    The Tera Model D5100 scanner inserts "029" before AI 17 (expiration date).
+    Convert this to a proper GS1 group separator that the parser can handle.
+    """
+    # Replace "029" followed by "17" with group separator + "17"
+    # This treats the hardware scanner's "029" as a field delimiter
+    return raw_data.replace("02917", f"{GROUP_SEPARATOR}17")
+
+
 def main():
     """Main entry point for command-line usage."""
     # Read from stdin instead of command line argument
@@ -134,7 +145,10 @@ def main():
             print(json.dumps({'error': 'No data provided'}))
             sys.exit(1)
         
-        result = parse_gs1_datamatrix(raw_data)
+        # Normalize hardware scanner quirks before parsing
+        normalized_data = normalize_hardware_scanner_data(raw_data)
+        
+        result = parse_gs1_datamatrix(normalized_data)
         print(json.dumps(result))
     except Exception as e:
         print(json.dumps({'error': str(e)}))
