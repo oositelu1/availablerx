@@ -69,20 +69,52 @@ def parse_gs1_datamatrix(raw_data: str):
         elif ai == '21' and result['gtin'] and not result['serial_number']:
             start = i + 2
             
-            # Find end of serial - look for next AI
+            # For serial numbers, we need to be smarter about finding the end
+            # Serial numbers can contain "17" or "10" as digits, so we can't just
+            # search for these patterns. Instead, we'll look for a pattern where
+            # we definitely have the next AI based on expected data after it.
+            
             end = len(clean_data)  # default to end
-            for j in range(start + 1, len(clean_data) - 1):
-                next_ai = clean_data[j:j+2]
-                # Check if this looks like a valid AI
-                if next_ai == '17' and j + 8 <= len(clean_data):
-                    # Verify it's followed by 6 digits
-                    if clean_data[j+2:j+8].isdigit():
-                        end = j
-                        break
-                elif next_ai == '10':
-                    # Could be lot number AI
-                    end = j
-                    break
+            
+            # Look through the remaining string
+            j = start
+            while j < len(clean_data) - 1:
+                # Check if we might have hit the expiration date AI
+                if j + 8 <= len(clean_data) and clean_data[j:j+2] == '17':
+                    # For AI 17 to be valid, it must be followed by exactly 6 digits
+                    # AND either be at the end OR followed by another valid AI
+                    potential_exp = clean_data[j+2:j+8]
+                    if potential_exp.isdigit() and len(potential_exp) == 6:
+                        # Check what comes after these 6 digits
+                        after_exp_pos = j + 8
+                        
+                        # If we're at the end, this is likely the expiration AI
+                        if after_exp_pos >= len(clean_data):
+                            end = j
+                            break
+                        
+                        # If followed by AI 10 (lot), this is likely the expiration AI
+                        if after_exp_pos + 2 <= len(clean_data) and clean_data[after_exp_pos:after_exp_pos+2] == '10':
+                            end = j
+                            break
+                            
+                        # If the expiration date forms a valid date, more likely to be the AI
+                        # rather than random digits in serial
+                        try:
+                            yy = int(potential_exp[0:2])
+                            mm = int(potential_exp[2:4])
+                            dd = int(potential_exp[4:6])
+                            # Basic date validation
+                            if 1 <= mm <= 12 and 1 <= dd <= 31:
+                                end = j
+                                break
+                        except:
+                            pass
+                
+                # Check for lot number AI (10) - usually comes after expiration
+                # So finding "10" alone is less reliable than finding "17" + valid date + "10"
+                
+                j += 1
                     
             result['serial_number'] = clean_data[start:end]
             i = end
