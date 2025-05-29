@@ -15,9 +15,7 @@ GS1_AIS = {
     '01': 14,   # GTIN (fixed)
     '10': None, # Lot Number (variable)
     '17': 6,    # Expiration Date YYMMDD (fixed)
-    '21': None, # Serial Number (variable)
-    # 4-digit AIs
-    '2110': 12  # Fixed-length 12-digit serial (used by some hardware scanners)
+    '21': None  # Serial Number (variable)
 }
 
 GROUP_SEPARATOR = '\x1d'  # ASCII 29
