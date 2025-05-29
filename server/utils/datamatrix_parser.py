@@ -22,14 +22,10 @@ GROUP_SEPARATOR = '\x1d'  # ASCII 29
 
 def parse_gs1_datamatrix(raw_data: str):
     """
-    Parse GS1 DataMatrix barcode data.
+    Parse GS1 DataMatrix barcode data with context-aware handling of hardware scanner quirks.
     
-    Example input: 0100301439570103211001288845796017260930102405224
-    Breaks down to:
-      01 00301439570103  (GTIN)
-      2110 013526893109  (Fixed-length Serial)
-      17 260930          (Expiration) 
-      10 24052241        (Lot)
+    The Tera Model D5100 scanner inserts "029" between fields where FNC1 should be.
+    This parser handles that by checking for "029" at field boundaries.
     
     Args:
         raw_data: Raw DataMatrix content
@@ -37,9 +33,6 @@ def parse_gs1_datamatrix(raw_data: str):
     Returns:
         dict with parsed gtin, serial_number, lot_number, expiration_date, ndc
     """
-    # Remove any group separators
-    clean_data = raw_data.replace(GROUP_SEPARATOR, '')
-    
     result = {
         'gtin': '',
         'serial_number': '',
@@ -48,68 +41,82 @@ def parse_gs1_datamatrix(raw_data: str):
         'ndc': ''
     }
     
-    i = 0
+    remaining = raw_data
     
-    while i < len(clean_data):
-        # Try to match the longest AI first (4 digits, then 2 digits)
-        ai = None
-        ai_length = 0
+    while len(remaining) > 0:
+        # Try to identify AI (2-digit only, since we confirmed 2110 doesn't exist)
+        if len(remaining) < 2:
+            break
+            
+        ai = remaining[:2]
         
-        # Check 4-digit AIs first
-        if i + 4 <= len(clean_data):
-            potential_ai = clean_data[i:i+4]
-            if potential_ai in GS1_AIS:
-                ai = potential_ai
-                ai_length = 4
-        
-        # If no 4-digit AI found, check 2-digit AIs
-        if not ai and i + 2 <= len(clean_data):
-            potential_ai = clean_data[i:i+2]
-            if potential_ai in GS1_AIS:
-                ai = potential_ai
-                ai_length = 2
-        
-        if not ai:
-            # No valid AI found at this position, skip
-            i += 1
+        # Check if this is a known AI
+        if ai not in GS1_AIS:
+            # Skip unknown character and continue
+            remaining = remaining[1:]
             continue
+            
+        # Remove AI from remaining string
+        remaining = remaining[2:]
         
-        # Get the expected length for this AI
+        # Get expected length for this AI
         expected_length = GS1_AIS[ai]
-        field_start = i + ai_length
         
         # Extract the field value
         if expected_length is None:
-            # Variable length - find the end
-            field_end = len(clean_data)  # default to end
+            # Variable length - extract until FNC1, "029" anomaly, or next AI
+            field_value = ""
+            j = 0
             
-            # Look for next valid AI
-            for j in range(field_start + 1, len(clean_data)):
-                # Check for 4-digit AI
-                if j + 4 <= len(clean_data) and clean_data[j:j+4] in GS1_AIS:
-                    field_end = j
+            while j < len(remaining):
+                # Check for FNC1 separator
+                if j < len(remaining) and remaining[j] == GROUP_SEPARATOR:
+                    j += 1  # Skip the separator
                     break
-                # Check for 2-digit AI
-                elif j + 2 <= len(clean_data) and clean_data[j:j+2] in GS1_AIS:
-                    field_end = j
-                    break
-            
-            field_value = clean_data[field_start:field_end]
-            i = field_end
+                    
+                # Check for "029" anomaly followed by a known AI
+                if j + 4 < len(remaining) and remaining[j:j+3] == "029":
+                    # Check if "029" is followed by a valid AI
+                    potential_ai = remaining[j+3:j+5]
+                    if potential_ai in GS1_AIS:
+                        # This is the hardware scanner separator
+                        j += 3  # Skip the "029"
+                        break
+                
+                # Check if we've hit the next AI (without separator)
+                if j + 1 < len(remaining):
+                    potential_ai = remaining[j:j+2]
+                    if potential_ai in GS1_AIS:
+                        # Found next AI, stop here
+                        break
+                        
+                # Add this character to field value
+                field_value += remaining[j]
+                j += 1
+                
+            remaining = remaining[j:]
         else:
-            # Fixed length
-            if field_start + expected_length <= len(clean_data):
-                field_value = clean_data[field_start:field_start + expected_length]
-                i = field_start + expected_length
+            # Fixed length - extract exact number of characters
+            if len(remaining) >= expected_length:
+                field_value = remaining[:expected_length]
+                remaining = remaining[expected_length:]
+                
+                # After fixed-length field, check for separators
+                if len(remaining) > 0:
+                    # Skip FNC1 if present
+                    if remaining[0] == GROUP_SEPARATOR:
+                        remaining = remaining[1:]
+                    # Skip "029" if it's acting as separator
+                    elif len(remaining) >= 5 and remaining[:3] == "029" and remaining[3:5] in GS1_AIS:
+                        remaining = remaining[3:]
             else:
-                # Not enough data for this field
-                i += 1
-                continue
+                # Not enough data
+                break
         
         # Store the parsed value based on AI
         if ai == '01' and not result['gtin']:
             result['gtin'] = field_value
-        elif (ai == '21' or ai == '2110') and not result['serial_number']:
+        elif ai == '21' and not result['serial_number']:
             result['serial_number'] = field_value
         elif ai == '17' and not result['expiration_date']:
             if len(field_value) == 6 and field_value.isdigit():
@@ -127,7 +134,6 @@ def parse_gs1_datamatrix(raw_data: str):
     # Extract NDC from GTIN
     if result['gtin'] and result['gtin'].startswith('003'):
         # For GTIN starting with 003, extract NDC from positions 4-12 (9 digits)
-        # Expected format: 14395-7010
         ndc_raw = result['gtin'][3:12]  # 9 digits
         result['ndc'] = f"{ndc_raw[:5]}-{ndc_raw[5:]}"
 
@@ -136,13 +142,9 @@ def parse_gs1_datamatrix(raw_data: str):
 
 def normalize_hardware_scanner_data(raw_data: str) -> str:
     """
-    Normalize hardware scanner quirks.
-    The Tera Model D5100 scanner inserts "029" before AI 17 (expiration date).
-    Convert this to a proper GS1 group separator that the parser can handle.
+    No longer doing preprocessing - parser now handles "029" contextually at field boundaries
     """
-    # Replace "029" followed by "17" with group separator + "17"
-    # This treats the hardware scanner's "029" as a field delimiter
-    return raw_data.replace("02917", f"{GROUP_SEPARATOR}17")
+    return raw_data
 
 
 def main():
