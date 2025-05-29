@@ -44,7 +44,8 @@ export default function HardwareScanner({ onScanSuccess, onCancel }: HardwareSca
           // Hardware scanner specific fix: 
           // The Tera Model D5100 scanner adds "029" before the expiration date AI "17"
           // This pattern removes that quirk to match camera scanner output
-          const pattern = /^(01\d{14})(21\d+?)(029)(17\d{6})(10.+)$/;
+          // Updated to handle both AI 21 and AI 2110 for serial numbers
+          const pattern = /^(01\d{14})(21(?:10)?\d+?)(029)(17\d{6})(10.+)$/;
           const match = data.match(pattern);
           if (match) {
             // Reconstruct without the extra "029"
