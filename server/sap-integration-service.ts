@@ -104,8 +104,11 @@ export class SAPIntegrationService {
           const csrfToken = await this.fetchCSRFToken(endpoint);
           
           if (csrfToken) {
-            config.headers['x-csrf-token'] = csrfToken;
+            config.headers['X-CSRF-Token'] = csrfToken;  // Use uppercase as SAP expects
+            config.headers['Content-Type'] = 'application/json';
             console.log('Request prepared with CSRF token and session cookies');
+            console.log('CSRF token being sent:', csrfToken ? 'Present' : 'Missing');
+            console.log('Cookies being sent:', this.sessionCookies ? 'Present' : 'Missing');
           } else {
             console.warn('No CSRF token available for write operation');
           }
@@ -213,10 +216,10 @@ export class SAPIntegrationService {
       const currentCSRF = this.axiosInstance.defaults.headers.common['x-csrf-token'];
       delete this.axiosInstance.defaults.headers.common['x-csrf-token'];
       
-      // Make HEAD request to fetch CSRF token
-      const response = await this.axiosInstance.head(tokenEndpoint, {
+      // Make GET request to fetch CSRF token (SAP requires GET, not HEAD)
+      const response = await this.axiosInstance.get(tokenEndpoint, {
         headers: {
-          'x-csrf-token': 'Fetch',
+          'X-CSRF-Token': 'Fetch',  // Use uppercase as SAP expects
           'Accept': 'application/json'
         }
       });
@@ -226,22 +229,23 @@ export class SAPIntegrationService {
         this.axiosInstance.defaults.headers.common['x-csrf-token'] = currentCSRF;
       }
       
-      // Extract CSRF token
-      const csrfToken = response.headers['x-csrf-token'];
+      // Extract CSRF token (check both cases)
+      const csrfToken = response.headers['x-csrf-token'] || response.headers['X-CSRF-Token'];
       console.log('CSRF Response Status:', response.status);
       console.log('CSRF token received:', csrfToken ? 'Yes' : 'No');
+      console.log('All response headers:', JSON.stringify(response.headers, null, 2));
       
-      // Extract and store cookies
+      // Extract and store cookies - critical for session management
       const setCookieHeader = response.headers['set-cookie'];
       if (setCookieHeader) {
-        // Parse cookies and store them
+        // Join cookies properly as SAP expects
         this.sessionCookies = Array.isArray(setCookieHeader) 
           ? setCookieHeader.join('; ') 
           : setCookieHeader;
-        console.log('Session cookies received and stored');
-        
-        // Set cookies in axios defaults
-        this.axiosInstance.defaults.headers.common['Cookie'] = this.sessionCookies;
+        console.log('Session cookies received:', setCookieHeader);
+        console.log('Joined cookies:', this.sessionCookies);
+      } else {
+        console.warn('No session cookies received - this may cause CSRF validation to fail');
       }
       
       if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
