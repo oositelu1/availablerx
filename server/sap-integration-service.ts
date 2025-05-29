@@ -168,14 +168,14 @@ export class SAPIntegrationService {
     }
 
     try {
-      const tokenEndpoint = endpoint || '/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation/GoodsAndActivityConfirmationCollection';
+      const tokenEndpoint = endpoint || '/sap/byd/odata/cust/v1/khinbounddelivery/';
       
       console.log('Fetching CSRF token from:', tokenEndpoint);
       
       // Make GET request to fetch CSRF token
       const response = await this.axiosInstance.get(tokenEndpoint, {
         headers: {
-          'X-CSRF-Token': 'Fetch',
+          'X-CSRF-Token': 'fetch',  // MUST be lowercase 'fetch'
           'Accept': 'application/json'
         }
       });
@@ -186,14 +186,44 @@ export class SAPIntegrationService {
       console.log('CSRF token received:', csrfToken ? 'Yes' : 'No');
       console.log('CSRF token value:', csrfToken);
       
-      if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
+      if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'fetch') {
         this.csrfToken = csrfToken;
         this.csrfTokenExpiry = new Date(Date.now() + 25 * 60 * 1000);
         console.log('CSRF token stored successfully');
         return csrfToken;
       }
       
-      console.warn('No valid CSRF token received');
+      console.warn('No valid CSRF token received from primary endpoint');
+      
+      // Try alternate endpoints
+      const alternateEndpoints = [
+        '/sap/byd/odata/cust/v1/khinbounddelivery/InboundDeliveryCollection?$top=1',
+        '/sap/byd/odata/cust/v1/khgoodsandactivityconfirmation/GoodsAndActivityConfirmationCollection'
+      ];
+      
+      for (const altEndpoint of alternateEndpoints) {
+        try {
+          console.log('Trying alternate endpoint:', altEndpoint);
+          const altResponse = await this.axiosInstance.get(altEndpoint, {
+            headers: {
+              'X-CSRF-Token': 'fetch',
+              'Accept': 'application/json'
+            }
+          });
+          
+          const altToken = altResponse.headers['x-csrf-token'] || altResponse.headers['X-CSRF-Token'];
+          if (altToken && altToken !== 'Required' && altToken !== 'fetch') {
+            this.csrfToken = altToken;
+            this.csrfTokenExpiry = new Date(Date.now() + 25 * 60 * 1000);
+            console.log('CSRF token obtained from alternate endpoint');
+            return altToken;
+          }
+        } catch (e) {
+          console.log('Alternate endpoint failed:', e.message);
+          continue;
+        }
+      }
+      
       return null;
       
     } catch (error: any) {
