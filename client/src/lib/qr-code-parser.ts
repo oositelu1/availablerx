@@ -589,6 +589,11 @@ export function compareWithEPCISData(
     result.matches = true;
     console.log("✓ Match based on lot + serial + expiration!");
   }
+  // Option 3b: Lot + serial match (even without expiration match)
+  else if (result.lotMatch && result.serialMatch) {
+    result.matches = true;
+    console.log("✓ Match based on lot + serial!");
+  }
   // Option 4: Score-based match (60+ points)
   else if (result.matchScore >= 60) {
     result.matches = true;
