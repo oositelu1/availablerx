@@ -574,6 +574,12 @@ export default function ProductValidationDialog({
         m.matchResult.serialMatch
       );
       
+      // Find serial+lot matches (even with GTIN differences - this handles data entry errors)
+      const serialLotMatches = matches.filter(m => 
+        m.matchResult.lotMatch && 
+        m.matchResult.serialMatch
+      );
+      
       // Find GTIN+lot matches (less strict, includes format variations)
       const looseMatches = matches.filter(m => 
         (m.matchResult.gtinMatch || m.matchResult.gtinSimilar) && 
